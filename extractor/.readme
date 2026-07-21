@@ -1,0 +1,24 @@
+# Projeto — Integração com ERPNext (Produtos)
+
+Automação de cadastros/consultas de **Produtos (Item)** no ERPNext via API.
+
+Fluxo recomendado:
+1. **Criar a API Key**
+2. **Criar os campos customizados de produtos**
+3. **Configurar a empresa (Company), UOMs e CSV** 
+4. **Rodar o código X**
+5. **Passo 2** *(placeholder)*
+6. **Passo 3** *(placeholder)*
+
+---
+
+## Requisitos
+
+- Python 3.10+ (ou outro runtime equivalente)
+- Acesso ao ERPNext com perfil **System Manager**
+- Pacotes Python: `requests`, `python-dotenv`
+
+```bash
+pip install -r requirements.txt
+# ou, minimamente:
+pip install requests python-dotenv

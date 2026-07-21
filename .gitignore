@@ -29,5 +29,12 @@ venv/
 # Arquivos de descoberta com credenciais de produção
 docs/descoberta_gcp.md
 
-# Código do extrator (gerenciado como um repositório git independente)
-legacy_src/
+# Código do extrator (consolidado no repositório)
+extractor/venv/
+extractor/__pycache__/
+extractor/configs.json
+extractor/cron_log.txt
+extractor/arquivo.txt
+extractor/log_criador_lancamentos_final.txt
+extractor/*.csv
+extractor/.git/

@@ -1,0 +1,10 @@
+.env
+venv/
+__pycache__/
+*.pyc
+cron_log.txt
+configs.json
+arquivo.txt
+log_criador_lancamentos_final.txt
+Tradução.csv
+centro_de_custo_armazen.csv
