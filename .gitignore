@@ -1,0 +1,33 @@
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Backups e Dumps locais
+backups/
+dumps/
+secrets/
+credentials/
+/tmp/
+
+# Criptografia e chaves
+*.pem
+*.key
+*.p12
+*.pfx
+.gpg_passphrase
+
+# Dependências e Caches locais (se houver)
+node_modules/
+__pycache__/
+*.pyc
+.env/
+env/
+venv/
+.pytest_cache/
+
+# Arquivos de descoberta com credenciais de produção
+docs/descoberta_gcp.md
+
+# Código do extrator (gerenciado como um repositório git independente)
+legacy_src/
