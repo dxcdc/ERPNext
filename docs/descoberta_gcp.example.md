@@ -17,7 +17,7 @@ Este arquivo é uma cópia higienizada e segura para o Git do mapeamento (Fase 1
 
 ## 🐳 Arquitetura do Docker (frappe_docker)
 *   **Diretório do Docker Compose**: `/home/gt_transformadigital/frappe_docker`
-*   **Arquivo de Configuração**: `pwd.yml` (gerenciado via `sudo docker compose -f pwd.yml ...`)
+*   **Arquivo de Configuração**: `docker-compose.yml` (gerenciado via `sudo docker compose -f docker-compose.yml ...`)
 *   **Versão do ERPNext/Frappe**: `v15.88.1`
 *   **Senha do root do MariaDB (db)**: `<DB_ROOT_PASSWORD>`
 *   **Nome do Site no ERPNext**: `frontend`

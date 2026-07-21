@@ -43,7 +43,7 @@ O acesso inicial à VM `prod1` no IP `35.184.131.8` falhou devido ao bloqueio do
 *   **Comportamento da GCP**: Para aplicar a alteração, realizamos um *Graceful Shutdown* (desligamento controlado) para preservar o banco de dados. Ao iniciar a VM, o GCP atribuiu um novo IP externo dinâmico: **`136.113.22.112`**. O acesso SSH foi restabelecido com sucesso como `dxcdc@136.113.22.112`.
 
 ### 2.2 Descoberta da Arquitetura do Docker Compose
-Analisando os contêineres e logs na VM, localizamos a pasta `/home/gt_transformadigital/frappe_docker` e o arquivo **`pwd.yml`** que orquestra a aplicação:
+Analisando os contêineres e logs na VM, localizamos a pasta `/home/gt_transformadigital/frappe_docker` e o arquivo **`docker-compose.yml`** que orquestra a aplicação:
 *   **Serviços**: Backend (Gunicorn), MariaDB 10.6, Redis (cache, queue e socketio), Nginx Frontend, Workers (short e long) e Scheduler.
 *   **Segredos**: A senha do banco de dados `root` estava exposta como `admin`.
 *   **Isolamento**: O banco de dados e o Redis estão estritamente isolados na rede privada `frappe_network`, sem portas expostas diretamente para o host.
@@ -89,7 +89,7 @@ Durante a subida do laboratório na máquina openSUSE local, enfrentamos e mitig
 ### 4.1 Ocorrência 01: Conflito de Portas de Rede (Nginx Proxy Manager)
 *   **Sintoma**: Falha ao iniciar o container `frontend` devido a porta `8080` já estar alocada.
 *   **Causa**: O host local já possuía uma instância ativa do *Nginx Proxy Manager* rodando em outra tarefa e escutando na 8080.
-*   **Solução**: Mapeamos a porta externa do ERPNext no `pwd.yml` local para **`8085`** e ajustamos o `configs.json` do extrator. O ERPNext abriu com sucesso em `http://localhost:8085`.
+*   **Solução**: Mapeamos a porta externa do ERPNext no `docker-compose.yml` local para **`8085`** e ajustamos o `configs.json` do extrator. O ERPNext abriu com sucesso em `http://localhost:8085`.
 
 ### 4.2 Ocorrência 02: Ambiente Virtual Python Corrompido (PEP 668)
 *   **Sintoma**: O `pip` falhou ao rodar o `run_job.sh` do extrator acusando ambiente gerenciado externamente.
@@ -134,7 +134,7 @@ Realizar as Fases 1 a 3 no laboratório local garantiu os seguintes benefícios:
 Após a migração ser concluída na Hostinger, propomos as seguintes melhorias para aumentar a robustez e a segurança do NextERP:
 
 1.  **Remoção de Senhas em Texto Puro (Hardcoded)**:
-    *   Mapear a senha do banco MariaDB (atualmente fixa como `admin` no `pwd.yml`) para ser lida a partir de uma variável secreta no arquivo `.env`.
+    *   Mapear a senha do banco MariaDB (atualmente fixa como `admin` no `docker-compose.yml`) para ser lida a partir de uma variável secreta no arquivo `.env`.
 2.  **Conteinerização Completa do Extrator de Dados**:
     *   Empacotar o script do Extrator de Dados e suas dependências Python em uma **imagem Docker dedicada** (com limite de recursos de CPU a 0.5 cores e 512 MB de RAM) integrada à rede Docker do Compose, eliminando a dependência do Cron do sistema operacional do host.
 3.  **Otimização de Performance do Extrator**:

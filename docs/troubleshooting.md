@@ -160,7 +160,7 @@ Esta seção documenta problemas reais ocorridos durante a homologação e teste
 ### Ocorrência 01: Conflito de Portas de Rede (Bind Port 8080 Failed)
 *   **Sintoma**: O contêiner do frontend do ERPNext falha ao iniciar com o erro: `Bind for 0.0.0.0:8080 failed: port is already allocated`.
 *   **Causa**: Outro serviço local no host (como Nginx Proxy Manager) já estava escutando e reservando a porta `8080`.
-*   **Solução Aplicada**: Alterada a porta mapeada do frontend no arquivo `pwd.yml` local para `8085:8080`. O acesso local foi redirecionado para `http://localhost:8085`.
+*   **Solução Aplicada**: Alterada a porta mapeada do frontend no arquivo `docker-compose.yml` local para `8085:8080`. O acesso local foi redirecionado para `http://localhost:8085`.
 *   **Lição Aprendida**: Em ambientes de homologação ou laboratórios locais compartilhados, portas padrões de web proxies (`8080`, `80`, `443`) frequentemente colidem com ferramentas locais. Utilizar portas não convencionais (`8085`, `8090`) garante o isolamento dos testes.
 
 ### Ocorrência 02: Ambiente Virtual Python Corrompido (Debian -> openSUSE)
