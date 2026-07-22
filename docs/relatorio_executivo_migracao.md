@@ -59,27 +59,31 @@ A virada do sistema para a Hostinger será dividida em etapas planejadas para ca
 
 ## 6. Matriz das 4 Abordagens Visuais de Gestão
 
-Para apoiar as tomadas de decisões e registrar o andamento do projeto para equipes de gestão e diretores, adotamos a **Matriz das Quatro Abordagens Visuais**. Abaixo estão descritos os modelos gerados especificamente para a migração da CDC com base em nossos dados e fluxos:
+Para apoiar as tomadas de decisões e registrar a arquitetura do projeto para diretores e gestores não-técnicos, adotamos a **Matriz das Quatro Abordagens Visuais**. Cada modelo visual abaixo traduz o contexto real da migração do NextERP para uma perspectiva de valor de negócios:
 
-### 6.1 Infográfico (Passo a Passo Prático)
-*   **Foco**: *Como eu faço isso?*
-*   **Descrição**: Exibe de forma direta e visual como executar a restauração da base de dados e testar a sincronização dos extratores locais na homologação.
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infografico.png" width="300" alt="Infográfico" /></p>
+### 6.1 Infográfico (Aprendizado Prático / Passo a Passo)
+*   **Pergunta Chave**: *Como a TI executa a restauração e o teste sem colocar a empresa em risco?*
+*   **Explicação do Diagrama**: Exibe a sequência de 4 passos executada no ambiente de testes local: (1) Inicialização do ambiente Docker isolado, (2) Cópia segura da base de dados, (3) Execução do comando de restauração e (4) Sincronização automatizada da API parceira (ONGSYS).
+<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infografico.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infográfico de Homologação" /></p>
+<p align="center"><em>Figura 1: Infográfico do Fluxo Prático de Restauração e Teste no Laboratório.</em></p>
 
-### 6.2 Roadmap / Mapa de Processo (Fluxo de Ponta a Ponta)
-*   **Foco**: *Como o processo acontece de ponta a ponta?*
-*   **Descrição**: O plano de voo completo mostrando a jornada da migração, com prazos e o momento exato da janela de manutenção planejada.
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_roadmap.png" width="300" alt="Roadmap" /></p>
+### 6.2 Roadmap / Mapa de Processo (Jornada de Ponta a Ponta)
+*   **Pergunta Chave**: *Como o processo acontece do início ao fim e onde estamos agora?*
+*   **Explicação do Diagrama**: Apresenta a linha do tempo completa dividida em 4 fases estratégicas: (1) Perícia no GCP, (2) Validação no Laboratório Local (Etapa Atual Concluída), (3) Implantação na VPS Hostinger (Janela Programada) e (4) Automação de Backups em Nuvem.
+<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_roadmap.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Roadmap de Migração" /></p>
+<p align="center"><em>Figura 2: Roadmap da Jornada de Migração da GCP para a Hostinger.</em></p>
 
 ### 6.3 Infonomics / Infonomia (Valor Estratégico dos Dados)
-*   **Foco**: *Como essas informações geram valor?*
-*   **Descrição**: Ilustra o valor financeiro e operacional que os dados de inventário unificados do NextERP e a nova infraestrutura trazem para a CDC.
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infonomia.png" width="300" alt="Infonomia" /></p>
+*   **Pergunta Chave**: *Como estas informações e a nova infraestrutura geram valor financeiro e operacional?*
+*   **Explicação do Diagrama**: Ilustra como o ativo de dados unificado do NextERP gera retorno para a CDC através de três pilares: Eliminação de licenças de software ($0 por usuário), soberania total sobre as informações corporativas e inteligência de dados de estoque em tempo real.
+<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infonomia.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infonomia e Valor dos Dados" /></p>
+<p align="center"><em>Figura 3: Diagrama de Infonomia e Valoração dos Ativos de Dados da CDC.</em></p>
 
 ### 6.4 Mapa de Conhecimento (Governança e Conexões de TI)
-*   **Foco**: *Onde o conhecimento reside e como se conecta?*
-*   **Descrição**: Mapeia as conexões corporativas entre os servidores da CDC, os manuais técnicos, os repositórios GitHub e a integração externa com o ONGSYS.
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_mapa_conhecimento.png" width="300" alt="Mapa de Conhecimento" /></p>
+*   **Pergunta Chave**: *Onde o conhecimento reside e como os sistemas da CDC se conectam?*
+*   **Explicação do Diagrama**: Um mapa de ecossistema conectando a governança central da CDC com os repositórios oficiais de código no GitHub (`dxcdc/ERPNext`), as documentações de infraestrutura (`docs/`), os servidores ativos e a integração com o parceiro ONGSYS.
+<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_mapa_conhecimento.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Mapa de Conhecimento de TI" /></p>
+<p align="center"><em>Figura 4: Arquitetura do Mapa de Conhecimento e Conexões de TI da CDC.</em></p>
 
 ---
 
