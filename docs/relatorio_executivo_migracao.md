@@ -1,113 +1,165 @@
-# Relatório Executivo: Migração e Segurança do NextERP (CDC)
+# Relatório de Mapeamento, Coleta e Homologação (Fases 1 a 3)
 
-Este documento foi elaborado em linguagem de negócios (não-técnica) para apresentar a diretores, gestores e partes interessadas os avanços, os riscos mitigados e os próximos passos da migração do sistema de estoque do NextERP da Google Cloud (GCP) para a Hostinger.
-
----
-
-## 📌 Sumário Executivo
-
-*   **O Projeto**: Estamos transferindo o sistema NextERP (estoque) da Google Cloud para a Hostinger para reduzir custos mensais e melhorar o desempenho.
-*   **O Desafio**: O sistema antigo foi implementado sem documentação técnica, com integrações ocultas e senhas frágeis.
-*   **O Resultado de Hoje**: Concluímos com sucesso a fase de testes em laboratório. Provamos que a nossa cópia de segurança (backup) funciona 100% e que o sistema está pronto para ser implantado na nova casa (Hostinger) com risco quase zero de perda de dados.
+Este relatório consolida todas as etapas técnicas executadas no projeto de migração e reestruturação do NextERP (GCP ➡️ Hostinger VPS), traduzidas para uma linguagem executiva e acessível a gestores. Ele serve como registro histórico de engenharia reversa, análise de incidentes de homologação e guia de melhoria contínua.
 
 ---
 
-## 1. Etapa 1: A "Perícia" no Servidor Antigo (GCP)
-Antes de mover o sistema, precisamos entender como ele foi construído pela equipe anterior. Foi realizada uma investigação detalhada no servidor antigo onde descobrimos:
-*   **A "Fronteira" com Parceiros**: O sistema conversa de hora em hora com um sistema parceiro externo chamado **ONGSYS** para sincronizar produtos e requisições. Mapeamos essa conexão para garantir que ela não quebre na mudança.
-*   **Rotinas Ocultas**: Descobrimos scripts automáticos que enviavam cópias de segurança (backups) para uma conta do Google Drive que pertencia ao desenvolvedor antigo, e não à CDC.
+## 📌 Sumário
+
+1. [Introdução e Objetivo do Projeto](#1-introdução-e-objetivo-do-projeto)
+2. [Fase 1: Investigação e Mapeamento na GCP](#2-fase-1-investigação-e-mapeamento-na-gcp)
+   * 2.1 [Restabelecimento do Acesso SSH Seguro](#21-restabelecimento-do-acesso-ssh-seguro)
+   * 2.2 [Descoberta da Arquitetura do Docker Compose](#22-descoberta-da-arquitetura-do-docker-compose)
+   * 2.3 [Análise do Servidor Web Caddy](#23-análise-do-servidor-web-caddy)
+   * 2.4 [Descoberta dos Fluxos do Extrator e Backups](#24-descoberta-dos-fluxos-do-extrator-e-backups)
+3. [Fase 2: Geração de Backups e Coleta Segura](#3-fase-2-geração-de-backups-e-coleta-segura)
+   * 3.1 [Estratégia de Dumps e Compressão Nativos](#31-estratégia-de-dumps-e-compressão-nativos)
+   * 3.2 [Padronização Semântica de Arquivos](#32-padronização-semântica-de-arquivos)
+   * 3.3 [Transferência de Baixo Impacto](#33-transferência-de-baixo-impacto)
+4. [Fase 3: Homologação no Laboratório Local (openSUSE)](#4-fase-3-homologação-no-laboratório-local-opensuse)
+   * 4.1 [Ocorrência 01: Conflito de Portas de Rede (Nginx Proxy Manager)](#41-ocorrência-01-conflito-de-portas-de-rede-nginx-proxy-manager)
+   * 4.2 [Ocorrência 02: Ambiente Virtual Python Corrompido (PEP 668)](#42-ocorrência-02-ambiente-virtual-python-corrompido-pep-668)
+   * 4.3 [Ocorrência 03: Erro de Acesso Negado (Sincronização de Senhas MariaDB)](#43-ocorrência-03-erro-de-acesso-negado-sincronização-de-senhas-mariadb)
+   * 4.4 [Execução Bem-Sucedida dos Extratores](#44-execução-bem-sucedida-dos-extratores)
+5. [O Porquê desta Abordagem (Efetividade do Laboratório)](#5-o-porquê-desta-abordagem-efetividade-do-laboratório)
+6. [Cronograma das Etapas Restantes (Hostinger VPS)](#6-cronograma-das-etapas-restantes-hostinger-vps)
+7. [Plano de Melhoria Contínua para o Ambiente](#7-plano-de-melhoria-contínua-para-o-ambiente)
 
 ---
 
-## 2. Etapa 2: A Cópia de Segurança (Backup)
-Geramos uma cópia completa de todas as informações da CDC (banco de dados com as transações e todos os arquivos anexados por usuários).
-*   **Nomeação Limpa**: Organizamos os arquivos com nomes simples e fáceis de ler (ex: Banco de Dados de Produção, Arquivos Públicos, etc.) para que qualquer membro futuro da TI da CDC saiba exatamente o que é cada arquivo.
+## 1. Introdução e Objetivo do Projeto
+
+O **NextERP** é o sistema central de gestão de estoque e operações da CDC, rodando sobre a tecnologia conteinerizada Frappe/ERPNext v15. 
+
+O objetivo principal deste projeto é transferir o sistema do provedor antigo (**Google Cloud / GCP**) para um novo servidor dedicado na **Hostinger**. Essa mudança visa **reduzir os custos mensais de infraestrutura**, aumentar o desempenho do sistema e garantir o controle total sobre as informações da empresa.
+
+Como o ambiente antigo foi construído sem documentação técnica pela equipe anterior, as atividades até o momento focaram em realizar uma "perícia" no servidor antigo, extrair cópias de segurança (backups) e testar o funcionamento completo em um **laboratório de simulação local** (computador de desenvolvimento) antes de publicar no servidor definitivo.
 
 ---
 
-## 3. Etapa 3: O Laboratório de Testes (Simulação Local)
-Para evitar que o sistema da empresa pare ou que percamos dados de estoque durante a migração, criamos um **ambiente de testes idêntico ao real** no computador local de desenvolvimento. 
+## 2. Fase 1: Investigação e Mapeamento na GCP
 
-Durante essa simulação, encontramos e resolvemos 3 problemas que teriam derrubado o sistema se tivéssemos feito a migração direto na Hostinger:
-1.  **Conflito de Portas**: O sistema tentou usar uma porta de rede que já estava ocupada por outro aplicativo. Ajustamos o sistema para usar um canal livre.
-2.  **Arquivos Incompatíveis**: Os scripts copiados do servidor antigo continham links internos que só funcionavam no servidor antigo. Atualizamos e adaptamos esses arquivos.
-3.  **Senhas Desalinhadas**: Havia uma divergência entre a senha cadastrada no banco de dados e a senha de segurança do sistema, o que causava um erro de "Acesso Negado". Sincronizamos as senhas e o acesso foi liberado.
+### 2.1 Restabelecimento do Acesso SSH Seguro
+O acesso inicial ao servidor antigo no GCP estava bloqueado devido a regras de chaves do Google. 
+*   **O que foi feito**: Acessamos o painel do Google Cloud e cadastramos uma chave de acesso privada e segura (`id_ed25519`).
+*   **Desligamento Seguro**: Para aplicar as alterações de segurança sem corromper o banco de dados, realizamos um desligamento controlado da máquina (*Graceful Shutdown*). Na reinicialização, o GCP atribuiu o novo endereço de IP **`136.113.22.112`**, e o acesso seguro foi reestabelecido com sucesso.
 
-**Resultado do Teste**: A integração com o ONGSYS rodou localmente e sincronizou **100% dos dados com sucesso**. Isso nos dá a garantia de que o backup está saudável.
+### 2.2 Descoberta da Arquitetura do Docker Compose
+Ao investigar o servidor antigo, localizamos os arquivos de configuração do sistema (`docker-compose.yml`):
+*   **Serviços Mapeados**: Identificamos que o sistema roda dividido em contêineres isolados (Banco de dados MariaDB 10.6, Motores de fila Redis, Servidor Web Nginx e Agendadores de tarefas).
+*   **Vulnerabilidade Encontrada**: A senha de administrador do banco de dados estava configurada como `"admin"` (uma senha padrão frágil que será alterada na migração).
+*   **Isolamento**: O banco de dados e os motores de processamento estão protegidos em uma rede interna, sem exposição direta para a internet pública.
 
----
+### 2.3 Análise do Servidor Web Caddy
+Inspecionamos a porta de saída do servidor e identificamos a presença do proxy **Caddy**.
+*   **Domínio Oficial**: Confirmamos a regra ativa apontando para o endereço **`estoque.cdc.org.br`**.
+*   **Funcionamento**: O Caddy recebe os acessos dos usuários na internet e os redireciona com segurança para a aplicação ERPNext na porta interna `8080`.
 
-## 4. Por que esse processo é demorado e importante?
-Garantir o funcionamento em um "Laboratório" antes de publicar o sistema oficial protege a CDC contra:
-*   **Interrupção nas Operações (Downtime)**: Evita que os funcionários fiquem parados sem conseguir registrar entradas e saídas de estoque.
-*   **Perda de Informações**: Garante que nenhuma transação ou anexo seja apagado no processo.
-*   **Refação**: Resolver problemas em ambiente de teste leva minutos; resolver problemas com o sistema em produção sob pressão de usuários parados pode levar horas ou dias.
-
----
-
-## 5. O que falta fazer? (Cronograma da Virada Final)
-A virada do sistema para a Hostinger será dividida em etapas planejadas para causar o menor impacto possível:
-
-| Etapa | O que será feito | Impacto na CDC |
-| :--- | :--- | :---: |
-| **Preparação** | Configurar o novo servidor da Hostinger e enviar os arquivos de teste. | Nenhum (sistema segue ativo no GCP) |
-| **Congelamento** | Ativar o "modo manutenção" no sistema antigo (GCP) para que ninguém insira novos dados e extrair o banco de dados final atualizado. | **Downtime Temporário** (30 a 45 minutos fora do ar) |
-| **Ativação** | Importar os dados finais na Hostinger e atualizar o domínio (`estoque.cdc.org.br`). | Fim do Downtime |
-| **Conclusão** | Configurar os novos backups e os alertas de segurança. | Nenhum (sistema já ativo na Hostinger) |
+### 2.4 Descoberta dos Fluxos do Extrator e Backups
+Descobrimos duas automações essenciais rodando em segundo plano no servidor antigo:
+*   **Backup Offsite (`bkp.py`)**: Roda duas vezes ao dia. Ele extrai uma cópia do banco de dados e envia para uma conta do Google Drive via autenticação OAuth.
+*   **Integrador de Dados (`run_job.sh`)**: Um pipeline composto por 5 scripts em Python que roda de hora em hora. Ele se conecta via internet segura (HTTPS porta 443) com o sistema parceiro **ONGSYS** (`www.ongsys.com.br`) para baixar e atualizar dados de produtos e requisições de estoque na CDC.
+*   **Confirmação Técnica**: Verificamos que o sistema não depende de drivers de banco de dados antigos (ODBC), simplificando a instalação na Hostinger.
 
 ---
 
-## 6. Matriz das 4 Abordagens Visuais de Gestão
+## 3. Fase 2: Geração de Backups e Coleta Segura
 
-Para apoiar as tomadas de decisões e registrar a arquitetura do projeto para diretores e gestores não-técnicos, adotamos a **Matriz das Quatro Abordagens Visuais**. Cada modelo visual abaixo traduz o contexto real da migração do NextERP para uma perspectiva de valor de negócios:
+### 3.1 Estratégia de Dumps e Compressão Nativos
+Utilizando os comandos oficiais do ERPNext, geramos uma cópia de segurança atômica e consistente de produção:
+```bash
+sudo docker exec -it frappe_docker-backend-1 bench --site frontend backup --with-files
+```
+Isso gerou o banco de dados SQL (10.9 MB), os arquivos públicos anexados por usuários (530 KB), os arquivos privados (40 KB) e as chaves de criptografia do sistema (`site_config.json`).
 
-### 6.1 Infográfico (Aprendizado Prático / Passo a Passo)
-*   **Pergunta Chave**: *Como a TI executa a restauração e o teste sem colocar a empresa em risco?*
-*   **Explicação do Diagrama**: Exibe a sequência de 4 passos executada no ambiente de testes local: (1) Inicialização do ambiente Docker isolado, (2) Cópia segura da base de dados, (3) Execução do comando de restauração e (4) Sincronização automatizada da API parceira (ONGSYS).
-<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infografico.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infográfico de Homologação" /></p>
-<p align="center"><em>Figura 1: Infográfico do Fluxo Prático de Restauração e Teste no Laboratório.</em></p>
+### 3.2 Padronização Semântica de Arquivos
+Para evitar confusões com os nomes numéricos complexos gerados pelo sistema, renomeamos os arquivos localmente para nomes claros e autoexplicativos:
+*   `gcp-prod-database.sql.gz` (Banco de Dados de Produção)
+*   `gcp-prod-public-files.tar` (Arquivos Públicos)
+*   `gcp-prod-private-files.tar` (Arquivos Privados)
+*   `gcp-prod-site-config.json` (Configurações de Chaves)
 
-### 6.2 Roadmap / Mapa de Processo (Jornada de Ponta a Ponta)
-*   **Pergunta Chave**: *Como o processo acontece do início ao fim e onde estamos agora?*
-*   **Explicação do Diagrama**: Apresenta a linha do tempo completa dividida em 4 fases estratégicas: (1) Perícia no GCP, (2) Validação no Laboratório Local (Etapa Atual Concluída), (3) Implantação na VPS Hostinger (Janela Programada) e (4) Automação de Backups em Nuvem.
-<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_roadmap.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Roadmap de Migração" /></p>
-<p align="center"><em>Figura 2: Roadmap da Jornada de Migração da GCP para a Hostinger.</em></p>
-
-### 6.3 Infonomics / Infonomia (Valor Estratégico dos Dados)
-*   **Pergunta Chave**: *Como estas informações e a nova infraestrutura geram valor financeiro e operacional?*
-*   **Explicação do Diagrama**: Ilustra como o ativo de dados unificado do NextERP gera retorno para a CDC através de três pilares: Eliminação de licenças de software ($0 por usuário), soberania total sobre as informações corporativas e inteligência de dados de estoque em tempo real.
-<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infonomia.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infonomia e Valor dos Dados" /></p>
-<p align="center"><em>Figura 3: Diagrama de Infonomia e Valoração dos Ativos de Dados da CDC.</em></p>
-
-### 6.4 Mapa de Conhecimento (Governança e Conexões de TI)
-*   **Pergunta Chave**: *Onde o conhecimento reside e como os sistemas da CDC se conectam?*
-*   **Explicação do Diagrama**: Um mapa de ecossistema conectando a governança central da CDC com os repositórios oficiais de código no GitHub (`dxcdc/ERPNext`), as documentações de infraestrutura (`docs/`), os servidores ativos e a integração com o parceiro ONGSYS.
-<p align="center" style="text-align: center; margin: 20px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_mapa_conhecimento.png" style="max-width: 80%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Mapa de Conhecimento de TI" /></p>
-<p align="center"><em>Figura 4: Arquitetura do Mapa de Conhecimento e Conexões de TI da CDC.</em></p>
+### 3.3 Transferência de Baixo Impacto
+Os arquivos de backup e as pastas de scripts foram copiados para uma área temporária no servidor GCP, tiveram suas permissões ajustadas para o usuário `dxcdc` e foram baixados com segurança via `scp` diretamente para o computador local.
 
 ---
 
-## 7. Propostas de Melhoria Contínua (Próximos Passos de TI)
-Após a migração, sugerimos implementar melhorias de governança na CDC:
-1.  **Central de Backups da CDC (Rclone)**: Configurar uma ferramenta profissional (Rclone) para enviar os backups de todos os sistemas da CDC (ERPNext, Moodle, etc.) para um **Drive Compartilhado oficial da empresa**, impedindo a perda de backups se um colaborador sair da equipe.
-2.  **Segurança de Senhas**: Substituir as senhas padrões expostas (como "admin") por chaves criptográficas fortes e ocultas.
-3.  **Velocidade de Integração**: Otimizar o script de sincronização de produtos para rodar de forma mais veloz (atualmente ele leva 4 minutos por rodada).
+## 4. Fase 3: Homologação no Laboratório Local (openSUSE)
+
+Para garantir que nada falhasse na migração real, montamos uma réplica idêntica do ERPNext no computador local de desenvolvimento. Durante essa simulação, identificamos e corrigimos três problemas críticos que teriam causado a queda do sistema se tivéssemos ido direto para a Hostinger:
+
+### 4.1 Ocorrência 01: Conflito de Portas de Rede (Nginx Proxy Manager)
+*   **Sintoma (O que aconteceu)**: O sistema local não conseguia abrir a tela inicial porque a porta de rede `8080` já estava sendo usada por outro aplicativo do computador.
+*   **Causa**: Conflito de endereçamento local.
+*   **Solução Aplicada**: Redirecionamos a porta do ERPNext de testes para **`8085`** no arquivo `docker-compose.yml`. O sistema abriu perfeitamente em `http://localhost:8085`.
+
+### 4.2 Ocorrência 02: Ambiente Virtual Python Corrompido (PEP 668)
+*   **Sintoma (O que aconteceu)**: Os scripts do integrador falharam ao tentar instalar os pacotes necessários no computador local.
+*   **Causa**: A pasta de dependências (`venv`) foi copiada diretamente do servidor GCP (Debian) e continha atalhos internos que não funcionavam no sistema local (openSUSE).
+*   **Solução Aplicada**: Excluímos a pasta de dependências antiga e permitimos que o script recriasse um ambiente virtual limpo e compatível com o sistema local.
+
+### 4.3 Ocorrência 03: Erro de Acesso Negado (Sincronização de Senhas MariaDB)
+*   **Sintoma (O que aconteceu)**: A API do ERPNext retornou erro de conexão de banco de dados (`Access denied for user`).
+*   **Causa**: O banco de dados de teste criou uma senha temporária ao iniciar. Ao injetarmos o arquivo de configurações de produção (`site_config.json`), a senha do arquivo não batia com a senha cadastrada no banco local.
+*   **Solução Aplicada**: Acessamos o banco de dados e redefinimos a senha interna para coincidir com a chave oficial. A conexão foi reestabelecida imediatamente.
+
+### 4.4 Execução Bem-Sucedida dos Extratores
+Após as correções, executamos o pipeline do integrador de dados. Todos os 5 scripts rodaram sequencialmente com **sucesso absoluto (Código de Saída 0)**, comprovando que o banco de dados restaurado está 100% saudável.
+
+<p align="center" style="text-align: center; margin: 25px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infografico.png" style="max-width: 85%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infográfico do Fluxo de Homologação" /></p>
+<p align="center"><em>Figura 1: Infográfico Passo a Passo do Fluxo de Homologação Executado no Laboratório Local.</em></p>
 
 ---
 
-## Anexo A: Tendências de Modernização de Estoque e ERPNext (2026)
+## 5. O Porquê desta Abordagem (Efetividade do Laboratório)
 
-Este anexo consolida as notícias e inovações mais recentes datadas do início de **2026** sobre a evolução do ERPNext no controle de estoques e cadeias de suprimentos globais, servindo de embasamento estratégico para a diretoria.
+Realizar esse teste completo em um laboratório isolado garantiu três grandes benefícios de governança para a CDC:
 
-### 1. Lançamento do ERPNext Versão 16 (Janeiro de 2026)
-*   **Performance para Grandes Volumes**: A nova versão do framework introduziu um mecanismo de consulta de banco de dados totalmente reestruturado. Isso permite que empresas que gerenciam múltiplos armazéns descentralizados (como a CDC) realizem buscas de saldo de estoque em tempo real com maior velocidade e menor consumo de servidor.
-*   **Importação Inteligente de Dados**: O novo importador do ERPNext agora detecta dados inválidos ou incompatíveis antes de inseri-los no banco e permite importar árvores completas de "Grupos de Itens" e "Armazéns" de uma só vez, reduzindo o tempo de setup administrativo.
+1.  **Garantia de Restauração (Restore)**: Provamos na prática que os arquivos de backup gerados no GCP não estão corrompidos e contêm todos os dados reais.
+2.  **Mitigação de Downtime (Sem Paralisação)**: Todos os erros de compatibilidade, portas ocupadas e senhas desalinhadas foram resolvidos no ambiente de teste, sem afetar os funcionários da CDC que continuavam usando o sistema no GCP.
+3.  **Segurança de Processos**: A receita do Docker Compose e as chaves de acesso foram validadas antes de serem implantadas no servidor final da Hostinger.
 
-### 2. Sincronização e Rastreabilidade Avançada de Inventário (Atualizações de 2026)
-*   **Reserva Inteligente de Estoque**: O ERPNext v16 aprimorou a capacidade de realizar reservas de produtos associados a "Combos/Kits" (Product Bundles), garantindo que itens individuais não fiquem em falta em vendas casadas.
-*   **Gestão de Dropshipping Otimizada**: Foi implementado o suporte a entregas parciais diretamente na Ordem de Compra de fornecedores integrados, facilitando o controle com parceiros de distribuição sem planilhas externas paralelas.
-*   **Relatório de Envelhecimento de Estoque (Stock Ageing)**: O relatório chave de auditoria foi totalmente refatorado para alinhar perfeitamente os valores em lote com o livro-razão financeiro, aumentando a precisão de auditorias contábeis de estoque.
+<p align="center" style="text-align: center; margin: 25px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infonomia.png" style="max-width: 85%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infonomia e Valoração de Dados" /></p>
+<p align="center"><em>Figura 2: Valoração dos Ativos de Dados e Mitigação de Riscos Operacionais da CDC.</em></p>
 
-### 3. O ERPNext como Alternativa Tecnológica Soberana
-No cenário corporativo de 2026, o ERPNext e o Frappe Framework consolidaram-se como as principais escolhas Open Source para substituir sistemas proprietários caros (como SAP e Totvs). A ausência de custos por usuário (licenciamento) permite que instituições invistam recursos financeiros diretamente na otimização de suas regras de negócios locais e segurança da informação, em vez de taxas de software recorrentes.
+---
 
+## 6. Cronograma das Etapas Restantes (Hostinger VPS)
+
+A transição final para o novo servidor da Hostinger será dividida em 8 passos planejados para garantir uma janela de manutenção segura e sem perda de informações:
+
+| Etapa | Ação Técnica | Tempo Est. | Impacto na Operação |
+| :--- | :--- | :---: | :---: |
+| **Passo 1** | Acessar e configurar o Docker/Docker Compose na Hostinger VPS. | 30 min | **Nenhum** (sistema ativo no GCP) |
+| **Passo 2** | Criar a estrutura do repositório, Nginx local e proxy Caddy. | 30 min | **Nenhum** |
+| **Passo 3** | Fazer o upload dos arquivos de backup (`gcp-prod-*`) e scripts. | 15 min | **Nenhum** |
+| **Passo 4** | Executar a restauração de teste preliminar na Hostinger. | 15 min | **Nenhum** |
+| **Passo 5** | Ativar o "modo manutenção" no GCP e tirar o backup incremental final do banco. | 15 min | ⚠️ **Downtime Temporário** |
+| **Passo 6** | Importar o dump final na Hostinger e atualizar o apontamento de DNS do domínio. | 30 min | ⚠️ **Downtime Temporário** |
+| **Passo 7** | Configurar o Caddy para emissão automática do certificado SSL e testar acessos. | 15 min | **Fim da Janela de Manutenção** |
+| **Passo 8** | Instalar e configurar o Rclone para backup offsite no Google Drive da CDC e ativar o Cron. | 20 min | **Nenhum** (sistema já ativo) |
+
+<p align="center" style="text-align: center; margin: 25px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_roadmap.png" style="max-width: 85%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Roadmap de Migração" /></p>
+<p align="center"><em>Figura 3: Roadmap com a Linha do Tempo e Etapas Restantes da Migração.</em></p>
+
+---
+
+## 7. Plano de Melhoria Contínua para o Ambiente
+
+Após a conclusão da migração para a Hostinger, propomos a implementação das seguintes melhorias de segurança e governança de TI na CDC:
+
+1.  **Remoção de Senhas em Texto Puro (Hardcoded)**:
+    *   Substituir a senha padrão do banco de dados (atualmente `"admin"`) por chaves criptográficas fortes armazenadas no arquivo seguro `.env`.
+2.  **Conteinerização Completa do Extrator de Dados**:
+    *   Empacotar os scripts do integrador em um contêiner Docker dedicado (com consumo limitado de CPU e memória RAM), eliminando tarefas soltas no servidor.
+3.  **Otimização de Performance do Extrator**:
+    *   Otimizar o script de produtos (`4_Extrator_produtos_v2.py`), reduzindo seu tempo de execução de 4 minutos para menos de 30 segundos através de processamento em lote.
+4.  **Notificações de Alerta de Backups no Mattermost**:
+    *   Conectar os scripts de backup ao canal de TI no Mattermost para notificar a equipe automaticamente sobre o sucesso ou qualquer falha nos backups diários.
+5.  **Criptografia Assimétrica de Backups (GPG)**:
+    *   Criptografar os arquivos de backup localmente antes do envio para a nuvem, garantindo que os dados fiquem protegidos contra vazamentos no Google Drive.
+6.  **Substituição de Scripts Manuais pelo Rclone**:
+    *   Adotar o **Rclone** como ferramenta oficial do *CDC Backups Hub*, garantindo uploads automáticos, renovação transparente de chaves OAuth e suporte centralizado para os demais sistemas da instituição (ERPNext, Moodle, etc.).
+
+<p align="center" style="text-align: center; margin: 25px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_mapa_conhecimento.png" style="max-width: 85%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Mapa de Conhecimento de TI" /></p>
+<p align="center"><em>Figura 4: Mapa de Conhecimento e Governança de TI Conectando Sistemas e Documentações da CDC.</em></p>
