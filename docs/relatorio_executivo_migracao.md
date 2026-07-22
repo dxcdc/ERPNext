@@ -17,15 +17,11 @@ Antes de mover o sistema, precisamos entender como ele foi construído pela equi
 *   **A "Fronteira" com Parceiros**: O sistema conversa de hora em hora com um sistema parceiro externo chamado **ONGSYS** para sincronizar produtos e requisições. Mapeamos essa conexão para garantir que ela não quebre na mudança.
 *   **Rotinas Ocultas**: Descobrimos scripts automáticos que enviavam cópias de segurança (backups) para uma conta do Google Drive que pertencia ao desenvolvedor antigo, e não à CDC.
 
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase1_mapeamento.png" width="300" alt="Fase 1: Mapeamento" /></p>
-
 ---
 
 ## 2. Etapa 2: A Cópia de Segurança (Backup)
 Geramos uma cópia completa de todas as informações da CDC (banco de dados com as transações e todos os arquivos anexados por usuários).
 *   **Nomeação Limpa**: Organizamos os arquivos com nomes simples e fáceis de ler (ex: Banco de Dados de Produção, Arquivos Públicos, etc.) para que qualquer membro futuro da TI da CDC saiba exatamente o que é cada arquivo.
-
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase2_backups.png" width="300" alt="Fase 2: Backups" /></p>
 
 ---
 
@@ -38,8 +34,6 @@ Durante essa simulação, encontramos e resolvemos 3 problemas que teriam derrub
 3.  **Senhas Desalinhadas**: Havia uma divergência entre a senha cadastrada no banco de dados e a senha de segurança do sistema, o que causava um erro de "Acesso Negado". Sincronizamos as senhas e o acesso foi liberado.
 
 **Resultado do Teste**: A integração com o ONGSYS rodou localmente e sincronizou **100% dos dados com sucesso**. Isso nos dá a garantia de que o backup está saudável.
-
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase3_laboratorio.png" width="300" alt="Fase 3: Laboratorio" /></p>
 
 ---
 
@@ -61,11 +55,35 @@ A virada do sistema para a Hostinger será dividida em etapas planejadas para ca
 | **Ativação** | Importar os dados finais na Hostinger e atualizar o domínio (`estoque.cdc.org.br`). | Fim do Downtime |
 | **Conclusão** | Configurar os novos backups e os alertas de segurança. | Nenhum (sistema já ativo na Hostinger) |
 
-<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase4_implantacao.png" width="300" alt="Fase 4: Implantacao" /></p>
+---
+
+## 6. Matriz das 4 Abordagens Visuais de Gestão
+
+Para apoiar as tomadas de decisões e registrar o andamento do projeto para equipes de gestão e diretores, adotamos a **Matriz das Quatro Abordagens Visuais**. Abaixo estão descritos os modelos gerados especificamente para a migração da CDC com base em nossos dados e fluxos:
+
+### 6.1 Infográfico (Passo a Passo Prático)
+*   **Foco**: *Como eu faço isso?*
+*   **Descrição**: Exibe de forma direta e visual como executar a restauração da base de dados e testar a sincronização dos extratores locais na homologação.
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infografico.png" width="300" alt="Infográfico" /></p>
+
+### 6.2 Roadmap / Mapa de Processo (Fluxo de Ponta a Ponta)
+*   **Foco**: *Como o processo acontece de ponta a ponta?*
+*   **Descrição**: O plano de voo completo mostrando a jornada da migração, com prazos e o momento exato da janela de manutenção planejada.
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_roadmap.png" width="300" alt="Roadmap" /></p>
+
+### 6.3 Infonomics / Infonomia (Valor Estratégico dos Dados)
+*   **Foco**: *Como essas informações geram valor?*
+*   **Descrição**: Ilustra o valor financeiro e operacional que os dados de inventário unificados do NextERP e a nova infraestrutura trazem para a CDC.
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infonomia.png" width="300" alt="Infonomia" /></p>
+
+### 6.4 Mapa de Conhecimento (Governança e Conexões de TI)
+*   **Foco**: *Onde o conhecimento reside e como se conecta?*
+*   **Descrição**: Mapeia as conexões corporativas entre os servidores da CDC, os manuais técnicos, os repositórios GitHub e a integração externa com o ONGSYS.
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_mapa_conhecimento.png" width="300" alt="Mapa de Conhecimento" /></p>
 
 ---
 
-## 6. Propostas de Melhoria Contínua (Próximos Passos de TI)
+## 7. Propostas de Melhoria Contínua (Próximos Passos de TI)
 Após a migração, sugerimos implementar melhorias de governança na CDC:
 1.  **Central de Backups da CDC (Rclone)**: Configurar uma ferramenta profissional (Rclone) para enviar os backups de todos os sistemas da CDC (ERPNext, Moodle, etc.) para um **Drive Compartilhado oficial da empresa**, impedindo a perda de backups se um colaborador sair da equipe.
 2.  **Segurança de Senhas**: Substituir as senhas padrões expostas (como "admin") por chaves criptográficas fortes e ocultas.
