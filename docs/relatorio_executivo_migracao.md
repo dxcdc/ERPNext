@@ -17,11 +17,15 @@ Antes de mover o sistema, precisamos entender como ele foi construído pela equi
 *   **A "Fronteira" com Parceiros**: O sistema conversa de hora em hora com um sistema parceiro externo chamado **ONGSYS** para sincronizar produtos e requisições. Mapeamos essa conexão para garantir que ela não quebre na mudança.
 *   **Rotinas Ocultas**: Descobrimos scripts automáticos que enviavam cópias de segurança (backups) para uma conta do Google Drive que pertencia ao desenvolvedor antigo, e não à CDC.
 
+![Fase 1: Mapeamento e Perícia de Sistemas](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase1_mapeamento.png)
+
 ---
 
 ## 2. Etapa 2: A Cópia de Segurança (Backup)
 Geramos uma cópia completa de todas as informações da CDC (banco de dados com as transações e todos os arquivos anexados por usuários).
 *   **Nomeação Limpa**: Organizamos os arquivos com nomes simples e fáceis de ler (ex: Banco de Dados de Produção, Arquivos Públicos, etc.) para que qualquer membro futuro da TI da CDC saiba exatamente o que é cada arquivo.
+
+![Fase 2: Coleta de Backups e Arquivos](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase2_backups.png)
 
 ---
 
@@ -34,6 +38,8 @@ Durante essa simulação, encontramos e resolvemos 3 problemas que teriam derrub
 3.  **Senhas Desalinhadas**: Havia uma divergência entre a senha cadastrada no banco de dados e a senha de segurança do sistema, o que causava um erro de "Acesso Negado". Sincronizamos as senhas e o acesso foi liberado.
 
 **Resultado do Teste**: A integração com o ONGSYS rodou localmente e sincronizou **100% dos dados com sucesso**. Isso nos dá a garantia de que o backup está saudável.
+
+![Fase 3: Laboratório e Simulação Local](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase3_laboratorio.png)
 
 ---
 
@@ -54,6 +60,8 @@ A virada do sistema para a Hostinger será dividida em etapas planejadas para ca
 | **Congelamento** | Ativar o "modo manutenção" no sistema antigo (GCP) para que ninguém insira novos dados e extrair o banco de dados final atualizado. | **Downtime Temporário** (30 a 45 minutos fora do ar) |
 | **Ativação** | Importar os dados finais na Hostinger e atualizar o domínio (`estoque.cdc.org.br`). | Fim do Downtime |
 | **Conclusão** | Configurar os novos backups e os alertas de segurança. | Nenhum (sistema já ativo na Hostinger) |
+
+![Fase 4: Implantação Hostinger e Virada Definitiva](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase4_implantacao.png)
 
 ---
 
