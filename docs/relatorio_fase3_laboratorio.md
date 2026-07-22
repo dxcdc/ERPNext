@@ -126,6 +126,7 @@ Realizar as Fases 1 a 3 no laboratório local garantiu os seguintes benefícios:
 | **Passo 5** | Ativar o modo manutenção no GCP e tirar o backup incremental final (banco). | 15 min | **Downtime** |
 | **Passo 6** | Importar o dump final na Hostinger e atualizar o apontamento de DNS do domínio. | 30 min | **Downtime** |
 | **Passo 7** | Configurar o Caddy para emissão automática do SSL e testar. | 15 min | Fim da Janela |
+| **Passo 8** | Instalar e configurar o Rclone para upload offsite no Google Drive da CDC e ativar a Cron. | 20 min | Nenhum |
 
 ---
 
@@ -143,3 +144,6 @@ Após a migração ser concluída na Hostinger, propomos as seguintes melhorias 
     *   Integrar o script de backup (`bkp.py`) com um webhook silencioso do Mattermost para alertar a equipe imediatamente em caso de falha de upload no Google Drive.
 5.  **Criptografia Assimétrica de Backups (GPG)**:
     *   Implementar criptografia simétrica ou assimétrica (GPG) nos backups locais antes do upload para o Google Drive, garantindo proteção contra invasões na conta do Drive.
+6.  **Substituição de Scripts Manuais pelo Rclone**:
+    *   Substituir o script em Python `bkp.py` pelo Rclone como o motor oficial do *CDC Backups Hub*, garantindo maior estabilidade de rede, renovação automatizada de tokens OAuth e suporte simplificado para outros sistemas da organização.
+
