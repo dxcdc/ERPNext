@@ -17,7 +17,7 @@ Antes de mover o sistema, precisamos entender como ele foi construído pela equi
 *   **A "Fronteira" com Parceiros**: O sistema conversa de hora em hora com um sistema parceiro externo chamado **ONGSYS** para sincronizar produtos e requisições. Mapeamos essa conexão para garantir que ela não quebre na mudança.
 *   **Rotinas Ocultas**: Descobrimos scripts automáticos que enviavam cópias de segurança (backups) para uma conta do Google Drive que pertencia ao desenvolvedor antigo, e não à CDC.
 
-![Fase 1: Mapeamento e Perícia de Sistemas](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase1_mapeamento.png)
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase1_mapeamento.png" width="300" alt="Fase 1: Mapeamento" /></p>
 
 ---
 
@@ -25,7 +25,7 @@ Antes de mover o sistema, precisamos entender como ele foi construído pela equi
 Geramos uma cópia completa de todas as informações da CDC (banco de dados com as transações e todos os arquivos anexados por usuários).
 *   **Nomeação Limpa**: Organizamos os arquivos com nomes simples e fáceis de ler (ex: Banco de Dados de Produção, Arquivos Públicos, etc.) para que qualquer membro futuro da TI da CDC saiba exatamente o que é cada arquivo.
 
-![Fase 2: Coleta de Backups e Arquivos](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase2_backups.png)
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase2_backups.png" width="300" alt="Fase 2: Backups" /></p>
 
 ---
 
@@ -39,7 +39,7 @@ Durante essa simulação, encontramos e resolvemos 3 problemas que teriam derrub
 
 **Resultado do Teste**: A integração com o ONGSYS rodou localmente e sincronizou **100% dos dados com sucesso**. Isso nos dá a garantia de que o backup está saudável.
 
-![Fase 3: Laboratório e Simulação Local](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase3_laboratorio.png)
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase3_laboratorio.png" width="300" alt="Fase 3: Laboratorio" /></p>
 
 ---
 
@@ -61,7 +61,7 @@ A virada do sistema para a Hostinger será dividida em etapas planejadas para ca
 | **Ativação** | Importar os dados finais na Hostinger e atualizar o domínio (`estoque.cdc.org.br`). | Fim do Downtime |
 | **Conclusão** | Configurar os novos backups e os alertas de segurança. | Nenhum (sistema já ativo na Hostinger) |
 
-![Fase 4: Implantação Hostinger e Virada Definitiva](/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase4_implantacao.png)
+<p align="center"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/fase4_implantacao.png" width="300" alt="Fase 4: Implantacao" /></p>
 
 ---
 
@@ -70,3 +70,22 @@ Após a migração, sugerimos implementar melhorias de governança na CDC:
 1.  **Central de Backups da CDC (Rclone)**: Configurar uma ferramenta profissional (Rclone) para enviar os backups de todos os sistemas da CDC (ERPNext, Moodle, etc.) para um **Drive Compartilhado oficial da empresa**, impedindo a perda de backups se um colaborador sair da equipe.
 2.  **Segurança de Senhas**: Substituir as senhas padrões expostas (como "admin") por chaves criptográficas fortes e ocultas.
 3.  **Velocidade de Integração**: Otimizar o script de sincronização de produtos para rodar de forma mais veloz (atualmente ele leva 4 minutos por rodada).
+
+---
+
+## Anexo A: Tendências de Modernização de Estoque e ERPNext (2026)
+
+Este anexo consolida as notícias e inovações mais recentes datadas do início de **2026** sobre a evolução do ERPNext no controle de estoques e cadeias de suprimentos globais, servindo de embasamento estratégico para a diretoria.
+
+### 1. Lançamento do ERPNext Versão 16 (Janeiro de 2026)
+*   **Performance para Grandes Volumes**: A nova versão do framework introduziu um mecanismo de consulta de banco de dados totalmente reestruturado. Isso permite que empresas que gerenciam múltiplos armazéns descentralizados (como a CDC) realizem buscas de saldo de estoque em tempo real com maior velocidade e menor consumo de servidor.
+*   **Importação Inteligente de Dados**: O novo importador do ERPNext agora detecta dados inválidos ou incompatíveis antes de inseri-los no banco e permite importar árvores completas de "Grupos de Itens" e "Armazéns" de uma só vez, reduzindo o tempo de setup administrativo.
+
+### 2. Sincronização e Rastreabilidade Avançada de Inventário (Atualizações de 2026)
+*   **Reserva Inteligente de Estoque**: O ERPNext v16 aprimorou a capacidade de realizar reservas de produtos associados a "Combos/Kits" (Product Bundles), garantindo que itens individuais não fiquem em falta em vendas casadas.
+*   **Gestão de Dropshipping Otimizada**: Foi implementado o suporte a entregas parciais diretamente na Ordem de Compra de fornecedores integrados, facilitando o controle com parceiros de distribuição sem planilhas externas paralelas.
+*   **Relatório de Envelhecimento de Estoque (Stock Ageing)**: O relatório chave de auditoria foi totalmente refatorado para alinhar perfeitamente os valores em lote com o livro-razão financeiro, aumentando a precisão de auditorias contábeis de estoque.
+
+### 3. O ERPNext como Alternativa Tecnológica Soberana
+No cenário corporativo de 2026, o ERPNext e o Frappe Framework consolidaram-se como as principais escolhas Open Source para substituir sistemas proprietários caros (como SAP e Totvs). A ausência de custos por usuário (licenciamento) permite que instituições invistam recursos financeiros diretamente na otimização de suas regras de negócios locais e segurança da informação, em vez de taxas de software recorrentes.
+
