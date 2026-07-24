@@ -24,6 +24,17 @@ jobs:
         run: |
           set -e
 
+          ensure_labels_exist() {
+            local labels="$1"
+            IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+            for label in "${LABEL_ARRAY[@]}"; do
+              label=$(echo "$label" | xargs)
+              if [ -n "$label" ]; then
+                gh label create "$label" --force --color "0E8A16" --description "Label corporativa CDC" 2>/dev/null || true
+              fi
+            done
+          }
+
           create_issue_if_not_exists() {
             local search_term="$1"
             local title="$2"
@@ -37,6 +48,9 @@ jobs:
             if [ -n "$existing" ]; then
               echo "=> Issue encontrada: '$existing'. Pulando criação para evitar duplicidade."
             else
+              echo "=> Criando labels no repositório se não existirem: '$labels'..."
+              ensure_labels_exist "$labels"
+
               echo "=> Criando nova Issue no GitHub: '$title'..."
               gh issue create --title "$title" --body "$body" --label "$labels"
               echo "=> Issue criada com sucesso!"
