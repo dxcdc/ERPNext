@@ -1,0 +1,37 @@
+name: "📋 Tarefa / Issue de Infraestrutura & Governança"
+description: "Template padrão para abertura de melhorias, refatorações e tarefas do NextERP CDC"
+title: "[TASK] "
+labels: ["enhancement", "devops"]
+assignees: ""
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por registrar esta Issue no projeto NextERP da CDC! Por favor, preencha os campos abaixo.
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descrição da Issue"
+      description: "Descreva o objetivo técnico e o contexto de negócios desta tarefa."
+      placeholder: "Ex: Conteinerizar os scripts do extrator Python..."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: "Critérios de Aceite"
+      description: "Lista de verificação do que precisa ser concluído para fechar esta issue."
+      placeholder: "- [ ] Criar Dockerfile\n- [ ] Testar em staging\n- [ ] Validar logs"
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "Prioridade"
+      options:
+        - "🟣 Crítica (Segurança / Downtime)"
+        - "🔴 Alta (Infra / Performance)"
+        - "🟡 Média (Melhorias / Integradores)"
+        - "🟢 Baixa (Recursos / Treinamento)"
+    validations:
+      required: true
