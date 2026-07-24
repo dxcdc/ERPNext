@@ -91,15 +91,16 @@ O Frappe/ERPNext possui o DocType nativo **`Webhook`**. Como o Mattermost possui
 
 Permite que qualquer colaborador consulte o saldo de um produto diretamente do chat do Mattermost sem precisar abrir o ERPNext.
 
-#### Fluxo de Funcionamento:
-1.  O usuário digita no Mattermost: `/estoque PROD-001`.
-2.  O Mattermost faz uma requisição HTTP `POST` para a API customizada do ERPNext.
-3.  O ERPNext consulta o saldo no banco MariaDB e responde com um cartão formatado no chat:
+#### Fluxo de Funcionamento Amigável (Nome Natural do Produto):
+1.  O colaborador digita no chat do Mattermost o nome real do produto: `/estoque Cadeira de Rodas` (ou `/estoque Cesta Básica`).
+2.  O Mattermost realiza a requisição HTTP `POST` para a API de busca do ERPNext.
+3.  O ERPNext localiza o produto pelo nome comercial e responde com um cartão explicativo formatado diretamente no chat:
 
-> 📊 **Consulta de Estoque - CDC**
-> * **Item**: Cadeira de Rodas Dobrável (`PROD-001`)
-> * **Saldo Atual**: 15 unidades
-> * **Armazém Principal**: Armazém Central - CDC
+> 📊 **Consulta de Estoque em Tempo Real - CDC**
+> * **Item**: Cadeira de Rodas Dobrável de Alumínio
+> * **Saldo Atual**: 15 unidades disponíveis
+> * **Armazém**: Armazém Central de Insumos - CDC
+> * **Última Entrada**: 24/07/2026 às 14:00
 
 ---
 
