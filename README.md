@@ -1,138 +1,92 @@
-# NextERP - CDC Migração
+# NextERP - CDC (Gestão de Estoque & Infraestrutura)
 
 ![Status: Planejamento](https://img.shields.io/badge/Status-Planejamento-orange)
 ![Ambiente: Laboratório / GCP / Hostinger](https://img.shields.io/badge/Ambiente-Lab%20%2F%20GCP%20%2F%20Hostinger-blue)
-![Tecnologias: Docker / ERPNext / Mattermost](https://img.shields.io/badge/Tecnologias-Docker%20%2F%20ERPNext%20%2F%20Mattermost-green)
+![Tecnologias: Docker / ERPNext / Mattermost / Rclone](https://img.shields.io/badge/Tecnologias-Docker%20%2F%20ERPNext%20%2F%20Mattermost%20%2F%20Rclone-green)
 
-Este repositório gerencia o planejamento, a homologação e a execução segura da migração do ambiente ERPNext legado hospedado na GCP para uma VPS na Hostinger, utilizando contêineres Docker Compose e isolamento de redes.
+Este repositório gerencia o planejamento, a homologação local e a execução segura da migração do sistema **NextERP** (estoque) da Google Cloud (GCP) para uma VPS na Hostinger, seguindo as diretrizes de infraestrutura e governança padrão da **CDC (`dxcdc`)**.
 
 ---
 
 ## 📐 Arquitetura do Sistema
 
-O diagrama abaixo ilustra o fluxo de dados dos usuários e o fluxo operacional de backups automatizados com integração de alertas para o Mattermost:
+O diagrama abaixo ilustra o fluxo de acesso dos usuários, o isolamento de microsserviços conteinerizados e o pipeline de sincronização do Extrator de Dados com parceiros externos:
 
 ```mermaid
 flowchart TD
-    U[Usuário] -->|Porta 8080| N[Nginx Proxy]
-    N -->|Rede frontend-net| A[ERPNext App]
-    A -->|Rede backend-net| D[(MariaDB Database)]
-    A -->|Rede backend-net| R[Redis Cache/Queue]
-    E[Extrator de Dados] -->|Rede extractor-net| N
-    
-    subgraph Backups
-        B[Script de Backup] -->|1. Run dump| D
-        B -->|2. Encrypt GPG| V[Backup Storage Local/S3]
-        B -->|3. Send Alert| M[Mattermost Webhook]
+    subgraph Acesso Externo
+        U[Usuário / Web Browser] -->|HTTPS porta 443| C[Proxy Caddy / Nginx]
+    end
+
+    subgraph Infraestrutura Docker Compose
+        C -->|Proxy Reverso 8080| F[ERPNext Frontend]
+        F -->|Rede Privada frappe_network| B[ERPNext Backend Gunicorn]
+        B -->|Rede Privada| DB[(MariaDB 10.6 Database)]
+        B -->|Rede Privada| R[Redis Cache / Queue]
+        
+        EXT[Extrator de Dados Python] -->|API REST HTTPS| F
+    end
+
+    subgraph Integração Externa & Backups
+        EXT -->|Consumo HTTPS 443| ONGSYS[API ONGSYS Externa]
+        B -->|Dump SQL & Assets| BKP[Rotina de Backup / Rclone]
+        BKP -->|Upload Criptografado GPG| GD[Google Drive CDC]
+        BKP -->|Alerta cURL| MM[Mattermost Webhook]
     end
 ```
 
 ---
 
-## 📂 Estrutura de Diretórios
+## 📂 Estrutura de Documentação Técnica (`docs/`)
 
-```text
-NextERP/
-├── docs/                             # Documentação técnica padronizada do projeto
-│   ├── diretrizes_documentacao.md    # Governança e regras de evolução de docs
-│   ├── estrategia_execucao.md        # Branches, ambientes e processos de deploy
-│   ├── migration_guide.md            # Diagnóstico da VM GCP, downloads e SSH
-│   ├── ajuda_infra.md                # Docker Compose, redes e portas
-│   ├── postmortem.md                 # Template blameless de análise de falhas
-│   ├── troubleshooting.md            # Manual de resolução de problemas recorrentes
-│   ├── politica_backup.md            # Script de backup, criptografia e restore
-│   ├── descoberta_gcp.md             # Histórico de credenciais e mapeamento da produção antiga
-│   └── prompt_ia.md                  # Hub de IA e receitas operacionais
-├── .env.example                      # Modelo público das variáveis de ambiente
-└── .gitignore                        # Regras de exclusão do Git (segredos e backups)
-```
+Toda a documentação do projeto está padronizada e disponível no diretório [`docs/`](./docs/):
 
----
-
-## 📋 Requisitos Mínimos
-
-| Componente | Versão mínima | Finalidade |
-| :--- | :---: | :--- |
-| Docker Engine | 20.10+ | Runtime de contêineres |
-| Docker Compose | 2.0+ | Orquestração dos microsserviços |
-| GnuPG (GPG) | 2.2+ | Criptografia dos pacotes de backup |
-| OpenSSH | 8.0+ | Conexões SSH criptografadas e seguras |
+| Documento | Descrição e Finalidade |
+| :--- | :--- |
+| 📘 [diretrizes_documentacao.md](./docs/diretrizes_documentacao.md) | Governança de documentação, regras de formatação e padrões de escrita. |
+| 🔀 [estrategia_execucao.md](./docs/estrategia_execucao.md) | Fluxos de trabalho Gitflow, gestão de ambientes e procedimentos de rollback. |
+| 🚀 [migration_guide.md](./docs/migration_guide.md) | Guia completo de migração da GCP para a Hostinger VPS e diagnósticos SSH. |
+| 🛠️ [ajuda_infra.md](./docs/ajuda_infra.md) | Arquitetura física e virtual, mapa de contêineres e isolamento de redes Docker. |
+| 🩺 [troubleshooting.md](./docs/troubleshooting.md) | Diagnóstico e resolução rápida de problemas recorrentes de ambiente. |
+| 🔐 [politica_backup.md](./docs/politica_backup.md) | Política de backup (3-2-1), ciclo de retenção, criptografia GPG e procedimentos de restore. |
+| 📋 [issues_planejamento.md](./docs/issues_planejamento.md) | Inventário com o backlog oficial de tarefas e checklists do projeto. |
+| ⚙️ [guia_automacao_github.md](./docs/guia_automacao_github.md) | Guia detalhado dos fluxos de automação de CI/CD do GitHub Actions. |
+| 🚨 [postmortem.md](./docs/postmortem.md) | Modelo *blameless* (sem culpabilização) para análise pós-incidente. |
+| 🤖 [prompt_ia.md](./docs/prompt_ia.md) | Diretrizes e regras de contexto para assistentes de IA e desenvolvimento em dupla. |
+| 📊 [relatorio_executivo_migracao.md](./docs/relatorio_executivo_migracao.md) | Relatório executivo consolidado com a Matriz das 4 Abordagens Visuais. |
 
 ---
 
-## ⚙️ Configuração do Ambiente
+## ⚙️ Configuração e Instalação (Laboratório Local)
 
-1. Crie o arquivo de variáveis local na raiz do repositório:
-   ```bash
-   cp .env.example .env
-   ```
-2. Abra o arquivo `.env` e preencha as variáveis de banco de dados, e-mail e Mattermost com os dados reais do ambiente.
+### 1. Requisitos Mínimos
+- **Docker Engine**: `v20.10+`
+- **Docker Compose**: `v2.0+`
+- **GnuPG (GPG)**: `v2.2+`
 
-> [!WARNING]
-> **Segurança de credenciais**: O arquivo `.env` contém segredos críticos e webhooks reais do Mattermost. Ele nunca deve ser enviado ao repositório Git ou exposto em logs públicos.
-
----
-
-## 🚀 Inicialização (Laboratório Local)
-
-Para subir o ambiente de testes na sua máquina openSUSE, execute a sequência de passos abaixo:
-
-1. **Configurar as Variáveis**: Execute o passo de cópia e edição do `.env` acima.
-2. **Subir os Contêineres**:
-   ```bash
-   docker compose up -d
-   ```
-3. **Restaurar Banco de Dados**: Copie o backup do MariaDB e restaure conforme descrito em [politica_backup.md](./docs/politica_backup.md).
-4. **Executar Migrações e Atualizar Cache**:
-   ```bash
-   docker exec -it erpnext-app bench --site site1.local migrate
-   docker exec -it erpnext-app bench --site site1.local clear-cache
-   ```
-5. **Criar Usuário Administrador (Opcional)**:
-   ```bash
-   docker exec -it erpnext-app bench --site site1.local set-admin-password <SUA_SENHA>
-   ```
-6. **Verificar Conexão e Logs**: Cheque o acesso na porta `8080` do seu navegador e acompanhe os logs operacionais.
-
----
-
-## 🔧 Cheat Sheet (Comandos Rápidos)
-
+### 2. Configuração de Variáveis de Ambiente
+Crie o arquivo `.env` local copiando o modelo padronizado:
 ```bash
-# Iniciar todos os contêineres do projeto
-docker compose up -d
-
-# Parar serviços (mantendo dados persistentes)
-docker compose down
-
-# Forçar reconstrução da imagem do Extrator de Dados
-docker compose up -d --build data-extractor
-
-# Acompanhar logs de erros dos contêineres
-docker compose logs -f --tail=50
-
-# Executar backup manual criptografado com GPG
-sudo bash /opt/backup_scripts/backup_erpnext.sh
-
-# Testar o webhook de alertas do Mattermost
-curl -X POST -H "Content-Type: application/json" -d '{"text":"Teste de conexão do Mattermost."}' "$MATTERMOST_WEBHOOK_URL"
+cp .env.example .env
 ```
+Edite o arquivo `.env` ajustando as senhas de banco de dados e URLs de webhook.
+
+### 3. Inicialização dos Contêineres
+Suba o ambiente conteinerizado no modo desacoplado:
+```bash
+docker compose up -d
+```
+Acesse o ERPNext localmente no seu navegador em `http://localhost:8085`.
 
 ---
 
-## 📂 Documentação Complementar
+## 🔀 Fluxos de CI/CD com GitHub Actions
 
-* [Diretrizes de Documentação](./docs/diretrizes_documentacao.md) — Regras de criação, manutenção, revisão e evolução da documentação.
-* [Estratégia de Execução](./docs/estrategia_execucao.md) — Desenvolvimento, branches, ambientes, releases e implantação.
-* [Guia de Migração](./docs/migration_guide.md) — Acesso seguro, diagnóstico, exportação e migração de ambientes.
-* [Ajuda de Infraestrutura](./docs/ajuda_infra.md) — Containers, redes, portas, DNS, variáveis e Mattermost.
-* [Postmortem](./docs/postmortem.md) — Modelo sem culpabilização para análise de incidentes.
-* [Troubleshooting](./docs/troubleshooting.md) — Diagnóstico e solução de problemas recorrentes.
-* [Política de Backup](./docs/politica_backup.md) — Backup, criptografia, retenção, restauração e alertas no Mattermost.
-* [Registro de Descoberta GCP](./docs/descoberta_gcp.md) — Histórico físico de IPs, portas, credenciais e localização de scripts da VM antiga.
-* [Contexto para IA](./docs/prompt_ia.md) — Contexto arquitetural e prompts operacionais para assistentes de IA.
+O repositório conta com duas automações configuradas no diretório `.github/workflows/`:
+1. **`automatizar_issues.yml`**: Criação e sincronização automática de GitHub Issues baseadas no backlog.
+2. **`auto_merge_pr.yml`**: Aprovação e fusão automática de Pull Requests validados.
 
 ---
 
-> [!IMPORTANT]
-> **Sobre esta organização**: A documentação é parte integrante do produto técnico deste projeto. Mantê-la sempre atualizada e evoluí-la continuamente junto com o código, regras de infraestrutura e alertas do Mattermost é o dever de toda a equipe para garantir a estabilidade operacional e governança do sistema.
+## 📄 Licença e Propriedade
+Este software e seus artefatos de infraestrutura são de propriedade exclusiva do **Centro de Defesa da Cidadania (CDC)**.

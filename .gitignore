@@ -3,19 +3,25 @@
 .env.*
 !.env.example
 
-# Backups e Dumps locais
+# Diretórios de Dados e Dados Locais
+data/
 backups/
 dumps/
 secrets/
 credentials/
 /tmp/
 
-# Criptografia e chaves
+# Criptografia, chaves e senhas
 *.pem
 *.key
 *.p12
 *.pfx
+*.gpg
 .gpg_passphrase
+
+# Logs de Execução
+*.log
+cron_log.txt
 
 # Dependências e Caches locais (se houver)
 node_modules/
