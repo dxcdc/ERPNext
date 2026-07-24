@@ -74,3 +74,13 @@ Este documento consolida a lista oficial de **Issues e Histórias de Usuário** 
   * [ ] Configurar rotina mensal automatizada para clonar o banco de produção para a base de treinamento.
   * [ ] Aplicar tema customizado no painel para diferenciar o ambiente de testes do oficial.
 * **Labels**: `feature`, `multi-tenant`, `sandbox`
+
+---
+
+### Issue #07: Criação do Módulo de Treinamento e Base de Dados para Capacitação
+* **Descrição**: Desenvolver um módulo de testes e capacitação interativa no ERPNext contendo uma massa de dados fictícios para treinamento prático de operadores e gestores da CDC.
+* **Critérios de Aceite**:
+  * [ ] Gerar massa de dados de teste (produtos, fornecedores e requisições fictícias).
+  * [ ] Configurar guia interativo de treinamento no painel principal do ERPNext.
+  * [ ] Criar manual de usuário simplificado para a equipe de estoque.
+* **Labels**: `feature`, `training`, `sandbox`

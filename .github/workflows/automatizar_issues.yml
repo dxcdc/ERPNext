@@ -180,3 +180,24 @@ jobs:
             "[FEAT] Configuração do Ambiente Multi-Tenant de Treinamento (Sandbox)" \
             "$BODY6" \
             "feature,multi-tenant,sandbox"
+
+          # Issue 7: Módulo de Treinamento e Base de Dados
+          BODY7=$(cat << 'EOF'
+          ### 📌 Descrição Técnica
+          Desenvolver um módulo de testes e capacitação interativa no ERPNext contendo uma massa de dados fictícios para treinamento prático de operadores e gestores da CDC.
+
+          ### 📋 Critérios de Aceite
+          - [ ] Gerar massa de dados de teste (produtos, fornecedores e requisições fictícias).
+          - [ ] Configurar guia interativo de treinamento no painel principal do ERPNext.
+          - [ ] Criar manual de usuário simplificado para a equipe de estoque.
+
+          ### 🔗 Documentos de Referência
+          - [docs/issues_planejamento.md](https://github.com/${{ github.repository }}/blob/main/docs/issues_planejamento.md)
+          EOF
+          )
+          create_issue_if_not_exists \
+            "Criação do Módulo de Treinamento" \
+            "[FEAT] Criação do Módulo de Treinamento e Base de Dados para Capacitação" \
+            "$BODY7" \
+            "feature,training,sandbox"
+

@@ -75,3 +75,16 @@ Este documento estabelece o **inventário oficial de planejamento e backlog de t
   - [ ] Executar o comando `bench new-site treinamento.cdc.org.br` na VPS.
   - [ ] Configurar rotina mensal automatizada para clonar o banco de produção para a base de treinamento.
   - [ ] Aplicar tema customizado no painel para diferenciar o ambiente de testes do oficial.
+
+---
+
+### 7. [FEAT] Criação do Módulo de Treinamento e Base de Dados para Capacitação
+- **Categoria**: Capacitação & Treinamento
+- **Rótulos**: `feature`, `training`, `sandbox`
+- **Prioridade**: 🟡 Média
+- **Descrição**: Desenvolver um módulo de testes e capacitação interativa no ERPNext contendo uma massa de dados fictícios para treinamento prático de operadores e gestores da CDC.
+- **Checklist de Aceite**:
+  - [ ] Gerar massa de dados de teste (produtos, fornecedores e requisições fictícias).
+  - [ ] Configurar guia interativo de treinamento no painel principal do ERPNext.
+  - [ ] Criar manual de usuário simplificado para a equipe de estoque.
+
