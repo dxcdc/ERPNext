@@ -43,6 +43,22 @@ Cada Issue criada contém:
 - **Checklists Interativos**: Caixas de verificação `- [ ]` para acompanhamento do progresso.
 - **Links para Documentação**: Links diretos apontando para arquivos em `docs/`.
 
+### Auto-provisionamento Idempotente de Rótulos (Labels)
+Para prevenir falhas do tipo `could not add label: 'x' not found` em repositórios novos, o workflow executa a função `ensure_labels_exist()` antes da criação de cada Issue:
+```bash
+ensure_labels_exist() {
+  local labels="$1"
+  IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+  for label in "${LABEL_ARRAY[@]}"; do
+    label=$(echo "$label" | xargs)
+    if [ -n "$label" ]; then
+      gh label create "$label" --force --color "0E8A16" --description "Label corporativa CDC" 2>/dev/null || true
+    fi
+  done
+}
+```
+O uso do parâmetro `--force` garante a criação idempotente do rótulo sem interromper o workflow caso ele já exista.
+
 ---
 
 ## 🔀 2. Workflow: Auto-Merge de Pull Requests (`auto_merge_pr.yml`)

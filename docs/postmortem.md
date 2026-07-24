@@ -87,3 +87,45 @@ Copie o template abaixo para documentar incidentes futuros no repositório.
 ### 14. Evidências (Sanitizadas)
 *Cole logs de erro, gráficos de monitoramento ou commits relacionados. Lembre-se de remover senhas ou tokens das evidências antes de registrar.*
 ```
+
+---
+
+## 📋 Caso Prático Registrado: [INC-2026-01] Falha na Automação de Issues do GitHub Actions (Label 'docker' Not Found)
+
+**Data do Incidente**: 2026-07-24  
+**Responsáveis pela Análise**: Equipe de Governança e DevOps CDC  
+**Severidade**: Média (Falha no pipeline de CI/CD)  
+**Ambiente**: GitHub Actions Runner (Workflow `.github/workflows/automatizar_issues.yml`)  
+**Duração da Indisponibilidade**: 10 minutos  
+
+---
+
+### 1. Resumo Executivo
+Ao executar o workflow automatizado de publicação de tarefas no GitHub (`automatizar_issues.yml`), o Job falhou com Código de Erro 1 ao tentar atribuir rótulos (*labels*) customizados às novas Issues. A falha foi corrigida implementando uma função de verificação e criação dinâmica de rótulos (`ensure_labels_exist`) via GitHub CLI (`gh label create --force`).
+
+### 2. Sintomas e Logs do Erro
+Log emitido pelo GitHub Actions Runner:
+```text
+Run set -e
+--------------------------------------------------
+Verificando se a issue '[ARCH] Conteinerização Completa e Isolamento de Recursos do Extrator' já existe...
+=> Criando nova Issue no GitHub: '[ARCH] Conteinerização Completa e Isolamento de Recursos do Extrator'...
+could not add label: 'docker' not found
+Error: Process completed with exit code 1.
+```
+
+### 3. Causa Raiz (Metodologia dos 5 Porquês)
+1. **Por que o workflow falhou?** Porque o comando `gh issue create --label "docker"` retornou um erro fatal de execução.
+2. **Por que retornou erro fatal?** Porque o rótulo `docker` não foi encontrado no metadado do repositório GitHub.
+3. **Por que a label não existia?** Porque o repositório possuía apenas os rótulos padrão do GitHub (`bug`, `enhancement`, `documentation`), sem os rótulos customizados do projeto CDC (`docker`, `architecture`, `rclone`, `mattermost`, etc.).
+4. **Por que o script assumiu que a label existia?** Porque o script dependia do cadastro prévio manual de rótulos no painel web do GitHub.
+5. **Por que dependia de ação manual?** Ausência de tratamento de idempotência no script para criar as dependências de rótulos antes da criação das Issues.
+
+### 4. Ações Corretivas Aplicadas
+* **Implementação de Função Resiliente**: Criada a função `ensure_labels_exist()` que percorre a lista de rótulos da Issue e executa `gh label create "$label" --force --color "0E8A16"` antes de chamar `gh issue create`.
+* **Idempotência**: Com o parâmetro `--force`, caso a label já exista, ela é ignorada/atualizada sem lançar erros; caso não exista, é criada em tempo de execução.
+
+### 5. Lições Aprendidas
+1. **Idempotência em CI/CD**: Automações que interagem com APIs externas (como a API do GitHub) nunca devem assumir que metadados prévios (como rótulos, Webhooks ou pastas) existem.
+2. **Resiliência de Dependências**: Todo workflow que depende de elementos de interface deve possuir auto-provisionamento de suas dependências.
+

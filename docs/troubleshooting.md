@@ -174,3 +174,10 @@ Esta seção documenta problemas reais ocorridos durante a homologação e teste
 *   **Causa**: O container de subida inicial (`create-site`) havia criado o site `frontend` com uma senha de banco de dados gerada aleatoriamente. Quando copiamos o arquivo de configuração de produção `site_config.json` (que contém a senha de produção antiga) e restauramos os dados, o usuário interno do MariaDB permaneceu associado à senha aleatória criada no primeiro boot, resultando em desalinhamento de credenciais.
 *   **Solução Aplicada**: Acessado o container de banco MariaDB (`nexterp-db-1`) e executada a alteração manual da senha do usuário do site para coincidir com o `site_config.json`: `ALTER USER '_5e5899d8398b5f7b'@'%' IDENTIFIED BY '4aeed6qdlEJYeyIN'; FLUSH PRIVILEGES;`.
 *   **Lição Aprendida**: Em restaurações onde os contêineres realizam rotinas automáticas de criação de bancos antes de aplicar os dumps, certifique-se de forçar a sincronia da senha do banco de dados no MariaDB com o valor configurado no arquivo `site_config.json`.
+
+### Ocorrência 04: Falha ao Criar Issues no GitHub Actions (`could not add label: 'x' not found`)
+*   **Sintoma**: O workflow `.github/workflows/automatizar_issues.yml` falhava com `Error: Process completed with exit code 1` exibindo a mensagem `could not add label: 'docker' not found`.
+*   **Causa**: O comando GitHub CLI `gh issue create --label "..."` exige que os rótulos especificados já existam nos metadados do repositório GitHub. Em repositórios novos, rótulos customizados (`docker`, `architecture`, `rclone`, `mattermost`, etc.) não vêm pré-cadastrados.
+*   **Solução Aplicada**: Implementada a função `ensure_labels_exist` utilizando `gh label create "$label" --force --color "0E8A16"` antes de chamar `gh issue create`. O uso de `--force` torna a criação idempotente (cria o rótulo se ausente, ou o mantém inalterado se existente).
+*   **Lição Aprendida**: Scripts de automação de CI/CD não devem assumir a presença de metadados externos. Sempre providencie o auto-provisionamento idempotente das dependências antes de invocar comandos de atribuição.
+
