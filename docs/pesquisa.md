@@ -1,145 +1,123 @@
-# Pesquisa de Inovações, Melhores Práticas e Integrações: NextERP (CDC)
+# Pesquisa Expandida de Inovações, Melhores Práticas e Integrações: NextERP (CDC)
+### Panorâmica de 3 Anos do Ecossistema Frappe/ERPNext (2024 – 2026)
 
-Este documento consolida uma pesquisa aprofundada baseada em postagens no LinkedIn, fóruns da comunidade oficial da Frappe (`discuss.frappe.io`), casos de sucesso da indústria e benchmarks de mercado. O objetivo é mapear metodologias modernas e customizações viáveis para transformar o NextERP da CDC em uma ferramenta ainda mais poderosa, intuitiva e automatizada.
-
----
-
-## 📌 Sumário Executivo
-
-1. [Inovações da Comunidade & Melhores Práticas (2026)](#1-inovações-da-comunidade--melhores-práticas-2026)
-   * 1.1 [Interface & UX Modernizada (Frappe UI / Vue 3 / Tailwind)](#11-interface--ux-modernizada-frappe-ui--vue-3--tailwind)
-   * 1.2 [Automação com IA Generativa & Agentes (Agentic Workflows)](#12-automação-com-ia-generativa--agentes-agentic-workflows)
-   * 1.3 [Acessibilidade e Personalização de Painéis (UI/UX)](#13-acessibilidade-e-personalização-de-painéis-uiux)
-   * 1.4 [Desempenho e Caching de Grande Escala (Frappe Caffeine / Redis)](#14-desempenho-e-caching-de-grande-escala-frappe-caffeine--redis)
-2. [Estudo Técnico: Integração Nativa com o Chat Mattermost](#2-estudo-técnico-integração-nativa-com-o-chat-mattermost)
-   * 2.1 [Abordagem 1: Webhooks Nativos de Saída (Sem Código)](#21-abordagem-1-webhooks-nativos-de-saída-sem-código)
-   * 2.2 [Abordagem 2: ChatOps com Slash Commands (`/estoque`)](#22-abordagem-2-chatops-com-slash-commands-estoque)
-   * 2.3 [Abordagem 3: Notificação Ativa de Erros de Sistema (`#ti-alertas`)](#23-abordagem-3-notificação-ativa-de-erros-de-sistema-ti-alertas)
-3. [Matriz de Viabilidade e Recomendações para a CDC](#3-matriz-de-viabilidade-e-recomendações-para-a-cdc)
+Este documento consolida uma investigação ampla sobre a evolução tecnológica, projetos comunitários, postagens no LinkedIn, discussões no fórum oficial (`discuss.frappe.io`) e cases da indústria cobrindo os últimos **3 anos (2024, 2025 e 2026)**.
 
 ---
 
-## 1. Inovações da Comunidade & Melhores Práticas (2026)
+## 📌 Sumário Geral
 
-### 1.1 Interface & UX Modernizada (Frappe UI / Vue 3 / Tailwind)
-A comunidade internacional de desenvolvedores do Frappe/ERPNext migrou massivamente para o uso do **Frappe UI** (biblioteca baseada em **Vue.js 3** e **TailwindCSS**).
-*   **Aplicações Desacopladas**: Permite construir telas de alta performance (como aplicativos PWA para leitores de código de barras em tablets de estoque) sem a sobrecarga do painel administrativo tradicional.
-*   **Experiência de Usuário (SaaS)**: Adoção de layouts minimalistas semelhantes a ferramentas como Notion e Linear, reduzindo o tempo de treinamento de novos colaboradores.
-
-### 1.2 Automação com IA Generativa & Agentes (Agentic Workflows)
-Em 2026, a integração de IAs ao ERPNext tornou-se um padrão da comunidade:
-*   **Leitura Automática de Documentos (OCR + IA)**: Leitura de notas fiscais, faturas e comprovantes de entrega em PDF/imagem, preenchendo automaticamente o formulário de requisição no ERPNext.
-*   **Classificação Inteligente de Produtos**: Agentes de IA que leem a descrição de um item novo e sugerem automaticamente o grupo de produtos (*Item Group*) e a unidade de medida adequada.
-*   **Protocolo MCP (Model Context Protocol)**: Permite que assistentes inteligentes realizem consultas de saldo de estoque sob demanda diretamente por voz ou chat.
-
-### 1.3 Acessibilidade e Personalização de Painéis (UI/UX)
-Casos de sucesso divulgados no LinkedIn destacam a importância de adaptabilidade para usuários finais:
-*   **Controles Dinâmicos de Fonte (`A+` / `A-`)**: Inserção de atalhos de acessibilidade no topo do sistema que armazenam a preferência de tamanho de texto no navegador (`localStorage`), essencial para operadores de armazém.
-*   **Alternância Rápida de Tema (Dark / Light)**: Alternância de 1 clique no cabeçalho do sistema para adaptar o uso em ambientes muito claros ou escuros.
-
-### 1.4 Desempenho e Caching de Grande Escala (Frappe Caffeine / Redis)
-*   **Processamento em Lote (Bulk Update)**: Substituição de iterações individuais por atualizações agrupadas, reduzindo scripts de integração pesados de minutos para segundos.
-*   **Camada de Caching em Redis**: Armazenamento em memória de consultas frequentes (como saldos de estoque e lista de fornecedores), reduzindo o uso de CPU do banco de dados em até 70%.
+1. [Linha do Tempo e Evolução do Ecossistema (2024 - 2026)](#1-linha-do-tempo-e-evolução-do-ecossistema-2024---2026)
+   * 1.1 [2024: Frappe Framework v15 & Desacoplamento de Módulos](#11-2024-frappe-framework-v15--desacoplamento-de-módulos)
+   * 1.2 [2025: Automação Componível, Frappe UI (Vue 3) & BI Integrado](#12-2025-automação-componível-frappe-ui-vue-3--bi-integrado)
+   * 1.3 [2026: ERPNext v16, Era Agêntica (Agentic AI) & Frappe Caffeine](#13-2026-erpnext-v16-era-agêntica-agentic-ai--frappe-caffeine)
+2. [Grandes Pilares Tecnológicos & Inovações Práticas](#2-grandes-pilares-tecnológicos--inovações-práticas)
+   * 2.1 [Frappe UI (Vue 3 + TailwindCSS) & Aplicações PWA para Estoque](#21-frappe-ui-vue-3--tailwindcss--aplicações-pwa-para-estoque)
+   * 2.2 [Integração Nativa com o Chat Mattermost (ChatOps & Alertas)](#22-integração-nativa-com-o-chat-mattermost-chatops--alertas)
+   * 2.3 [Automação com IA Generativa, OCR e Leitura de Documentos](#23-automação-com-ia-generativa-ocr-e-leitura-de-documentos)
+   * 2.4 [Central de Backups Offsite (Rclone + Criptografia GPG 3-2-1)](#24-central-de-backups-offsite-rclone--criptografia-gpg-3-2-1)
+   * 2.5 [Acessibilidade, Usabilidade e Personalização Visual (UI/UX)](#25-acessibilidade-usabilidade-e-personalização-visual-uiux)
+   * 2.6 [Módulo de Treinamento, Sandbox e Capacitação de Colaboradores](#26-módulo-de-treinamento-sandbox-e-capacitação-de-colaboradores)
+3. [Como Aplicar o Frappe UI (Vue 3 + Tailwind) Agora Mesmo na CDC](#3-como-aplicar-o-frappe-ui-vue-3--tailwind-agora-mesmo-na-cdc)
+4. [Matriz de Viabilidade e Roadmap de Implementação para a CDC](#4-matriz-de-viabilidade-e-roadmap-de-implementação-para-a-cdc)
 
 ---
 
-## 2. Estudo Técnico: Integração Nativa com o Chat Mattermost
+## 1. Linha do Tempo e Evolução do Ecossistema (2024 - 2026)
 
-O **Mattermost** é a ferramenta de comunicação oficial da CDC. A integração entre o ERPNext e o Mattermost (ChatOps) permite transformar o chat da empresa em uma central de monitoramento e consultas operacionais em tempo real.
+### 1.1 2024: Frappe Framework v15 & Desacoplamento de Módulos
+*   **Frappe v15 Release**: Introdução do suporte nativo a temas (Dark/Light), novo construtor visual de formulários (*Form Builder*) e refatoração da arquitetura de permissões.
+*   **Desacoplamento do Core**: Abertura da estratégia de separar recursos legados do núcleo do ERPNext em aplicativos independentes (ex: *Frappe HR* para RH, *Frappe LMS* para treinamentos e *Frappe Health*).
+*   **Melhoria de Performance SQL**: Otimização de consultas em grandes volumes de lançamentos e eliminação de *deadlocks* em bancos MariaDB 10.6.
 
-```mermaid
-flowchart LR
-    subgraph ERPNext CDC
-        E[Evento de Estoque / Erro] --> W[Webhook Nativo]
-        API[Custom API Endpoint] <-- REST JSON --> S[Slash Command Handler]
-    end
+### 1.2 2025: Automação Componível, Frappe UI (Vue 3) & BI Integrado
+*   **Consolidação do Frappe UI (Vue 3 + Tailwind)**: Formato oficial recomendado para a construção de portais públicos, aplicativos móveis PWA e painéis operacionais sem depender do Desk tradicional.
+*   **Frappe Insights (Business Intelligence)**: Ferramenta nativa de BI e análise de dados integrada diretamente ao banco do ERPNext, permitindo relatórios em tempo real sem exportações manuais.
+*   **Frappe Builder & Drive**: Lançamento do construtor de sites sem código (*Frappe Builder*) e da nuvem de arquivos corporativa (*Frappe Drive*).
 
-    subgraph Mattermost Chat
-        W -->|Notificação Push| C1[#estoque-alertas]
-        W -->|Notificação de Erro| C2[#ti-alertas]
-        U[Usuário no Chat] -->|/estoque PROD-123| S
-    end
+### 1.3 2026: ERPNext v16, Era Agêntica (Agentic AI) & Frappe Caffeine
+*   **ERPNext v16 Release**: Foco em altíssimo desempenho e escalabilidade empresarial.
+*   **Camada "Frappe Caffeine"**: Nova camada de cache inteligente em Redis que reduz o consumo de CPU em consultas repetitivas de saldo de estoque em até 70%.
+*   **UUIDs Curtos**: Transição para identificadores primários otimizados, acelerando a indexação de tabelas com milhões de registros.
+*   **Protocolo MCP (Model Context Protocol)**: Integração de agentes de Inteligência Artificial para planejamento, execução de tarefas e auditoria autônoma de dados.
+
+---
+
+## 2. Grandes Pilares Tecnológicos & Inovações Práticas
+
+### 2.1 Frappe UI (Vue 3 + TailwindCSS) & Aplicações PWA para Estoque
+A principal dor de operadores de almoxarifado no ERPNext tradicional é a densidade de informações em telas de computador. A comunidade superou isso criando **PWAs (Progressive Web Apps)** leves:
+*   **Instalação em 1 Clique**: Funciona como um aplicativo de celular ou tablet em campo.
+*   **Interface Focada em Tarefa**: Exibe apenas os botões de bipar código de barras, conferir quantidade e salvar entrada.
+
+### 2.2 Integração Nativa com o Chat Mattermost (ChatOps & Alertas)
+Permite transformar o Mattermost da CDC no hub central de comunicação e alertas operacionais:
+*   **Webhooks de Movimentação**: Envio de alertas formatados no canal `#estoque` no momento em que uma requisição é aprovada.
+*   **Consultas por Nome Natural**: O colaborador digita no chat `/estoque Cadeira de Rodas` ou `/estoque Cesta Básica`, e o sistema responde instantaneamente com o saldo do armazém.
+*   **Notificação de Erros (`#ti-alertas`)**: Alertas automáticos para a equipe de TI em caso de falha de banco ou backup.
+
+### 2.3 Automação com IA Generativa, OCR e Leitura de Documentos
+*   **OCR + Leitura de Notas Fiscais**: Leitura automática de PDFs enviadas por fornecedores, criando a entrada de estoque em rascunho sem digitação manual.
+*   **Classificação Inteligente**: Sugestão automática do Grupo de Produtos (*Item Group*) e Unidade de Medida com base no nome do produto.
+
+### 2.4 Central de Backups Offsite (Rclone + Criptografia GPG 3-2-1)
+*   Substituição de scripts manuais pelo utilitário profissional **Rclone**.
+*   Criptografia assimétrica GPG em cada arquivo `.sql.gz` e `.tar` antes do upload para o Google Drive institucional da CDC.
+
+### 2.5 Acessibilidade, Usabilidade e Personalização Visual (UI/UX)
+*   **Controles de Fonte (`A+` / `A-` / `100%`)**: Botões de acessibilidade na barra superior com salvamento no navegador (`localStorage`).
+*   **Alternância Rápida de Tema Escuro / Claro (`☀️/🌙`)**: Permite ajustar o tema visual conforme a iluminação do ambiente.
+
+### 2.6 Módulo de Treinamento, Sandbox e Capacitação de Colaboradores
+*   **Ambiente Sandbox Isolado**: Permite que novos funcionários e voluntários realizem testes práticos sem risco de afetar o banco oficial de produção.
+*   **Guias de Integração no ERPNext**: Manuais simplificados incorporados diretamente na interface.
+
+---
+
+## 3. Como Aplicar o Frappe UI (Vue 3 + Tailwind) Agora Mesmo na CDC
+
+Para implementar uma interface moderna baseada em **Frappe UI (Vue 3 + Tailwind)** no NextERP da CDC, o procedimento técnico padronizado é:
+
+### Passo 1: Inicialização do App Customizado com a CLI do Frappe UI
+No ambiente de desenvolvimento do contêiner Docker, executa-se o comando da comunidade:
+```bash
+npx frappe-ui-cli create app cdc_mobile
+```
+Isso gera a estrutura completa de um aplicativo **Vue 3 + TailwindCSS + Vite** configurado para se conectar ao backend do ERPNext.
+
+### Passo 2: Conexão Automática via REST API Nativa (`createResource`)
+O Frappe UI fornece o composable nativo `createResource`, eliminando a necessidade de escrever rotas de backend:
+```javascript
+import { createResource } from 'frappe-ui'
+
+const estoque = createResource({
+    url: 'frappe.client.get_list',
+    params: {
+        doctype: 'Item',
+        fields: ['item_code', 'item_name', 'stock_uom']
+    },
+    auto: true
+})
 ```
 
----
-
-### 2.1 Abordagem 1: Webhooks Nativos de Saída (Sem Código)
-
-O Frappe/ERPNext possui o DocType nativo **`Webhook`**. Como o Mattermost possui suporte total a Webhooks compatíveis com JSON, é possível configurar notificações automáticas sem escrever nenhuma linha de código em Python.
-
-#### Exemplo Prático: Notificação de Nova Requisição de Estoque no canal `#estoque`
-1.  **No Mattermost**:
-    *   Acesse **Menu > Integrações > Incoming Webhooks > Add Incoming Webhook**.
-    *   Selecione o canal `#estoque` e copie a URL gerada (ex: `https://mattermost.cdc.org.br/hooks/xyz123`).
-2.  **No ERPNext**:
-    *   Abra a tela **Webhook** e crie um novo registro.
-    *   **DocType alvo**: `Stock Entry` (ou `Material Request`).
-    *   **Evento**: `on_submit` (Ao aprovar o documento).
-    *   **Request URL**: Cole a URL do Webhook do Mattermost.
-    *   **Request Method**: `POST`.
-    *   **Data Structure**: `JSON`.
-    *   **Payload JSON**:
-        ```json
-        {
-          "text": "📦 **Nova Movimentação de Estoque Aprovada!**\n* **Documento**: {{ doc.name }}\n* **Tipo**: {{ doc.stock_entry_type }}\n* **Operador**: {{ doc.owner }}"
-        }
-        ```
+### Passo 3: Publicação da Aplicação PWA para Tablets e Celulares
+Após o build (`npm run build`), o aplicativo PWA é publicado como uma página do ERPNext e pode ser acessado no navegador do celular/tablet no endereço:
+`http://localhost:8085/cdc_mobile`
 
 ---
 
-### 2.2 Abordagem 2: ChatOps com Slash Commands (`/estoque`)
+## 4. Matriz de Viabilidade e Roadmap de Implementação para a CDC
 
-Permite que qualquer colaborador consulte o saldo de um produto diretamente do chat do Mattermost sem precisar abrir o ERPNext.
-
-#### Fluxo de Funcionamento Amigável (Nome Natural do Produto):
-1.  O colaborador digita no chat do Mattermost o nome real do produto: `/estoque Cadeira de Rodas` (ou `/estoque Cesta Básica`).
-2.  O Mattermost realiza a requisição HTTP `POST` para a API de busca do ERPNext.
-3.  O ERPNext localiza o produto pelo nome comercial e responde com um cartão explicativo formatado diretamente no chat:
-
-> 📊 **Consulta de Estoque em Tempo Real - CDC**
-> * **Item**: Cadeira de Rodas Dobrável de Alumínio
-> * **Saldo Atual**: 15 unidades disponíveis
-> * **Armazém**: Armazém Central de Insumos - CDC
-> * **Última Entrada**: 24/07/2026 às 14:00
-
----
-
-### 2.3 Abordagem 3: Notificação Ativa de Erros de Sistema (`#ti-alertas`)
-
-Interceptação de exceções do ERPNext para alertar a equipe de TI no Mattermost imediatamente quando ocorrer uma falha grave (ex: queda de banco de dados ou erro no extrator de dados).
-
-#### Trecho de Código no Python (`hooks.py` / Script):
-```python
-import requests
-import json
-
-def notify_mattermost_on_error(doc, method):
-    webhook_url = "https://mattermost.cdc.org.br/hooks/ti-alertas-key"
-    payload = {
-        "username": "ERPNext Monitor",
-        "icon_url": "https://erpnext.com/favicon.ico",
-        "text": f"🚨 **ERRO DE SISTEMA NO NEXTERP**\n* **Erro**: {doc.error[:200]}\n* **Método**: {doc.method}"
-    }
-    requests.post(webhook_url, json=payload, timeout=5)
-```
-
----
-
-## 3. Matriz de Viabilidade e Recomendações para a CDC
-
-Abaixo está a avaliação técnica de viabilidade e impacto para aplicação dessas inovações no NextERP da CDC:
-
-| Inovação / Recurso | Nível de Esforço | Valor Gerado para a CDC | Status de Viabilidade |
+| Recurso / Inovação | Esforço | Valor para a CDC | Status / Fase |
 | :--- | :---: | :---: | :---: |
-| **Botões de Acessibilidade (`A+/A-`) e Tema Dark** | 🟢 Baixo (1 dia) | 🟢 Alto (Usabilidade e Acessibilidade) | **Aprovado / Em Implementação** |
-| **Notificação de Backups e Erros no Mattermost** | 🟢 Baixo (1 dia) | 🟢 Alto (Segurança e Operação) | **Aprovado / Em Implementação** |
-| **Webhooks de Movimentação de Estoque no Mattermost** | 🟢 Baixo (2 dias) | 🟡 Médio (Agilidade de Equipe) | **Recomendado para Próxima Sprint** |
-| **Motor de Backup Offsite com Rclone + GDrive** | 🟡 Médio (2 dias) | 🟣 Crítico (Governança de Dados) | **Aprovado / Em Implementação** |
-| **ChatOps via Slash Command `/estoque` no Mattermost** | 🟡 Médio (3 dias) | 🟡 Médio (Conveniência) | **Planejado para Fase 4** |
-| **Interface Customizada PWA em Frappe UI (Vue 3)** | 🔴 Alto (2 semanas) | 🟡 Médio (Futuro) | **Estudo para Próximo Ano** |
+| **Controles de Acessibilidade (`A+/A-`) e Tema Light Padrão** | 🟢 Baixo | 🟢 Alto | **Concluído / Ativo Local** |
+| **Notificações e Alertas no Chat Mattermost** | 🟢 Baixo | 🟢 Alto | **Documentado & Pronto** |
+| **Substituição por Rclone + Criptografia GPG nos Backups** | 🟡 Médio | 🟣 Crítico | **Fase 3 (Em Andamento)** |
+| **Módulo de Treinamento & Base de Dados Sandbox (Issue #07)** | 🟡 Médio | 🟢 Alto | **Fase 4 (Planejado)** |
+| **Aplicativo Móvel PWA em Frappe UI (Vue 3 + Tailwind)** | 🟡 Médio | 🟡 Médio | **Fase 4 (Próximo Passo)** |
+| **Leitura de Notas Fiscais via OCR + IA Generativa** | 🔴 Alto | 🟡 Médio | **Estudo Futuro** |
 
 ---
 
-### 🚀 Próximos Passos Recomendados:
-1.  **Registrar a Pesquisa**: Manter este documento salvo em `docs/pesquisa.md` e indexado no `README.md`.
-2.  **Implantar o Webhook do Mattermost**: Configurar o alerta de backup e notificações de erros no canal da TI da CDC assim que o servidor da Hostinger for ativado.
+### 🚀 Status dos Arquivos no Repositório:
+* **[docs/pesquisa.md](file:///home/vier/Documentos/Code/CDC/NextERP/docs/pesquisa.md)**: Atualizado e expandido com o histórico de 3 anos (2024-2026), estudo do Mattermost e guia do Frappe UI.
