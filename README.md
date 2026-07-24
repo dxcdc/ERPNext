@@ -53,6 +53,7 @@ Toda a documentação do projeto está padronizada e disponível no diretório [
 | ⚙️ [guia_automacao_github.md](./docs/guia_automacao_github.md) | Guia detalhado dos fluxos de automação de CI/CD do GitHub Actions. |
 | 🚨 [postmortem.md](./docs/postmortem.md) | Modelo *blameless* (sem culpabilização) para análise pós-incidente. |
 | 🤖 [prompt_ia.md](./docs/prompt_ia.md) | Diretrizes e regras de contexto para assistentes de IA e desenvolvimento em dupla. |
+| 🔍 [pesquisa.md](./docs/pesquisa.md) | Pesquisa de inovações da comunidade Frappe/ERPNext e especificação técnica da integração com Mattermost. |
 | 📊 [relatorio_executivo_migracao.md](./docs/relatorio_executivo_migracao.md) | Relatório executivo consolidado com a Matriz das 4 Abordagens Visuais. |
 
 ---
