@@ -18,9 +18,10 @@ O termo **Tarball** é um jargão do Linux para arquivos compactados com a exten
 A rotina de backup offsite funciona através de um script em Python (`bkp.py`) consumindo a API oficial do Google Drive. **Ela é 100% independente do local de hospedagem**. Ela funcionará na Hostinger da mesma forma que funcionava no GCP, pois exige apenas saída padrão de internet (HTTPS porta 443).
 
 ### Como o script se autentica no Google Drive:
-1.  **`client_secret.json`**: Contém o ID de cliente e a chave secreta gerados no Console do Google (OAuth 2.0).
-2.  **`token.pickle`**: Arquivo binário gerado na primeira execução. Ele armazena o token de acesso (access token) e o token de renovação (refresh token) da conta do Google do usuário que autorizou o script no navegador. 
-3.  **Segurança**: Como o `token.pickle` atual pertence ao desenvolvedor antigo, precisamos gerar um novo associado à **sua conta da CDC** para que os backups entrem no seu Drive.
+1.  **`client_secret.json`**: Contém o ID de cliente e a chave secreta gerados no Console do Google (OAuth 2.0). 
+    *   *Confirmação de Governança*: Verificado no Google Cloud Console do projeto **`cdc-org`** que o ID de Cliente OAuth 2.0 registrado sob o nome **`Backup-ERP`** (ID: `427143287446-1bc1...`) e a Conta de Serviço (`backup-erp@cdc-org.iam.gserviceaccount.com`) pertencem oficialmente à CDC.
+2.  **`token.pickle`**: Arquivo binário gerado na primeira execução. Ele armazena o token de acesso (access token) e o token de renovação (refresh token) da conta do Google que autorizou o script.
+3.  **Segurança e Independência**: Como o projeto no GCP já é da CDC, precisamos apenas re-autenticar o token com a conta oficial do Google Drive da CDC para que os backups sejam salvos na pasta institucional.
 
 ---
 

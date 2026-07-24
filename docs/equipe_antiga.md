@@ -14,7 +14,8 @@ Este documento serve como registro histórico dos repositórios, códigos e ativ
 
 ### 2. Automação de Backups (`scripts_backup`)
 *   **Estado**: **Sem repositório Git**.
-*   **Descrição**: Os scripts de backup (`bkp.py`, `gerar_token.py`, `token.pickle`, `client_secret_(1).json`) rodavam diretamente no host da VM GCP, sem controle de versão. Eles foram coletados e compactados manualmente durante a Fase 2 desta migração.
+*   **Credenciais GCP**: **Confirmadas como propriedade da CDC**. O projeto GCP Console (`cdc-org`) possui as credenciais OAuth 2.0 (`Backup-ERP`) e a Conta de Serviço (`backup-erp@cdc-org.iam.gserviceaccount.com`).
+*   **Descrição**: Os scripts de backup (`bkp.py`, `gerar_token.py`, `token.pickle`, `client_secret_(1).json`) rodavam diretamente no host da VM GCP, sem controle de versão. Eles foram coletados, compactados e agora estão salvos e versionados no repositório da CDC.
 
 ---
 
