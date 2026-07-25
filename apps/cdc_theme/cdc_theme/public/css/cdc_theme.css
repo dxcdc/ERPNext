@@ -24,31 +24,34 @@
 }
 
 /* ==========================================================================
-   1. TOPBAR ICON BUTTONS (Sol/Lua + Fontes A+/A-)
+   1. TOPBAR ICON BUTTONS (Sol/Lua + Fontes A+/A- - Compact Layout)
    ========================================================================== */
-.cdc-topbar-item {
-  display: flex !important;
+header.navbar .navbar-nav .cdc-topbar-item {
+  display: inline-flex !important;
   align-items: center !important;
-  margin-right: 4px !important;
+  margin-left: 2px !important;
+  margin-right: 2px !important;
+  padding: 0 !important;
 }
 
-.cdc-topbar-btn {
-  width: 38px !important;
-  height: 38px !important;
+header.navbar .cdc-topbar-btn {
+  width: 32px !important;
+  height: 32px !important;
   border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   background-color: transparent !important;
   color: var(--cdc-text-dark) !important;
-  transition: background-color 0.2s ease, transform 0.15s ease !important;
+  transition: background-color 0.15s ease, transform 0.15s ease !important;
   border: none !important;
   padding: 0 !important;
+  font-size: 14px !important;
 }
 
-.cdc-topbar-btn:hover {
+header.navbar .cdc-topbar-btn:hover {
   background-color: rgba(36, 144, 239, 0.12) !important;
-  transform: scale(1.08) !important;
+  transform: scale(1.05) !important;
 }
 
 .cdc-topbar-menu {
