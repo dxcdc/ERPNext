@@ -162,7 +162,7 @@
                     </div>
                 `;
 
-                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO + TABELA COM CORES NAS QUANTIDADES ---
+                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO + TABELA COM BOTÕES DE FILTRO EM AZUL/VERMELHO ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -223,7 +223,7 @@
                 }
 
                 var tableFilterPills = `
-                    <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
                         <button class="cdc-table-filter-btn ${currentTableTypeFilter === 'all' ? 'active' : ''}" data-type="all">Todos</button>
                         <button class="cdc-table-filter-btn ${currentTableTypeFilter === 'receipt' ? 'active' : ''}" data-type="receipt">Entradas</button>
                         <button class="cdc-table-filter-btn ${currentTableTypeFilter === 'issue' ? 'active' : ''}" data-type="issue">Saídas</button>
@@ -318,7 +318,7 @@
                     </div>
                 `;
 
-                // --- 6. INDICADORES EXECUTIVOS & TENDÊNCIAS (SUB-GRÁFICOS POR PROJETO COM SEMANAS E MÊS) ---
+                // --- 6. INDICADORES EXECUTIVOS & TENDÊNCIAS (APLICAÇÃO FIEL DO DESENHO COM GRUPOS DE MÊS NO TRIMESTRE) ---
                 var periodBtns = `
                     <div class="cdc-period-filter-group" id="cdc-period-filter-group">
                         <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
@@ -328,22 +328,42 @@
                     </div>
                 `;
 
-                var occurrencesData = data.occurrences_data || { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'], datasets: [] };
+                var occurrencesData = data.occurrences_data || { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'], datasets: [], grouped_months: [] };
                 var labelsList = occurrencesData.labels || ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'];
                 var datasetsList = occurrencesData.datasets || [];
+                var groupedMonthsList = occurrencesData.grouped_months || [];
+
+                // Montar faixas do cabeçalho dos meses (ex: MAIO | JUNHO | JULHO)
+                var monthHeadersHTML = '';
+                if (groupedMonthsList.length > 1) {
+                    monthHeadersHTML = `
+                        <div style="display: flex; gap: 8px; margin-top: 8px; padding-left: 45px;">
+                            ${groupedMonthsList.map(function(gm) {
+                                return `
+                                    <div style="flex: ${gm.weeks.length}; text-align: center; background: #e2e8f0; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; color: #334155; letter-spacing: 0.5px;">
+                                        └─ ${gm.month} ─┘
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                }
 
                 var projectSubChartsHTML = datasetsList.map(function(d) {
                     var maxOcc = Math.max.apply(null, d.occurrences.concat([1]));
+                    var stepOcc = Math.max(Math.ceil(maxOcc / 2), 1);
+                    var topOcc = stepOcc * 2;
+
                     var barsHTML = labelsList.map(function(lbl, idx) {
                         var val = d.occurrences[idx] || 0;
-                        var heightPct = val > 0 ? Math.min(Math.max((val / maxOcc) * 100, 20), 100) : 4;
+                        var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
                         var barColor = val > 0 ? d.color : '#e2e8f0';
                         return `
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 32px;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 28px;">
                                 <div style="height: 55px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: #ffffff; border-radius: 4px; padding: 2px; border: 1px solid #f1f5f9;">
-                                    <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} lançamentos de entrada"></div>
+                                    <div style="width: 13px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} lançamentos"></div>
                                 </div>
-                                <span style="font-size: 10px; font-weight: 600; color: #475569; white-space: nowrap;">${lbl}</span>
+                                <span style="font-size: 10px; font-weight: 600; color: #475569; white-space: nowrap;">${lbl.replace(/.*S/, 'S')}</span>
                             </div>
                         `;
                     }).join('');
@@ -357,8 +377,20 @@
                                 </span>
                                 <span class="badge-soft-primary" style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px;">${d.total_occurrences} lançamentos de entrada</span>
                             </div>
-                            <div style="display: flex; align-items: flex-end; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
-                                ${barsHTML}
+                            
+                            <!-- Gráfico com Régua do Eixo Y de Lançamentos -->
+                            <div style="display: flex; align-items: flex-end; gap: 8px;">
+                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 55px; font-size: 9px; font-weight: 700; color: #64748b; text-align: right; min-width: 35px; padding-bottom: 20px;">
+                                    <span>${topOcc} ┤</span>
+                                    <span>${stepOcc} ┤</span>
+                                    <span>0 ┴</span>
+                                </div>
+                                <div style="flex: 1; display: flex; flex-direction: column;">
+                                    <div style="display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; padding-bottom: 4px;">
+                                        ${barsHTML}
+                                    </div>
+                                    ${monthHeadersHTML}
+                                </div>
                             </div>
                         </div>
                     `;

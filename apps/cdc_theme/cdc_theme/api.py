@@ -30,61 +30,6 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
         unit_keyword = unit_prefix.replace("'", "''")
         where_unit = f" AND (se.from_warehouse = '{unit_keyword}' OR se.to_warehouse = '{unit_keyword}' OR se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
 
-    if period == 'month':
-        where_date = "AND se.posting_date >= '2026-07-01'"
-        group_by = "FLOOR((DAY(se.posting_date)-1)/7)+1"
-        label_expr = "CONCAT('Sem ', FLOOR((DAY(se.posting_date)-1)/7)+1)"
-        fixed_labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"]
-    elif period == 'quarter':
-        where_date = "AND se.posting_date >= '2026-05-01'"
-        group_by = "CONCAT(DATE_FORMAT(se.posting_date, '%b'), ' S', FLOOR((DAY(se.posting_date)-1)/7)+1)"
-        label_expr = "CONCAT(DATE_FORMAT(se.posting_date, '%b'), ' S', FLOOR((DAY(se.posting_date)-1)/7)+1)"
-        fixed_labels = None
-    elif period == 'semester':
-        where_date = "AND se.posting_date >= '2026-02-01'"
-        group_by = "DATE_FORMAT(se.posting_date, '%Y-%m')"
-        label_expr = "DATE_FORMAT(se.posting_date, '%b/%y')"
-        fixed_labels = None
-    else: # year
-        where_date = "AND se.posting_date >= '2025-08-01'"
-        group_by = "DATE_FORMAT(se.posting_date, '%Y-%m')"
-        label_expr = "DATE_FORMAT(se.posting_date, '%b/%y')"
-        fixed_labels = None
-
-    query = f"""
-        SELECT 
-            {group_by} as period_key,
-            {label_expr} as label_ref,
-            CASE 
-                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
-                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
-                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
-                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
-                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
-                ELSE 'Institucional / Geral'
-            END as projeto,
-            COUNT(DISTINCT se.name) as total_ocorrencias
-        FROM `tabStock Entry` se
-        WHERE se.docstatus = 1 {where_date} {where_unit}
-        GROUP BY period_key, projeto
-        ORDER BY MIN(se.posting_date) ASC
-    """
-    
-    rows = frappe.db.sql(query, as_dict=True)
-    
-    if fixed_labels:
-        labels = fixed_labels
-    else:
-        labels = []
-        seen_labels = set()
-        for r in rows:
-            lbl = r['label_ref']
-            if lbl not in seen_labels:
-                seen_labels.add(lbl)
-                labels.append(lbl)
-
-    project_map = {}
-    
     projects_list = [
         "Projeto Atitude II.I",
         "Institucional / Geral",
@@ -103,37 +48,185 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
         "Projeto ATM": "#06b6d4"
     }
 
-    for p in projects_list:
-        project_map[p] = {}
-
-    for r in rows:
-        lbl = r['label_ref']
-        pj = r['projeto']
-        if pj in project_map:
-            project_map[pj][lbl] = int(r['total_ocorrencias'])
-            
-    if not labels:
-        labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"]
-
-    datasets = []
-    for pj in projects_list:
-        data_occurrences = []
-        for lbl in labels:
-            occ = project_map[pj].get(lbl, 0)
-            data_occurrences.append(occ)
-            
-        datasets.append({
-            "project": pj,
-            "color": colors_map.get(pj, "#64748b"),
-            "occurrences": data_occurrences,
-            "total_occurrences": sum(data_occurrences)
-        })
-
-    return {
-        "period": period,
-        "labels": labels,
-        "datasets": datasets
+    month_names_pt = {
+        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Maio", 6: "Jun",
+        7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
     }
+
+    if period == 'month':
+        where_date = "AND se.posting_date >= '2026-07-01'"
+        query = f"""
+            SELECT 
+                FLOOR((DAY(se.posting_date)-1)/7)+1 as sem_num,
+                CASE 
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                    ELSE 'Institucional / Geral'
+                END as projeto,
+                COUNT(DISTINCT se.name) as total_ocorrencias
+            FROM `tabStock Entry` se
+            WHERE se.docstatus = 1 {where_date} {where_unit}
+            GROUP BY sem_num, projeto
+        """
+        rows = frappe.db.sql(query, as_dict=True)
+        
+        labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"]
+        grouped_months = [{ "month": "JULHO", "weeks": labels }]
+        
+        project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
+        for r in rows:
+            lbl = f"Sem {r['sem_num']}"
+            pj = r['projeto']
+            if pj in project_map and lbl in project_map[pj]:
+                project_map[pj][lbl] = int(r['total_ocorrencias'])
+                
+        datasets = []
+        for pj in projects_list:
+            data_occurrences = [project_map[pj][lbl] for lbl in labels]
+            datasets.append({
+                "project": pj,
+                "color": colors_map.get(pj, "#64748b"),
+                "occurrences": data_occurrences,
+                "total_occurrences": sum(data_occurrences)
+            })
+
+        return {
+            "period": period,
+            "labels": labels,
+            "grouped_months": grouped_months,
+            "datasets": datasets
+        }
+
+    elif period == 'quarter':
+        where_date = "AND se.posting_date >= '2026-05-01'"
+        query = f"""
+            SELECT 
+                MONTH(se.posting_date) as mes_num,
+                FLOOR((DAY(se.posting_date)-1)/7)+1 as sem_num,
+                CASE 
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                    ELSE 'Institucional / Geral'
+                END as projeto,
+                COUNT(DISTINCT se.name) as total_ocorrencias
+            FROM `tabStock Entry` se
+            WHERE se.docstatus = 1 {where_date} {where_unit}
+            GROUP BY mes_num, sem_num, projeto
+            ORDER BY mes_num ASC, sem_num ASC
+        """
+        rows = frappe.db.sql(query, as_dict=True)
+
+        # Maio (5), Junho (6), Julho (7)
+        target_months = [5, 6, 7]
+        grouped_months = []
+        labels = []
+        label_key_map = {}
+
+        for m_num in target_months:
+            m_name = month_names_pt.get(m_num, str(m_num)).upper()
+            w_count = 5 if m_num == 6 else 4
+            w_labels = [f"S{w}" for w in range(1, w_count + 1)]
+            
+            grouped_months.append({
+                "month": m_name,
+                "weeks": w_labels
+            })
+            
+            for w in range(1, w_count + 1):
+                full_lbl = f"{m_name[:3]} S{w}"
+                labels.append(full_lbl)
+                label_key_map[(m_num, w)] = full_lbl
+
+        project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
+        for r in rows:
+            m_num = int(r['mes_num'])
+            w_num = int(r['sem_num'])
+            pj = r['projeto']
+            full_lbl = label_key_map.get((m_num, w_num))
+            if pj in project_map and full_lbl in project_map[pj]:
+                project_map[pj][full_lbl] = int(r['total_ocorrencias'])
+
+        datasets = []
+        for pj in projects_list:
+            data_occurrences = [project_map[pj][lbl] for lbl in labels]
+            datasets.append({
+                "project": pj,
+                "color": colors_map.get(pj, "#64748b"),
+                "occurrences": data_occurrences,
+                "total_occurrences": sum(data_occurrences)
+            })
+
+        return {
+            "period": period,
+            "labels": labels,
+            "grouped_months": grouped_months,
+            "datasets": datasets
+        }
+    else:
+        # Semester ou Year
+        where_date = "AND se.posting_date >= '2026-02-01'" if period == 'semester' else "AND se.posting_date >= '2025-08-01'"
+        query = f"""
+            SELECT 
+                DATE_FORMAT(se.posting_date, '%Y-%m') as period_key,
+                DATE_FORMAT(se.posting_date, '%b/%y') as label_ref,
+                CASE 
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
+                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                    ELSE 'Institucional / Geral'
+                END as projeto,
+                COUNT(DISTINCT se.name) as total_ocorrencias
+            FROM `tabStock Entry` se
+            WHERE se.docstatus = 1 {where_date} {where_unit}
+            GROUP BY period_key, projeto
+            ORDER BY MIN(se.posting_date) ASC
+        """
+        rows = frappe.db.sql(query, as_dict=True)
+        
+        labels = []
+        seen = set()
+        for r in rows:
+            lbl = r['label_ref']
+            if lbl not in seen:
+                seen.add(lbl)
+                labels.append(lbl)
+                
+        if not labels:
+            labels = ["Mai/26", "Jun/26", "Jul/26"]
+
+        grouped_months = [{ "month": "PERÍODO", "weeks": labels }]
+        project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
+        
+        for r in rows:
+            lbl = r['label_ref']
+            pj = r['projeto']
+            if pj in project_map and lbl in project_map[pj]:
+                project_map[pj][lbl] = int(r['total_ocorrencias'])
+
+        datasets = []
+        for pj in projects_list:
+            data_occurrences = [project_map[pj][lbl] for lbl in labels]
+            datasets.append({
+                "project": pj,
+                "color": colors_map.get(pj, "#64748b"),
+                "occurrences": data_occurrences,
+                "total_occurrences": sum(data_occurrences)
+            })
+
+        return {
+            "period": period,
+            "labels": labels,
+            "grouped_months": grouped_months,
+            "datasets": datasets
+        }
 
 @frappe.whitelist()
 def get_stock_dashboard_data(selected_unit=None, period='month'):
