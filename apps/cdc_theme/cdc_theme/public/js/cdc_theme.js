@@ -162,30 +162,26 @@
     function injectStockExecutiveDashboard() {
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
 
-        var workspaceBody = document.querySelector('.workspace-body') || document.querySelector('.page-body');
+        var workspaceBody = document.querySelector('.workspace-body .codex-editor__redactor') || 
+                            document.querySelector('.workspace-body') || 
+                            document.querySelector('.page-body');
         if (!workspaceBody) return;
 
-        // Procurar o elemento do título de seção na árvore do DOM
-        var targetHeader = Array.from(workspaceBody.querySelectorAll('.widget, .widget-header, .ce-block, h4, h5, div, span, p')).find(function(el) {
-            var text = (el.textContent || '').trim();
-            return text.includes('Indicadores Executivos') || text.includes('Alguma coisa');
+        // Localizar o widget do gráfico "Estoque" na árvore do DOM
+        var chartWidget = Array.from(workspaceBody.querySelectorAll('.widget, .ce-block, [data-widget-name]')).find(function(el) {
+            return el.getAttribute('data-widget-name') === 'Estoque' || 
+                   el.querySelector('[data-chart-name="Estoque"]') || 
+                   el.querySelector('.chart-container');
         });
 
-        // Se o cabeçalho de seção ainda não renderizou no DOM, remova da posição errada e aguarde o próximo ciclo
-        if (!targetHeader) {
-            var wrongDash = document.getElementById('cdc-stock-exec-dashboard');
-            if (wrongDash && !wrongDash.getAttribute('data-correctly-placed')) {
-                wrongDash.remove();
-            }
-            return;
-        }
+        if (!chartWidget) return;
 
-        var parentBlock = targetHeader.closest('.ce-block') || targetHeader.closest('.widget') || targetHeader;
+        var parentBlock = chartWidget.closest('.ce-block') || chartWidget.closest('.widget') || chartWidget;
 
-        // Se já existir no lugar correto, não faz nada
+        // Se já existir diretamente ACIMA do gráfico de estoque, não faz nada
         var existingDash = document.getElementById('cdc-stock-exec-dashboard');
         if (existingDash) {
-            if (existingDash.previousElementSibling === parentBlock) {
+            if (existingDash.nextElementSibling === parentBlock) {
                 return;
             }
             existingDash.remove();
@@ -284,13 +280,14 @@
 
                 dashDiv.innerHTML = card1 + card2 + card3;
 
-                // Inserir exatamente após o bloco do título de seção
+                // Inserir DENTRO do container principal, diretamente ACIMA do gráfico de Estoque
                 if (parentBlock && parentBlock.parentNode) {
-                    parentBlock.parentNode.insertBefore(dashDiv, parentBlock.nextSibling);
+                    parentBlock.parentNode.insertBefore(dashDiv, parentBlock);
                 }
             }
         });
     }
+
 
 
 
