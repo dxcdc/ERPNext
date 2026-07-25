@@ -162,7 +162,7 @@
                     </div>
                 `;
 
-                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO + TABELA COM FILTRO (TODOS | ENTRADAS | SAÍDAS) ---
+                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO + TABELA COM CORES NAS QUANTIDADES ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -189,7 +189,6 @@
 
                 var entriesList = (data.recent_entries && Array.isArray(data.recent_entries)) ? data.recent_entries : [];
                 
-                // Filtragem em memória pela aba ativa (Todos | Entradas | Saídas)
                 var filteredEntries = entriesList.filter(function(row) {
                     if (currentTableTypeFilter === 'receipt') {
                         return row.tipo_label === 'Entrada';
@@ -202,6 +201,10 @@
                 var tableRowsHTML = '';
                 if (filteredEntries.length > 0) {
                     tableRowsHTML = filteredEntries.map(function(row) {
+                        var isIssue = (row.tipo_label === 'Saída');
+                        var qtyColor = isIssue ? '#dc2626' : '#2563eb';
+                        var qtyIcon = isIssue ? '📤' : '📥';
+
                         return `
                             <tr>
                                 <td>
@@ -209,7 +212,9 @@
                                 </td>
                                 <td style="font-weight: 600; color: #475569; font-size: 11px;">${row.data}</td>
                                 <td style="font-size: 11px; font-weight: 600; color: #0f172a;">${row.armazem}</td>
-                                <td style="font-weight: 600; font-size: 11px;">${row.total_itens} <span style="font-size: 10px; font-weight: 400; color: #64748b;">(${row.total_pecas} pç)</span></td>
+                                <td style="font-weight: 700; font-size: 11px; color: ${qtyColor}; white-space: nowrap;">
+                                    ${qtyIcon} ${row.total_itens} <span style="font-size: 10px; font-weight: 500; opacity: 0.85;">(${row.total_pecas} pç)</span>
+                                </td>
                                 <td style="font-weight: 500; color: #475569; font-size: 11px;">${row.usuario}</td>
                             </tr>
                         `;
@@ -239,7 +244,7 @@
                             </div>
                         </div>
 
-                        <!-- Tabela de Movimentações (5 Colunas Limpas + Filtros em Cima) -->
+                        <!-- Tabela de Movimentações (Qtd Azul para Entrada | Vermelho para Saída) -->
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Últimas Movimentações</span>
