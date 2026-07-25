@@ -1,27 +1,42 @@
 import frappe
 
+def get_unit_prefix(unit):
+    """ Mapeia os nomes das unidades de exibição para os prefixos reais dos Armazéns no MariaDB """
+    if not unit or unit == 'null' or unit == 'undefined' or unit == 'All' or unit == 'Todos os Armazéns':
+        return 'All'
+    u_upper = unit.upper()
+    if 'CABO' in u_upper or 'CAB' in u_upper:
+        return 'CAB'
+    if 'CARUARU' in u_upper or 'CAR' in u_upper:
+        return 'CAR'
+    if 'JABOAT' in u_upper or 'JAB' in u_upper:
+        return 'JAB'
+    if 'RECIFE' in u_upper or 'REC' in u_upper:
+        return 'REC'
+    return unit
+
 @frappe.whitelist()
 def get_stock_dashboard_data(selected_unit=None):
     """
-    Retorna métricas dinâmicas para o Painel Executivo do Estoque com filtro por Unidade/Armazém,
-    Consulta Inteligente de Armazéns por Projeto e Log de Auditoria com datas formatadas.
+    Retorna métricas dinâmicas para o Painel Executivo do Estoque com suporte a prefixos de Unidades (CAB, CAR, JAB, REC).
     """
-    if not selected_unit or selected_unit == 'null' or selected_unit == 'undefined':
-        selected_unit = 'All'
-        
+    unit_prefix = get_unit_prefix(selected_unit)
+    
     # Filtros condicionais para Stock Entry
     where_se = "WHERE se.docstatus=1 AND se.posting_date >= '2026-07-01'"
+    where_recent = "WHERE se.docstatus=1"
     where_bin = "WHERE 1=1"
     where_wh = "WHERE w.is_group=0"
     
-    if selected_unit != 'All':
-        unit_keyword = selected_unit.replace("'", "''")
+    if unit_prefix != 'All':
+        unit_keyword = unit_prefix.replace("'", "''")
         where_se += f" AND (se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
+        where_recent += f" AND (se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
         where_bin += f" AND warehouse LIKE '%{unit_keyword}%'"
         where_wh += f" AND (w.parent_warehouse LIKE '%{unit_keyword}%' OR w.name LIKE '%{unit_keyword}%')"
         
     # 1. Contadores de Movimentação do Mês Atual (Julho/2026)
-    if selected_unit == 'All':
+    if unit_prefix == 'All':
         receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
         issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
         transfers_month = frappe.db.count('Stock Entry', {'purpose': 'Material Transfer', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
@@ -123,11 +138,6 @@ def get_stock_dashboard_data(selected_unit=None):
         ]
 
     # 5. Tabela de Movimentações Recentes (Log Operacional - Últimos 30 Registros)
-    where_recent = "WHERE se.docstatus=1"
-    if selected_unit != 'All':
-        unit_keyword = selected_unit.replace("'", "''")
-        where_recent += f" AND (se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
-
     recent_entries_raw = frappe.db.sql(f"""
         SELECT 
             se.name as codigo,
@@ -143,7 +153,6 @@ def get_stock_dashboard_data(selected_unit=None):
         ORDER BY se.posting_date DESC, se.creation DESC
         LIMIT 30
     """, as_dict=True)
-
     
     recent_entries = []
     for row in recent_entries_raw:
