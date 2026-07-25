@@ -76,6 +76,14 @@
 
                 var data = r.message;
 
+                // BANNER DE VERIFICAÇÃO SOLICITADO PELO USUÁRIO
+                var debugMarkerBanner = `
+                    <div style="background: #dc2626; color: #ffffff; padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; text-align: center; margin-bottom: 18px; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(220,38,38,0.25); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>🚨 MARCADOR DE TESTE DE ROTA:</span>
+                        <span>PÁGINA SUPOSTAMENTE ERRADA</span>
+                    </div>
+                `;
+
                 // --- 1. SELETOR DE ARMAZÉM ---
                 var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
                 var unitOptions = availableUnits.map(function(u) {
@@ -427,8 +435,9 @@
                     </div>
                 `;
 
-                // MONTAGEM DA PÁGINA ÚNICA
+                // MONTAGEM DA PÁGINA ÚNICA COM O BANNER DE VERIFICAÇÃO VERMELHO NO TOPO
                 dashDiv.innerHTML = `
+                    ${debugMarkerBanner}
                     ${selectorHeader}
                     ${top4CardsGrid}
                     ${shortcutsBar}
@@ -480,7 +489,6 @@
         });
     });
 
-    // RE-RENDERIZAR EM QUALQUER TROCA DE PÁGINA / ROTA DO FRAPPE
     $(document).on('page-change', function() {
         setTimeout(function() {
             renderStockDashboard();
