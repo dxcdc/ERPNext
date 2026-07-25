@@ -99,6 +99,9 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 "total_occurrences": sum(data_occurrences)
             })
 
+        # Ordenar datasets com maior volume de movimentações no topo
+        datasets.sort(key=lambda x: x['total_occurrences'], reverse=True)
+
         return {
             "period": period,
             "entry_type": entry_type,
@@ -168,6 +171,9 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 "total_occurrences": sum(data_occurrences)
             })
 
+        # Ordenar datasets com maior volume de movimentações no topo
+        datasets.sort(key=lambda x: x['total_occurrences'], reverse=True)
+
         return {
             "period": period,
             "entry_type": entry_type,
@@ -226,6 +232,9 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 "occurrences": data_occurrences,
                 "total_occurrences": sum(data_occurrences)
             })
+
+        # Ordenar datasets com maior volume de movimentações no topo
+        datasets.sort(key=lambda x: x['total_occurrences'], reverse=True)
 
         return {
             "period": period,
