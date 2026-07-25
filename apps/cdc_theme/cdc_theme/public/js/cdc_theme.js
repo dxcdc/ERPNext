@@ -362,9 +362,10 @@
                     <div class="cdc-exec-card" style="margin-top: 20px;">
                         <div class="cdc-exec-card-title">
                             <span>Últimas Movimentações de Estoque</span>
-                            <span style="font-size: 12px; color: #94a3b8;">Log do Mês Atual</span>
+                            <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
                         </div>
-                        <div class="cdc-table-container">
+                        <div class="cdc-table-container" style="max-height: 480px; overflow-y: auto;">
+
                             <table class="cdc-table">
                                 <thead>
                                     <tr>

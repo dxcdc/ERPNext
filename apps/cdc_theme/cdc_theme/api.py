@@ -122,7 +122,12 @@ def get_stock_dashboard_data(selected_unit=None):
             {"project": "Projeto Atitude", "warehouses": 12, "items": 0, "qty": 0}
         ]
 
-    # 5. Tabela de Movimentações Recentes (Log Operacional)
+    # 5. Tabela de Movimentações Recentes (Log Operacional - Últimos 30 Registros)
+    where_recent = "WHERE se.docstatus=1"
+    if selected_unit != 'All':
+        unit_keyword = selected_unit.replace("'", "''")
+        where_recent += f" AND (se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
+
     recent_entries_raw = frappe.db.sql(f"""
         SELECT 
             se.name as codigo,
@@ -134,10 +139,11 @@ def get_stock_dashboard_data(selected_unit=None):
             COALESCE(u.full_name, u.first_name, se.owner) as usuario
         FROM `tabStock Entry` se
         LEFT JOIN `tabUser` u ON se.owner = u.name
-        {where_se}
+        {where_recent}
         ORDER BY se.posting_date DESC, se.creation DESC
-        LIMIT 10
+        LIMIT 30
     """, as_dict=True)
+
     
     recent_entries = []
     for row in recent_entries_raw:
