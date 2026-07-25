@@ -1,163 +1,5 @@
-/* ==========================================================================
-   CDC NextERP - Topbar Navigation Enhancements (Sol/Lua + Fontes A+/A-)
-   App: cdc_theme
-   ========================================================================== */
-
 (function() {
     'use strict';
-
-    var cdcState = {
-        fontScale: parseFloat(localStorage.getItem('cdc_font_scale') || '1.0'),
-        themeMode: localStorage.getItem('cdc_theme_mode') || 'light',
-        layoutMode: localStorage.getItem('cdc_layout_mode') || 'lahomes'
-    };
-
-    function applyCDCState() {
-        var scale = cdcState.fontScale;
-        
-        var fontStyle = document.getElementById('cdc-font-scale-style');
-        if (!fontStyle) {
-            fontStyle = document.createElement('style');
-            fontStyle.id = 'cdc-font-scale-style';
-            (document.head || document.documentElement).appendChild(fontStyle);
-        }
-
-        if (scale === 1.0) {
-            fontStyle.innerHTML = '';
-        } else {
-            fontStyle.innerHTML = `
-                body, .page-container, .page-body, .workspace-page, .frappe-card,
-                .layout-main-section, .form-section, .grid-row, .form-control,
-                .btn, .widget, .nav-link, span, p, a, label, table, td, th, input, select, textarea,
-                .widget-title, .shortcut-title, .link-item, .desk-sidebar, .sidebar-item {
-                    font-size: calc(1em * ${scale}) !important;
-                }
-                .page-head .title-text, h1, h2, h3, h4 {
-                    font-size: calc(1.4em * ${scale}) !important;
-                }
-            `;
-        }
-
-        if (cdcState.layoutMode === 'lahomes') {
-            document.documentElement.setAttribute('data-cdc-layout', 'lahomes');
-        } else {
-            document.documentElement.removeAttribute('data-cdc-layout');
-        }
-
-        if (window.frappe && frappe.ui && frappe.ui.set_theme) {
-            if (cdcState.themeMode === 'dark' && frappe.boot.user.theme !== 'Dark') {
-                frappe.ui.set_theme('dark');
-            } else if (cdcState.themeMode === 'light' && frappe.boot.user.theme !== 'Light') {
-                frappe.ui.set_theme('light');
-            }
-        }
-    }
-
-    function injectTopbarIcons() {
-        if (document.getElementById('cdc-topbar-theme-item')) return;
-
-        // Target the right side of header navbar (dropdown-help or dropdown-notifications)
-        var anchor = document.querySelector('header.navbar .dropdown-help') || 
-                     document.querySelector('header.navbar .dropdown-notifications') ||
-                     document.querySelector('header.navbar .dropdown-user');
-
-        if (!anchor || !anchor.parentNode) return;
-        var parentNav = anchor.parentNode;
-
-        // 1. Sol / Lua Dropdown Item
-        var themeLi = document.createElement('li');
-        themeLi.id = 'cdc-topbar-theme-item';
-        themeLi.className = 'nav-item dropdown cdc-topbar-item';
-        themeLi.innerHTML = `
-            <button class="btn-reset nav-link cdc-topbar-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Alternar Tema (Sol/Lua)">
-                <span class="cdc-theme-icon-display">☀️</span>
-            </button>
-            <div class="dropdown-menu dropdown-menu-right cdc-topbar-menu" role="menu">
-                <div class="cdc-dropdown-header">Tema Visão</div>
-                <a class="dropdown-item cdc-menu-opt" href="#" data-theme-opt="light">
-                    <span>☀️ Modo Claro (Light)</span>
-                </a>
-                <a class="dropdown-item cdc-menu-opt" href="#" data-theme-opt="dark">
-                    <span>🌙 Modo Escuro (Dark)</span>
-                </a>
-                <div class="dropdown-divider"></div>
-                <div class="cdc-dropdown-header">Layout A/B</div>
-                <a class="dropdown-item cdc-menu-opt" href="#" data-layout-opt="lahomes">
-                    <span>🚀 Executivo Lahomes (B)</span>
-                </a>
-                <a class="dropdown-item cdc-menu-opt" href="#" data-layout-opt="standard">
-                    <span>🏢 Padrão ERPNext (A)</span>
-                </a>
-            </div>
-        `;
-
-        // 2. Fontes A+ / A- Dropdown Item
-        var fontLi = document.createElement('li');
-        fontLi.id = 'cdc-topbar-font-item';
-        fontLi.className = 'nav-item dropdown cdc-topbar-item';
-        fontLi.innerHTML = `
-            <button class="btn-reset nav-link cdc-topbar-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Ajuste de Fonte (A+/A-)">
-                <span class="cdc-font-icon-display" style="font-weight: 700; font-size: 14px;">A±</span>
-            </button>
-            <div class="dropdown-menu dropdown-menu-right cdc-topbar-menu" role="menu">
-                <div class="cdc-dropdown-header">Tamanho do Texto</div>
-                <a class="dropdown-item cdc-font-opt" href="#" data-font-action="plus">
-                    <span>🔍 Aumentar Fonte (A+)</span>
-                </a>
-                <a class="dropdown-item cdc-font-opt" href="#" data-font-action="minus">
-                    <span>🔍 Diminuir Fonte (A-)</span>
-                </a>
-                <a class="dropdown-item cdc-font-opt" href="#" data-font-action="reset">
-                    <span>↺ Restaurar (100%)</span>
-                </a>
-            </div>
-        `;
-
-        // Insert right next to "Ajuda" / Sino de Notificações
-        parentNav.insertBefore(themeLi, anchor);
-        parentNav.insertBefore(fontLi, anchor);
-
-        // Listeners for Theme Options
-        $(themeLi).find('[data-theme-opt]').on('click', function(e) {
-            e.preventDefault();
-            var opt = $(this).attr('data-theme-opt');
-            cdcState.themeMode = opt;
-            localStorage.setItem('cdc_theme_mode', opt);
-            if (window.frappe && frappe.ui && frappe.ui.set_theme) {
-                frappe.ui.set_theme(opt);
-            }
-            updateIconDisplay();
-        });
-
-        $(themeLi).find('[data-layout-opt]').on('click', function(e) {
-            e.preventDefault();
-            var opt = $(this).attr('data-layout-opt');
-            cdcState.layoutMode = opt;
-            localStorage.setItem('cdc_layout_mode', opt);
-            applyCDCState();
-        });
-
-        // Listeners for Font Options
-        $(fontLi).find('[data-font-action]').on('click', function(e) {
-            e.preventDefault();
-            var act = $(this).attr('data-font-action');
-            if (act === 'plus') cdcState.fontScale = Math.min(cdcState.fontScale + 0.1, 1.4);
-            if (act === 'minus') cdcState.fontScale = Math.max(cdcState.fontScale - 0.1, 0.85);
-            if (act === 'reset') cdcState.fontScale = 1.0;
-            
-            localStorage.setItem('cdc_font_scale', cdcState.fontScale);
-            applyCDCState();
-        });
-
-        updateIconDisplay();
-    }
-
-    function updateIconDisplay() {
-        var themeIcon = document.querySelector('#cdc-topbar-theme-item .cdc-theme-icon-display');
-        if (themeIcon) {
-            themeIcon.textContent = cdcState.themeMode === 'dark' ? '🌙' : '☀️';
-        }
-    }
 
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'month';
@@ -186,8 +28,6 @@
             workspaceBody.appendChild(dashDiv);
         }
 
-
-
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
             args: { 
@@ -199,7 +39,7 @@
 
                 var data = r.message;
 
-                // Selector de "Filtrar por Armazém (46 Armazéns)"
+                // --- 1. SELETOR DE ARMAZÉM ---
                 var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
                 var unitOptions = availableUnits.map(function(u) {
                     var val = (typeof u === 'object') ? u.value : ((u === 'Todos os Armazéns') ? 'All' : u);
@@ -207,16 +47,6 @@
                     var selected = (currentSelectedUnit === val) ? 'selected' : '';
                     return `<option value="${val}" ${selected}>${lbl}</option>`;
                 }).join('');
-
-                // Botões de Expansão Temporal (Mês / Trimestre / Semestre / Ano)
-                var periodBtns = `
-                    <div class="cdc-period-filter-group" id="cdc-period-filter-group">
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'quarter' ? 'active' : ''}" data-period="quarter">Trimestre</button>
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'semester' ? 'active' : ''}" data-period="semester">Semestre</button>
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'year' ? 'active' : ''}" data-period="year">Ano</button>
-                    </div>
-                `;
 
                 var selectorHeader = `
                     <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px;">
@@ -231,48 +61,97 @@
                     </div>
                 `;
 
-                var receiptsCount = (data.receipts_month !== undefined && data.receipts_month !== null) ? data.receipts_month : 41;
-                var issuesCount = (data.issues_month !== undefined && data.issues_month !== null) ? data.issues_month : 1;
+                // --- 2. LADO A LADO: ARMAZÉNS POR PROJETO (CLICÁVEIS 🔗) + TABELA DE MOVIMENTAÇÕES ---
+                var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
+                    { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
+                    { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
+                    { project: 'Projeto Atitude', warehouses: 12, items: 0, url: '/app/stock-entry?to_warehouse=ATITUDE' },
+                    { project: 'Projeto Bem Viver', warehouses: 1, items: 0, url: '/app/stock-entry?to_warehouse=BEM VIVER' },
+                    { project: 'Projeto ATM', warehouses: 1, items: 0, url: '/app/stock-entry?to_warehouse=ATM' },
+                    { project: 'Projeto Cais', warehouses: 1, items: 0, url: '/app/stock-entry?to_warehouse=CAIS' }
+                ];
 
-                // --- CARD 1: Sparkline Semanal (Fluxo Operacional de Movimentação) ---
-                var card1 = `
-                    <div class="cdc-exec-card">
-                        <div class="cdc-exec-card-title">
-                            <span>Fluxo Operacional de Movimentação</span>
-                            <span class="cdc-exec-badge badge-soft-primary">Seg • Qua • Sex</span>
-                        </div>
-                        
-                        <div style="display: flex; flex-direction: column; gap: 6px; margin: 12px 0 16px 0;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #10b981;">
-                                <span>📥 Entradas este mês:</span>
-                                <span class="badge-soft-success" style="padding: 3px 8px; border-radius: 6px; font-size: 13px;">${receiptsCount} lançamentos</span>
+                var projectPills = projectsList.map(function(pj) {
+                    var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens ativos` : 'Sem saldo acumulado';
+                    return `
+                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; transition: all 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.boxShadow='0 2px 8px rgba(37,99,235,0.1)';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';">
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-weight: 700; color: #1e293b; font-size: 13px; display: flex; align-items: center; gap: 4px;">
+                                    🔗 ${pj.project}
+                                </span>
+                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${subtext}</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #e11d48;">
-                                <span>📤 Saídas este mês:</span>
-                                <span style="background-color: rgba(225, 29, 72, 0.1); color: #e11d48; padding: 3px 8px; border-radius: 6px; font-size: 13px;">${issuesCount} lançamento</span>
+                            <span class="badge-soft-primary" style="padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">${pj.warehouses} armazéns</span>
+                        </a>
+                    `;
+                }).join('');
+
+                var entriesList = (data.recent_entries && Array.isArray(data.recent_entries)) ? data.recent_entries : [];
+                var tableRowsHTML = '';
+                if (entriesList.length > 0) {
+                    tableRowsHTML = entriesList.map(function(row) {
+                        return `
+                            <tr>
+                                <td>
+                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link">${row.codigo}</a>
+                                </td>
+                                <td style="font-weight: 600; color: #475569;">${row.data}</td>
+                                <td style="font-weight: 600; color: #0f172a;">${row.projeto}</td>
+                                <td>${row.armazem}</td>
+                                <td style="font-weight: 600;">${row.total_itens} <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} pç)</span></td>
+                                <td>
+                                    <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
+                                </td>
+                                <td style="font-weight: 500;">${row.usuario}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tableRowsHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma movimentação registrada.</td></tr>';
+                }
+
+                var sideBySideRow = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                        <!-- Armazéns por Projeto Clicáveis -->
+                        <div class="cdc-exec-card">
+                            <div class="cdc-exec-card-title">
+                                <span>Armazéns por Projeto</span>
+                                <span style="font-size: 11px; color: #2563eb; font-weight: 600;">🔗 Clique para abrir</span>
+                            </div>
+                            <div class="cdc-city-list" style="max-height: 380px; overflow-y: auto;">
+                                ${projectPills}
                             </div>
                         </div>
 
-                        <div style="margin-top: 10px;">
-                            <svg viewBox="0 0 300 50" style="width: 100%; height: 50px; overflow: visible;">
-                                <path d="M0,40 Q35,10 75,35 T150,8 T225,30 T300,12" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
-                                <path d="M0,40 Q35,10 75,35 T150,8 T225,30 T300,12 L300,50 L0,50 Z" fill="rgba(16, 185, 129, 0.08)"/>
-                                <path d="M0,45 Q35,38 75,42 T150,30 T225,40 T300,35" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 2"/>
-                            </svg>
-                        </div>
-
-                        <div class="cdc-sparkline-days" style="margin-top: 10px;">
-                            <span class="active" title="Dia Operacional de Movimentação">Seg</span>
-                            <span>Ter</span>
-                            <span class="active" title="Dia Operacional de Movimentação">Qua</span>
-                            <span>Qui</span>
-                            <span class="active" title="Dia Operacional de Movimentação">Sex</span>
+                        <!-- Tabela de Movimentações (30 Registros) -->
+                        <div class="cdc-exec-card">
+                            <div class="cdc-exec-card-title">
+                                <span>Últimas Movimentações de Estoque</span>
+                                <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
+                            </div>
+                            <div class="cdc-table-container" style="max-height: 380px; overflow-y: auto;">
+                                <table class="cdc-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Data</th>
+                                            <th>Projeto</th>
+                                            <th>Armazém</th>
+                                            <th>Qtd.</th>
+                                            <th>Tipo</th>
+                                            <th>Responsável</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tableRowsHTML}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 `;
 
-
-                // --- CARD 2: Composição 100% Empilhada por Categoria ---
+                // --- 3. COMPOSIÇÃO POR CATEGORIA (LARGURA 100% EXCLUSIVA) ---
                 var categoriesList = (data.categories && data.categories.length > 0) ? data.categories : [
                     { label: 'MAT. HIGIENE E LIMPEZA', percent: 14.0, color: '#2563eb' },
                     { label: 'CEREAIS', percent: 12.9, color: '#d97706' },
@@ -298,137 +177,95 @@
                 }).join('');
 
                 var totalItemsCount = data.total_items || 655;
-                var card2 = `
-                    <div class="cdc-exec-card">
+                var categoryFullWidthCard = `
+                    <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
                         <div class="cdc-exec-card-title">
                             <span>Composição por Categoria (100% Empilhado)</span>
                             <span style="font-size: 12px; color: #94a3b8;">${totalItemsCount} Itens Ativos</span>
                         </div>
-                        <div class="cdc-stacked-bar">
+                        <div class="cdc-stacked-bar" style="height: 16px; border-radius: 8px; margin: 12px 0;">
                             ${stackedSegments}
                         </div>
-                        <div class="cdc-legend-list">
+                        <div class="cdc-legend-list" style="display: flex; flex-wrap: wrap; gap: 16px;">
                             ${legendItems}
                         </div>
                     </div>
                 `;
 
-                // --- CARD 3: Agrupamento de Armazéns por PROJETO ---
-                var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
-                    { project: 'Projeto Atitude II.I', warehouses: 16, items: 619 },
-                    { project: 'Institucional / Geral', warehouses: 15, items: 64 },
-                    { project: 'Projeto Atitude', warehouses: 12, items: 0 },
-                    { project: 'Projeto Bem Viver', warehouses: 1, items: 0 },
-                    { project: 'Projeto ATM', warehouses: 1, items: 0 },
-                    { project: 'Projeto Cais', warehouses: 1, items: 0 }
-                ];
+                // --- 4. INDICADORES EXECUTIVOS & TENDÊNCIAS (SUB-GRÁFICOS POR PROJETO COM SEMANAS) ---
+                var periodBtns = `
+                    <div class="cdc-period-filter-group" id="cdc-period-filter-group">
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'quarter' ? 'active' : ''}" data-period="quarter">Trimestre</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'semester' ? 'active' : ''}" data-period="semester">Semestre</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'year' ? 'active' : ''}" data-period="year">Ano</button>
+                    </div>
+                `;
 
-                var projectPills = projectsList.map(function(pj) {
-                    var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens ativos` : 'Sem saldo acumulado';
-                    return `
-                        <div class="cdc-city-item" style="padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9;">
-                            <div style="display: flex; flex-direction: column; gap: 2px;">
-                                <span style="font-weight: 700; color: #1e293b; font-size: 13px;">${pj.project}</span>
-                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${subtext}</span>
+                var occurrencesData = data.occurrences_data || { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'], datasets: [] };
+                var labelsList = occurrencesData.labels || ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'];
+                var datasetsList = occurrencesData.datasets || [];
+
+                var projectSubChartsHTML = datasetsList.map(function(d) {
+                    var maxOcc = Math.max.apply(null, d.occurrences.concat([1]));
+                    var barsHTML = labelsList.map(function(lbl, idx) {
+                        var val = d.occurrences[idx] || 0;
+                        var heightPct = val > 0 ? Math.min(Math.max((val / maxOcc) * 100, 20), 100) : 4;
+                        var barColor = val > 0 ? d.color : '#e2e8f0';
+                        return `
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 32px;">
+                                <div style="height: 50px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: #ffffff; border-radius: 4px; padding: 2px; border: 1px solid #f1f5f9;">
+                                    <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} entradas"></div>
+                                </div>
+                                <span style="font-size: 10px; font-weight: 600; color: #475569;">${lbl}</span>
                             </div>
-                            <span class="badge-soft-primary" style="padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">${pj.warehouses} armazéns</span>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div style="padding: 12px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 13px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${d.color}; display: inline-block;"></span>
+                                    ${d.project}
+                                </span>
+                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 700;">${d.total_occurrences} entradas</span>
+                            </div>
+                            <div style="display: flex; align-items: flex-end; gap: 6px;">
+                                ${barsHTML}
+                            </div>
                         </div>
                     `;
                 }).join('');
 
-                var card3 = `
-                    <div class="cdc-exec-card">
-                        <div class="cdc-exec-card-title">
-                            <span>Armazéns por Projeto</span>
-                            <span style="font-size: 12px; color: #94a3b8;">CDC Programas</span>
+                var occurrencesSection = `
+                    <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
+                        <div class="cdc-exec-card-title" style="margin-bottom: 14px;">
+                            <span>Entradas de Estoque por Projeto</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 12px; font-weight: 700; color: #64748b;">Período:</span>
+                                ${periodBtns}
+                            </div>
                         </div>
-                        <div class="cdc-city-list" style="max-height: 240px; overflow-y: auto;">
-                            ${projectPills}
+                        <div>
+                            ${projectSubChartsHTML}
                         </div>
                     </div>
                 `;
 
-
-
-
+                // --- MONTAGEM FINAL DA PÁGINA REFORMULADA ---
+                dashDiv.innerHTML = `
+                    ${selectorHeader}
+                    ${sideBySideRow}
+                    ${categoryFullWidthCard}
+                    ${occurrencesSection}
+                `;
 
                 window._cdc_debug_dashboard_data = data;
                 console.log("[CDC Theme Debug] Dashboard Data Loaded:", data);
 
-                // --- CARD 4: Tabela de Movimentações Recentes (Log Operacional) ---
-
-                var tableRowsHTML = '';
-                if (entriesList.length > 0) {
-                    tableRowsHTML = entriesList.map(function(row) {
-                        return `
-                            <tr>
-                                <td>
-                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link">${row.codigo}</a>
-                                </td>
-                                <td style="font-weight: 600; color: #475569;">${row.data}</td>
-                                <td style="font-weight: 600; color: #0f172a;">${row.projeto}</td>
-                                <td>${row.armazem}</td>
-                                <td style="font-weight: 600;">${row.total_itens} itens <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} peças)</span></td>
-                                <td>
-                                    <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
-                                </td>
-                                <td style="font-weight: 500;">${row.usuario}</td>
-                            </tr>
-                        `;
-                    }).join('');
-                } else {
-                    tableRowsHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma movimentação registrada para este armazém.</td></tr>';
-                }
-
-                var tableCard = `
-                    <div class="cdc-exec-card" style="margin-top: 20px;">
-                        <div class="cdc-exec-card-title">
-                            <span>Últimas Movimentações de Estoque</span>
-                            <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
-                        </div>
-                        <div class="cdc-table-container" style="max-height: 480px; overflow-y: auto;">
-                            <table class="cdc-table">
-                                <thead>
-                                    <tr>
-                                        <th>Código</th>
-                                        <th>Data</th>
-                                        <th>Projeto / Programa</th>
-                                        <th>Armazém</th>
-                                        <th>Qtd. Itens</th>
-                                        <th>Tipo</th>
-                                        <th>Responsável</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${tableRowsHTML}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-
-
-                dashDiv.innerHTML = `
-                    ${selectorHeader}
-                    <div class="cdc-exec-dashboard-grid-3col">
-                        ${card1}
-                        ${card2}
-                        ${card3}
-                    </div>
-                    <div style="margin-top: 24px; width: 100%;">
-                        ${tableCard}
-                    </div>
-                `;
-
-                if (targetBlock && targetBlock.parentNode && dashDiv.nextElementSibling !== targetBlock) {
-                    targetBlock.parentNode.insertBefore(dashDiv, targetBlock);
-                }
-
-
-
                 $('#cdc-unit-filter-select').off('change').on('change', function() {
                     currentSelectedUnit = $(this).val();
-                    lastRenderedUnit = null;
                     injectStockExecutiveDashboard();
                 });
 
@@ -437,17 +274,14 @@
                     var newPeriod = $(this).data('period');
                     if (newPeriod && newPeriod !== currentSelectedPeriod) {
                         currentSelectedPeriod = newPeriod;
-                        lastRenderedUnit = null;
                         injectStockExecutiveDashboard();
                     }
                 });
-
             }
         });
     }
 
     function customizeStockNumberCardsSubtitles() {
-
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
 
         var numberCards = document.querySelectorAll('.widget-num-card, [data-widget-type="number_card"], .number-card, .widget');
@@ -455,103 +289,62 @@
 
         var customSubtitles = {
             'TOTAL DE ARMAZÉM': {
-                line1: '11 armazéns ativos',
-                line1Color: '#2563eb',
-                line2: '35 inativos há +30 dias',
-                line2Color: '#e11d48'
+                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 11 ativos</span>',
+                sub2: '<span style="color: #ef4444; font-weight: 600;">🔴 35 inativos (+30 dias)</span>'
             },
-            'ENTRADA DE MATERIAL': {
-                line1: '41 entradas este mês',
-                line1Color: '#2563eb',
-                line2: '158 mês passado',
-                line2Color: '#d97706'
+            'ENTRADA MATERIAL': {
+                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 41 este mês</span>',
+                sub2: '<span style="color: #d97706; font-weight: 600;">🟠 158 mês passado</span>'
             },
             'SAÍDA DE MATERIAL': {
-                line1: '1 saída este mês',
-                line1Color: '#2563eb',
-                line2: '31 mês passado',
-                line2Color: '#d97706'
+                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 1 este mês</span>',
+                sub2: '<span style="color: #d97706; font-weight: 600;">🟠 31 mês passado</span>'
             },
-            'TRANSFERÊNCIA DE MATERIAL': {
-                line1: '0 transferências este mês',
-                line1Color: '#2563eb',
-                line2: '4 acumuladas',
-                line2Color: '#d97706'
+            'TRANSFERÊNCIA': {
+                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 0 este mês</span>',
+                sub2: '<span style="color: #d97706; font-weight: 600;">🟠 4 acumuladas</span>'
             }
         };
 
-
         numberCards.forEach(function(card) {
-            var titleEl = card.querySelector('.widget-title, .card-title, .number-card-label, .widget-label');
+            var titleEl = card.querySelector('.widget-title, .number-card-title, .ellipsis, .widget-title-text, h5, h4');
             if (!titleEl) return;
-            var titleText = titleEl.textContent.trim();
-
+            
+            var titleText = titleEl.textContent.trim().toUpperCase();
+            
             Object.keys(customSubtitles).forEach(function(key) {
-                if (titleText.toUpperCase().includes(key.toUpperCase())) {
-                    var conf = customSubtitles[key];
+                if (titleText.includes(key)) {
+                    var subContainer = card.querySelector('.cdc-custom-subtitle-box');
+                    if (!subContainer) {
+                        subContainer = document.createElement('div');
+                        subContainer.className = 'cdc-custom-subtitle-box';
+                        subContainer.style.cssText = 'display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 11px;';
+                        
+                        var cardBody = card.querySelector('.widget-body, .number-card-body') || card;
+                        cardBody.appendChild(subContainer);
+                    }
                     
-                    // 1. Ocultar apenas nós folha com o texto "desde ontem" (sem ocultar a div pai!)
-                    var leafNodes = Array.from(card.querySelectorAll('.stat-period, .percentage-stat-label, span, small, p'));
-                    leafNodes.forEach(function(el) {
-                        if (el.children.length === 0 && el.textContent && el.textContent.includes('desde ontem')) {
-                            el.style.display = 'none';
-                        }
-                    });
-
-                    // 2. Garantir que o valor (número) e o corpo permaneçam 100% visíveis
-                    var numberValueEl = card.querySelector('.widget-content, .number-card-value, .card-value');
-                    if (numberValueEl) {
-                        numberValueEl.style.display = 'block';
-                        numberValueEl.style.visibility = 'visible';
-                    }
-
-                    var bodyEl = card.querySelector('.widget-body') || card.querySelector('.card-body') || card;
-                    if (!bodyEl) return;
-
-                    bodyEl.style.display = 'block';
-                    bodyEl.style.visibility = 'visible';
-
-                    // 3. Anexar nosso indicador de 2 linhas (Azul + Laranja/Vermelho)
-                    var html = `
-                        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px; font-weight: 600; line-height: 1.3;">
-                            <span style="color: ${conf.line1Color};">${conf.line1}</span>
-                            <span style="color: ${conf.line2Color};">${conf.line2}</span>
-                        </div>
+                    subContainer.innerHTML = `
+                        <div>${customSubtitles[key].sub1}</div>
+                        <div>${customSubtitles[key].sub2}</div>
                     `;
-
-                    var existingCustom = card.querySelector('.cdc-custom-subtitle');
-                    if (existingCustom) {
-                        existingCustom.innerHTML = html;
-                        existingCustom.style.display = 'block';
-                    } else {
-                        var newSub = document.createElement('div');
-                        newSub.className = 'cdc-custom-subtitle';
-                        newSub.innerHTML = html;
-                        bodyEl.appendChild(newSub);
-                    }
                 }
             });
         });
     }
 
-
-
-    applyCDCState();
-
     function initLoop() {
-        applyCDCState();
-        injectTopbarIcons();
         injectStockExecutiveDashboard();
         customizeStockNumberCardsSubtitles();
     }
 
-
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    $(document).ready(function() {
         initLoop();
-    } else {
-        document.addEventListener('DOMContentLoaded', initLoop);
-    }
+        setInterval(initLoop, 1000);
+    });
 
-    setInterval(initLoop, 600);
+    $(document).on('page-change', function() {
+        setTimeout(initLoop, 300);
+    });
+
 })();
-

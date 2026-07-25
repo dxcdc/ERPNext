@@ -32,20 +32,24 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
 
     if period == 'month':
         where_date = "AND se.posting_date >= '2026-07-01'"
-        group_by = "WEEK(se.posting_date, 1)"
-        label_expr = "CONCAT('Sem ', WEEK(se.posting_date, 1))"
+        group_by = "FLOOR((DAY(se.posting_date)-1)/7)+1"
+        label_expr = "CONCAT('Sem ', FLOOR((DAY(se.posting_date)-1)/7)+1)"
+        fixed_labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"]
     elif period == 'quarter':
         where_date = "AND se.posting_date >= '2026-05-01'"
         group_by = "WEEK(se.posting_date, 1)"
         label_expr = "CONCAT('Sem ', WEEK(se.posting_date, 1))"
+        fixed_labels = None
     elif period == 'semester':
         where_date = "AND se.posting_date >= '2026-02-01'"
         group_by = "DATE_FORMAT(se.posting_date, '%Y-%m')"
         label_expr = "DATE_FORMAT(se.posting_date, '%b/%y')"
+        fixed_labels = None
     else: # year
         where_date = "AND se.posting_date >= '2025-08-01'"
         group_by = "DATE_FORMAT(se.posting_date, '%Y-%m')"
         label_expr = "DATE_FORMAT(se.posting_date, '%b/%y')"
+        fixed_labels = None
 
     query = f"""
         SELECT 
@@ -69,8 +73,17 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
     
     rows = frappe.db.sql(query, as_dict=True)
     
-    labels = []
-    seen_labels = set()
+    if fixed_labels:
+        labels = fixed_labels
+    else:
+        labels = []
+        seen_labels = set()
+        for r in rows:
+            lbl = r['label_ref']
+            if lbl not in seen_labels:
+                seen_labels.add(lbl)
+                labels.append(lbl)
+
     project_map = {}
     
     projects_list = [
@@ -96,10 +109,6 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
 
     for r in rows:
         lbl = r['label_ref']
-        if lbl not in seen_labels:
-            seen_labels.add(lbl)
-            labels.append(lbl)
-            
         pj = r['projeto']
         if pj in project_map:
             project_map[pj][lbl] = {
@@ -108,7 +117,7 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
             }
             
     if not labels:
-        labels = ["Sem 27", "Sem 28", "Sem 29"]
+        labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"]
 
     datasets = []
     for pj in projects_list:
@@ -141,7 +150,6 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
         
-    # Filtros condicionais para Stock Entry
     where_se = "WHERE se.docstatus=1 AND se.posting_date >= '2026-07-01'"
     where_recent = "WHERE se.docstatus=1"
     where_bin = "WHERE 1=1"
@@ -154,7 +162,7 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
         where_bin += f" AND (warehouse = '{unit_keyword}' OR warehouse LIKE '%{unit_keyword}%')"
         where_wh += f" AND (w.name = '{unit_keyword}' OR w.name LIKE '%{unit_keyword}%')"
         
-    # 1. Contadores de Movimentação do Mês Atual (Julho/2026)
+    # 1. Contadores do Mês Atual
     if selected_unit == 'All':
         receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
         issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
@@ -167,7 +175,7 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
     total_qty = frappe.db.sql(f"SELECT SUM(actual_qty) FROM tabBin {where_bin}")[0][0] or 0
     total_items = frappe.db.sql(f"SELECT COUNT(DISTINCT item_code) FROM tabBin {where_bin} AND actual_qty > 0")[0][0] or 0
     
-    # 2. Categorias (Top 4 + Outros)
+    # 2. Categorias
     categories = frappe.db.sql(f"""
         SELECT i.item_group, COUNT(DISTINCT b.item_code) as cnt 
         FROM tabBin b
@@ -180,7 +188,6 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
     total_cat_items = sum(c['cnt'] for c in categories) or 1
     top_categories = []
     others_cnt = 0
-    
     colors = ["#2563eb", "#d97706", "#059669", "#7c3aed", "#64748b"]
     
     for idx, cat in enumerate(categories):
@@ -204,7 +211,7 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
             "color": colors[4]
         })
         
-    # 3. Lista Completa dos 46 Armazéns Reais
+    # 3. Lista dos 46 Armazéns
     warehouses_raw = frappe.db.sql("""
         SELECT name 
         FROM tabWarehouse 
@@ -220,7 +227,7 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
             "label": clean_label
         })
             
-    # 4. AGROUPAMENTO INTELIGENTE: Armazéns e Saldo por PROJETO / PROGRAMA
+    # 4. Armazéns e Saldo por Projeto (Com URLs clicáveis 🔗)
     projects_query = frappe.db.sql(f"""
         SELECT 
             CASE 
@@ -243,21 +250,20 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
     
     formatted_projects = []
     for p in projects_query:
+        pj_name = p['projeto']
+        # URL de navegação filtrada para o projeto
+        search_kw = "ATITUDE II.I" if "ATITUDE II.I" in pj_name else ("ATITUDE" if "Atitude" in pj_name else ("BEM VIVER" if "Bem Viver" in pj_name else ("CAIS" if "Cais" in pj_name else ("ATM" if "ATM" in pj_name else ""))))
+        target_url = f"/app/stock-entry?to_warehouse={search_kw}" if search_kw else "/app/stock-entry"
+        
         formatted_projects.append({
-            "project": p['projeto'],
+            "project": pj_name,
             "warehouses": int(p['total_armazens']),
             "items": int(p['total_itens']),
-            "qty": round(float(p['saldo_pecas']), 0)
+            "qty": round(float(p['saldo_pecas']), 0),
+            "url": target_url
         })
 
-    if not formatted_projects:
-        formatted_projects = [
-            {"project": "Projeto Atitude II.I", "warehouses": 16, "items": 619, "qty": 142805},
-            {"project": "Institucional / Geral", "warehouses": 15, "items": 64, "qty": 3863},
-            {"project": "Projeto Atitude", "warehouses": 12, "items": 0, "qty": 0}
-        ]
-
-    # 5. Tabela de Movimentações Recentes (Log Operacional - Últimos 30 Registros)
+    # 5. Tabela dos 30 Registros Detalhados
     recent_entries_raw = frappe.db.sql(f"""
         SELECT 
             se.name as codigo,
