@@ -271,12 +271,12 @@
                     </div>
                 `;
 
-                // --- CARD 3: Distribuição por Cidade / Unidade ---
-                var cityPills = data.cities.map(function(ct) {
+                // --- CARD 3: Agrupamento de Armazéns por PROJETO ---
+                var projectPills = (data.projects || []).map(function(pj) {
                     return `
-                        <div class="cdc-city-item">
-                            <span>🏙️ ${ct.city}</span>
-                            <span class="badge-soft-primary" style="padding: 3px 8px; border-radius: 6px;">${ct.warehouses} Armazéns</span>
+                        <div class="cdc-city-item" style="padding: 6px 10px; margin-bottom: 6px;">
+                            <span style="font-weight: 600; color: #1e293b;">${pj.project}</span>
+                            <span class="badge-soft-primary" style="padding: 3px 8px; border-radius: 6px; font-weight: 700;">${pj.warehouses} Armazéns</span>
                         </div>
                     `;
                 }).join('');
@@ -284,11 +284,11 @@
                 var card3 = `
                     <div class="cdc-exec-card">
                         <div class="cdc-exec-card-title">
-                            <span>Armazéns por Cidade / Unidade</span>
-                            <span style="font-size: 12px; color: #94a3b8;">CDC Regional</span>
+                            <span>Armazéns por Projeto</span>
+                            <span style="font-size: 12px; color: #94a3b8;">CDC Programas</span>
                         </div>
-                        <div class="cdc-city-list">
-                            ${cityPills}
+                        <div class="cdc-city-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto;">
+                            ${projectPills}
                         </div>
                     </div>
                 `;
@@ -340,15 +340,14 @@
                 `;
 
                 dashDiv.innerHTML = `
-                    <div class="cdc-exec-dashboard-grid-2col">
+                    <div class="cdc-exec-dashboard-grid-3col">
                         ${card1}
                         ${card2}
-                    </div>
-                    <div style="margin-top: 16px;">
                         ${card3}
                     </div>
                     ${tableCard}
                 `;
+
 
                 // Inserir DENTRO do container principal, diretamente ACIMA do gráfico de Estoque
                 if (parentBlock && parentBlock.parentNode) {

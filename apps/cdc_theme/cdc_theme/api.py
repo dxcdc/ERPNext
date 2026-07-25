@@ -3,8 +3,8 @@ import frappe
 @frappe.whitelist()
 def get_stock_dashboard_data(selected_unit=None):
     """
-    Retorna métricas dinâmicas para o Painel Executivo do Estoque com filtro por Unidade/Armazém
-    e Lista de Movimentações Recentes (Log de Auditoria).
+    Retorna métricas dinâmicas para o Painel Executivo do Estoque com filtro por Unidade/Armazém,
+    Agrupamento por Projeto e Log de Auditoria de Movimentações.
     """
     if not selected_unit or selected_unit == 'null' or selected_unit == 'undefined':
         selected_unit = 'All'
@@ -80,26 +80,40 @@ def get_stock_dashboard_data(selected_unit=None):
             seen.add(clean)
             available_units.append(clean)
             
-    # Cidades / Unidades
-    cities_query = frappe.db.sql(f"""
-        SELECT 
-            COALESCE(NULLIF(w.parent_warehouse, ''), 'Sem Unidade') as cidade,
-            COUNT(w.name) as total_armazens
-        FROM tabWarehouse w
+    # 4. Agrupamento de Armazéns por PROJETO
+    whs_query = frappe.db.sql(f"""
+        SELECT name, parent_warehouse 
+        FROM tabWarehouse 
         {where_wh}
-        GROUP BY cidade
-        ORDER BY total_armazens DESC
     """, as_dict=True)
     
-    formatted_cities = []
-    for c in cities_query:
-        name = c['cidade'].replace(': ATITUDE - C', '').replace(' - C', '').strip()
-        formatted_cities.append({
-            "city": name,
-            "warehouses": c['total_armazens']
+    projects_count = {}
+    for w in whs_query:
+        name = w['name'].replace(' - C', '').strip()
+        proj = 'Institucional / Geral'
+        if 'ATITUDE II.I' in name:
+            proj = 'Projeto Atitude II.I'
+        elif 'ATITUDE' in name:
+            proj = 'Projeto Atitude'
+        elif 'BEM VIVER' in name:
+            proj = 'Projeto Bem Viver'
+        elif 'CAIS' in name:
+            proj = 'Projeto Cais'
+        elif 'MORADIA' in name:
+            proj = 'Projeto Moradia'
+        elif 'ATM' in name:
+            proj = 'Projeto ATM'
+            
+        projects_count[proj] = projects_count.get(proj, 0) + 1
+        
+    formatted_projects = []
+    for proj_name, cnt in sorted(projects_count.items(), key=lambda x: x[1], reverse=True):
+        formatted_projects.append({
+            "project": proj_name,
+            "warehouses": cnt
         })
 
-    # 4. Tabela de Movimentações Recentes (Log Operacional)
+    # 5. Tabela de Movimentações Recentes (Log Operacional)
     recent_entries_raw = frappe.db.sql(f"""
         SELECT 
             se.name as codigo,
@@ -120,7 +134,6 @@ def get_stock_dashboard_data(selected_unit=None):
     for row in recent_entries_raw:
         wh = row['warehouse_name'].replace(' - C', '').strip()
         
-        # Extrair Projeto / Programa e Armazém Específico
         projeto = "Geral"
         armazem_especifico = wh
         
@@ -134,7 +147,6 @@ def get_stock_dashboard_data(selected_unit=None):
             projeto = parts[0].strip()
             armazem_especifico = " - ".join(parts[1:]).strip()
 
-        # Tradução amigável do Tipo de Movimentação (sem emojis)
         tipo_label = "Entrada"
         tipo_class = "badge-soft-success"
         if row['purpose'] == "Material Issue":
@@ -165,6 +177,6 @@ def get_stock_dashboard_data(selected_unit=None):
         "total_qty": round(total_qty, 2),
         "total_items": total_items,
         "categories": top_categories,
-        "cities": formatted_cities,
+        "projects": formatted_projects,
         "recent_entries": recent_entries
     }
