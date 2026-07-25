@@ -12,7 +12,8 @@
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var routeStr = route.join('/').toLowerCase();
 
-        if (routeStr === 'stock' || routeStr === 'workspace/stock' || href.endsWith('/app/stock') || href.endsWith('/app/workspace/stock') || (route.length === 1 && route[0].toLowerCase() === 'stock')) {
+        // RECONHECIMENTO COMPLETO DE TODAS AS ROTAS DO ESTOQUE (/app/stock, /app/workspace/stock, workspaces/stock)
+        if (href.includes('/app/stock') || href.includes('/app/workspace/stock') || routeStr.includes('stock')) {
             return true;
         }
 
@@ -30,6 +31,7 @@
                             document.querySelector('.workspace-page');
         if (!workspaceBody) return;
 
+        // Remover contêineres duplicados se existirem
         var existingDashboards = document.querySelectorAll('#cdc-stock-exec-dashboard');
         if (existingDashboards.length > 1) {
             for (var i = 1; i < existingDashboards.length; i++) {
@@ -49,6 +51,7 @@
             dashDiv.addEventListener('selectstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
         }
 
+        // Inserir no topo absoluto da página do Workspace
         var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card, .widget-box');
         if (firstWidget && firstWidget.parentNode) {
             if (dashDiv.parentNode !== firstWidget.parentNode) {
@@ -313,7 +316,7 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO: MONITORAMENTO DE LANÇAMENTOS (IMPLEMENTAÇÃO FIEL AO ARTEFATO APROVADO) ---
+                // --- 6. GRÁFICO: MONITORAMENTO DE LANÇAMENTOS ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
@@ -385,7 +388,6 @@
                                 <span class="${badgeClass}" style="font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 6px;">${d.total_occurrences} ${chartTypeBadgeText}</span>
                             </div>
                             
-                            <!-- Régua Y + Blocos Modulares de Contêineres por Mês conforme Desenho Aprovado -->
                             <div style="display: flex; align-items: stretch; gap: 10px; overflow-x: auto;">
                                 <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100px; font-size: 9px; font-weight: 700; color: #64748b; text-align: right; min-width: 32px; padding-top: 32px; padding-bottom: 20px;">
                                     <span>${topOcc} ┤</span>
@@ -408,7 +410,6 @@
                                 <span style="font-size: 16px; font-weight: 800; color: #0f172a;">Monitoramento de Lançamentos</span>
                                 <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Volume de lançamentos por período e programa do CDC</div>
                             </div>
-                            <!-- Período no Topo e Tipo em Baixo -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 12px; font-weight: 700; color: #64748b;">Período:</span>
@@ -426,7 +427,7 @@
                     </div>
                 `;
 
-                // MONTAGEM FINAL DA PÁGINA ÚNICA UNIFICADA
+                // MONTAGEM DA PÁGINA ÚNICA
                 dashDiv.innerHTML = `
                     ${selectorHeader}
                     ${top4CardsGrid}
@@ -441,7 +442,7 @@
         });
     }
 
-    // --- EVENT DELEGATION GLOBAL ---
+    // INTERCEPTADOR DE ROTA E RENDERIZAÇÃO
     $(document).ready(function() {
         renderStockDashboard();
 
@@ -479,10 +480,11 @@
         });
     });
 
+    // RE-RENDERIZAR EM QUALQUER TROCA DE PÁGINA / ROTA DO FRAPPE
     $(document).on('page-change', function() {
         setTimeout(function() {
             renderStockDashboard();
-        }, 300);
+        }, 150);
     });
 
 })();

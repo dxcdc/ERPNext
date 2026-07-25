@@ -267,11 +267,12 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   margin-bottom: 24px;
 }
 
-/* Ocultar blocos nativos duplicados abaixo do dashboard customizado */
+/* Ocultar blocos nativos duplicados do workspace que fiquem abaixo ou ao lado do dashboard customizado */
 #cdc-stock-exec-dashboard ~ .ce-block,
 #cdc-stock-exec-dashboard ~ .widget,
 #cdc-stock-exec-dashboard ~ .widget-group,
-#cdc-stock-exec-dashboard ~ .widget-box {
+#cdc-stock-exec-dashboard ~ .widget-box,
+#cdc-stock-exec-dashboard ~ div:not(#cdc-stock-exec-dashboard) {
   display: none !important;
 }
 
