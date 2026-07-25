@@ -12,7 +12,6 @@
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var routeStr = route.join('/').toLowerCase();
 
-        // VALIDAÇÃO ESTRITA DE PÁGINA ÚNICA: Apenas na rota principal de Estoque (/app/stock)
         if (routeStr === 'stock' || routeStr === 'workspace/stock' || href.endsWith('/app/stock') || href.endsWith('/app/workspace/stock') || (route.length === 1 && route[0].toLowerCase() === 'stock')) {
             return true;
         }
@@ -31,7 +30,6 @@
                             document.querySelector('.workspace-page');
         if (!workspaceBody) return;
 
-        // Garantir que exista APENAS UM contêiner do dashboard no DOM
         var existingDashboards = document.querySelectorAll('#cdc-stock-exec-dashboard');
         if (existingDashboards.length > 1) {
             for (var i = 1; i < existingDashboards.length; i++) {
@@ -51,7 +49,6 @@
             dashDiv.addEventListener('selectstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
         }
 
-        // Inserir como o único contêiner principal no topo do Workspace
         var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card, .widget-box');
         if (firstWidget && firstWidget.parentNode) {
             if (dashDiv.parentNode !== firstWidget.parentNode) {
@@ -166,7 +163,7 @@
                     </div>
                 `;
 
-                // --- 4. LADO A LADO COM ESPAÇAMENTO AJUSTADO (330px vs 1fr) ---
+                // --- 4. LADO A LADO ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -273,7 +270,7 @@
                     </div>
                 `;
 
-                // --- 5. COMPOSIÇÃO POR CATEGORIA (PARAMETRIZADO APENAS POR QTD DE ITENS) ---
+                // --- 5. COMPOSIÇÃO POR CATEGORIA ---
                 var categoriesList = (data.categories && data.categories.length > 0) ? data.categories : [
                     { label: 'MAT. HIGIENE E LIMPEZA', count: 154, percent: 14.0, color: '#2563eb' },
                     { label: 'CEREAIS', count: 144, percent: 12.9, color: '#d97706' },
@@ -322,7 +319,7 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO ---
+                // --- 6. GRÁFICO: MONITORAMENTO DE LANÇAMENTOS (DELIMITAÇÃO DE MÊS VISÍVEL E BARRAS SEMANAIS) ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
@@ -344,7 +341,6 @@
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
-                var chartTitleText = (currentOccurrencesType === 'issue') ? 'Saídas de Estoque por Projeto' : 'Entradas de Estoque por Projeto';
                 var chartTypeBadgeText = (currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos de entrada';
 
                 var projectSubChartsHTML = datasetsList.map(function(d) {
@@ -419,8 +415,8 @@
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
                         <div class="cdc-exec-card-title" style="margin-bottom: 16px;">
                             <div>
-                                <span style="font-size: 15px; font-weight: 700; color: #0f172a;">${chartTitleText}</span>
-                                <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Quantidade de lançamentos por semana e programa do CDC</div>
+                                <span style="font-size: 16px; font-weight: 800; color: #0f172a;">Monitoramento de Lançamentos</span>
+                                <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Volume de lançamentos por período e programa do CDC</div>
                             </div>
                             <!-- Período no Topo e Tipo em Baixo -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
