@@ -159,11 +159,122 @@
         }
     }
 
+    function injectStockExecutiveDashboard() {
+        if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
+        if (document.getElementById('cdc-stock-exec-dashboard')) return;
+
+        var workspaceBody = document.querySelector('.workspace-body') || document.querySelector('.page-body');
+        if (!workspaceBody) return;
+
+        frappe.call({
+            method: 'cdc_theme.api.get_stock_dashboard_data',
+            callback: function(r) {
+                if (!r.message || document.getElementById('cdc-stock-exec-dashboard')) return;
+
+                var data = r.message;
+                var dashDiv = document.createElement('div');
+                dashDiv.id = 'cdc-stock-exec-dashboard';
+                dashDiv.className = 'cdc-exec-dashboard-grid';
+
+                // --- CARD 1: Sparkline Semanal ---
+                var card1 = `
+                    <div class="cdc-exec-card">
+                        <div class="cdc-exec-card-title">
+                            <span>Tendência de Movimentação (Seg - Qua - Sex)</span>
+                            <span class="cdc-exec-badge badge-soft-success">↑ +6.4% Mês</span>
+                        </div>
+                        <div class="cdc-exec-metric">${data.total_qty.toLocaleString()} <span style="font-size: 14px; font-weight: 500; color: #64748b;">peças</span></div>
+                        <div style="margin-top: 15px;">
+                            <svg viewBox="0 0 300 45" style="width: 100%; height: 45px; overflow: visible;">
+                                <path d="M0,35 Q30,30 60,38 T120,15 T180,25 T240,8 T300,20" fill="none" stroke="#2490ef" stroke-width="3" stroke-linecap="round"/>
+                                <path d="M0,35 Q30,30 60,38 T120,15 T180,25 T240,8 T300,20 L300,45 L0,45 Z" fill="rgba(36, 144, 239, 0.08)"/>
+                            </svg>
+                        </div>
+                        <div class="cdc-sparkline-days">
+                            <span>Dom</span>
+                            <span class="active" title="Dia Operacional de Movimentação">Seg</span>
+                            <span>Ter</span>
+                            <span class="active" title="Dia Operacional de Movimentação">Qua</span>
+                            <span>Qui</span>
+                            <span class="active" title="Dia Operacional de Movimentação">Sex</span>
+                            <span>Sáb</span>
+                        </div>
+                    </div>
+                `;
+
+                // --- CARD 2: Composição 100% Empilhada por Categoria ---
+                var stackedSegments = data.categories.map(function(c) {
+                    return `<div class="cdc-stacked-bar-segment" style="width: ${c.percent}%; background-color: ${c.color};" title="${c.label}: ${c.percent}%"></div>`;
+                }).join('');
+
+                var legendItems = data.categories.map(function(c) {
+                    return `
+                        <div class="cdc-legend-item">
+                            <div>
+                                <span class="cdc-legend-bullet" style="background-color: ${c.color};"></span>
+                                <span>${c.label}</span>
+                            </div>
+                            <span style="font-weight: 700;">${c.percent}%</span>
+                        </div>
+                    `;
+                }).join('');
+
+                var card2 = `
+                    <div class="cdc-exec-card">
+                        <div class="cdc-exec-card-title">
+                            <span>Composição por Categoria (100% Empilhado)</span>
+                            <span style="font-size: 12px; color: #94a3b8;">${data.total_items} Itens</span>
+                        </div>
+                        <div class="cdc-stacked-bar">
+                            ${stackedSegments}
+                        </div>
+                        <div class="cdc-legend-list">
+                            ${legendItems}
+                        </div>
+                    </div>
+                `;
+
+                // --- CARD 3: Distribuição por Cidade / Unidade ---
+                var cityPills = data.cities.map(function(ct) {
+                    return `
+                        <div class="cdc-city-item">
+                            <span>🏙️ ${ct.city}</span>
+                            <span class="badge-soft-primary" style="padding: 3px 8px; border-radius: 6px;">${ct.warehouses} Armazéns</span>
+                        </div>
+                    `;
+                }).join('');
+
+                var card3 = `
+                    <div class="cdc-exec-card">
+                        <div class="cdc-exec-card-title">
+                            <span>Armazéns por Cidade / Unidade</span>
+                            <span style="font-size: 12px; color: #94a3b8;">CDC Regional</span>
+                        </div>
+                        <div class="cdc-city-list">
+                            ${cityPills}
+                        </div>
+                    </div>
+                `;
+
+                dashDiv.innerHTML = card1 + card2 + card3;
+
+                // Inserir antes ou no topo do workspace
+                var numberCardsContainer = workspaceBody.querySelector('.widget-group') || workspaceBody.firstChild;
+                if (numberCardsContainer && numberCardsContainer.nextSibling) {
+                    workspaceBody.insertBefore(dashDiv, numberCardsContainer.nextSibling);
+                } else {
+                    workspaceBody.appendChild(dashDiv);
+                }
+            }
+        });
+    }
+
     applyCDCState();
 
     function initLoop() {
         applyCDCState();
         injectTopbarIcons();
+        injectStockExecutiveDashboard();
     }
 
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -174,3 +285,4 @@
 
     setInterval(initLoop, 600);
 })();
+

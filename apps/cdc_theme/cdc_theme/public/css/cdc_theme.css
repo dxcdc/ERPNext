@@ -130,3 +130,128 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   color: #f59e0b !important;
   background-color: rgba(245, 158, 11, 0.12) !important;
 }
+
+/* ==========================================================================
+   CDC Custom Executive Dashboard Cards (Lahomes Mode)
+   ========================================================================== */
+.cdc-exec-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.cdc-exec-card {
+  background: var(--cdc-bg-card, #ffffff);
+  border: 1px solid var(--cdc-border-card, #e2e8f0);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cdc-exec-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+}
+
+.cdc-exec-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cdc-exec-metric {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+}
+
+.cdc-exec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 100% Stacked Bar Progress */
+.cdc-stacked-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 16px 0;
+  background-color: #f1f5f9;
+}
+
+.cdc-stacked-bar-segment {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.cdc-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cdc-legend-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #334155;
+}
+
+.cdc-legend-bullet {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+/* Sparkline Days Bar */
+.cdc-sparkline-days {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.cdc-sparkline-days span.active {
+  color: #2490ef;
+  font-weight: 700;
+  border-bottom: 2px solid #2490ef;
+}
+
+.cdc-city-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cdc-city-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
