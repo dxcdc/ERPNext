@@ -312,26 +312,33 @@
             Object.keys(customSubtitles).forEach(function(key) {
                 if (titleText.toUpperCase().includes(key.toUpperCase())) {
                     
-                    // 1. Ocultar e remover qualquer elemento com o texto nativo "desde ontem" / "0 %"
-                    var nativeSubtitles = Array.from(card.querySelectorAll('.card-subtitle, .number-card-subtitle, .stat-period, .widget-subtitle, .percentage-stat-label, div, span, p'));
-                    nativeSubtitles.forEach(function(el) {
-                        if (el.textContent && (el.textContent.includes('desde ontem') || el.textContent.includes('0 %') || el.textContent.includes('0%'))) {
+                    // 1. Ocultar apenas nós folha com o texto "desde ontem" (sem ocultar a div pai!)
+                    var leafNodes = Array.from(card.querySelectorAll('.stat-period, .percentage-stat-label, span, small, p'));
+                    leafNodes.forEach(function(el) {
+                        if (el.children.length === 0 && el.textContent && el.textContent.includes('desde ontem')) {
                             el.style.display = 'none';
                         }
                     });
 
-                    // 2. Garantir que nosso indicador personalizado fique exatamente ABAIXO do número principal
-                    var existingCustom = card.querySelector('.cdc-custom-subtitle');
-                    var bodyEl = card.querySelector('.widget-body') || card.querySelector('.card-body') || card;
+                    // 2. Garantir que o valor (número) e o corpo permaneçam 100% visíveis
+                    var numberValueEl = card.querySelector('.widget-content, .number-card-value, .card-value');
+                    if (numberValueEl) {
+                        numberValueEl.style.display = 'block';
+                        numberValueEl.style.visibility = 'visible';
+                    }
 
+                    var bodyEl = card.querySelector('.widget-body') || card.querySelector('.card-body') || card;
+                    if (!bodyEl) return;
+
+                    bodyEl.style.display = 'block';
+                    bodyEl.style.visibility = 'visible';
+
+                    // 3. Anexar nosso indicador exatamente ABAIXO do número
+                    var existingCustom = card.querySelector('.cdc-custom-subtitle');
                     if (existingCustom) {
                         existingCustom.textContent = customSubtitles[key];
-                        // Mover para o final da div do card para garantir que fique ABAIXO do número
-                        if (bodyEl && existingCustom.parentNode !== bodyEl) {
-                            bodyEl.appendChild(existingCustom);
-                        } else if (bodyEl) {
-                            bodyEl.appendChild(existingCustom); // Re-append ao final
-                        }
+                        existingCustom.style.display = 'block';
+                        bodyEl.appendChild(existingCustom);
                     } else {
                         var newSub = document.createElement('div');
                         newSub.className = 'cdc-custom-subtitle';
@@ -341,14 +348,13 @@
                         newSub.style.lineHeight = '1.3';
                         newSub.style.color = key.includes('ARMAZÉM') ? '#e11d48' : '#475569';
                         newSub.textContent = customSubtitles[key];
-                        if (bodyEl) {
-                            bodyEl.appendChild(newSub); // Adiciona ao FINAL da div (abaixo do número!)
-                        }
+                        bodyEl.appendChild(newSub);
                     }
                 }
             });
         });
     }
+
 
 
     applyCDCState();
