@@ -4,9 +4,10 @@ import frappe
 def get_stock_dashboard_data(selected_unit=None):
     """
     Retorna métricas dinâmicas para o Painel Executivo do Estoque.
-    Suporta filtragem individual por cada um dos 46 Armazéns reais (sem agrupar em cidades).
+    Suporta filtragem individual por cada um dos 46 Armazéns reais com sanitização de opções.
     """
-    if not selected_unit or selected_unit == 'null' or selected_unit == 'undefined' or selected_unit == 'All' or selected_unit == 'Todos os Armazéns':
+    # Normalizar qualquer variante de 'Todos os Armazéns' para 'All'
+    if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
         
     # Filtros condicionais para Stock Entry
