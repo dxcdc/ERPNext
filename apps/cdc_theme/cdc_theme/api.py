@@ -16,13 +16,17 @@ def get_unit_prefix(unit):
     return unit
 
 @frappe.whitelist()
-def get_project_weekly_occurrences(period='month', selected_unit=None):
+def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_type='receipt'):
     """
     Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
-    Suporta períodos: 'month' (Mês), 'quarter' (Trimestre), 'semester' (Semestre), 'year' (Ano).
+    entry_type: 'receipt' (Entrada) ou 'issue' (Saída). Padrão: 'receipt'.
     """
     if not period or period == 'undefined':
-        period = 'month'
+        period = 'quarter'
+    if not entry_type or entry_type == 'undefined':
+        entry_type = 'receipt'
+
+    purpose_clause = "AND se.purpose = 'Material Issue'" if entry_type == 'issue' else "AND se.purpose = 'Material Receipt'"
         
     unit_prefix = get_unit_prefix(selected_unit)
     where_unit = ""
@@ -68,7 +72,7 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 {where_date} {where_unit}
+            WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
             GROUP BY sem_num, projeto
         """
         rows = frappe.db.sql(query, as_dict=True)
@@ -95,6 +99,7 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
 
         return {
             "period": period,
+            "entry_type": entry_type,
             "labels": labels,
             "grouped_months": grouped_months,
             "datasets": datasets
@@ -116,13 +121,12 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 {where_date} {where_unit}
+            WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
             GROUP BY mes_num, sem_num, projeto
             ORDER BY mes_num ASC, sem_num ASC
         """
         rows = frappe.db.sql(query, as_dict=True)
 
-        # Maio (5), Junho (6), Julho (7)
         target_months = [5, 6, 7]
         grouped_months = []
         labels = []
@@ -164,12 +168,12 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
 
         return {
             "period": period,
+            "entry_type": entry_type,
             "labels": labels,
             "grouped_months": grouped_months,
             "datasets": datasets
         }
     else:
-        # Semester ou Year
         where_date = "AND se.posting_date >= '2026-02-01'" if period == 'semester' else "AND se.posting_date >= '2025-08-01'"
         query = f"""
             SELECT 
@@ -185,7 +189,7 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 {where_date} {where_unit}
+            WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
             GROUP BY period_key, projeto
             ORDER BY MIN(se.posting_date) ASC
         """
@@ -223,13 +227,14 @@ def get_project_weekly_occurrences(period='month', selected_unit=None):
 
         return {
             "period": period,
+            "entry_type": entry_type,
             "labels": labels,
             "grouped_months": grouped_months,
             "datasets": datasets
         }
 
 @frappe.whitelist()
-def get_stock_dashboard_data(selected_unit=None, period='month'):
+def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='receipt'):
     """
     Retorna métricas dinâmicas para o Painel Executivo do Estoque.
     """
@@ -407,7 +412,7 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
         })
         
     # 6. Indicadores de Ocorrências por Projeto
-    occurrences_data = get_project_weekly_occurrences(period=period, selected_unit=selected_unit)
+    occurrences_data = get_project_weekly_occurrences(period=period, selected_unit=selected_unit, entry_type=entry_type)
 
     unit_display_label = "Todos os Armazéns (46 Armazéns)"
     if selected_unit != 'All':
