@@ -3,6 +3,7 @@
 
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'month';
+    var currentTableTypeFilter = 'all'; // 'all', 'receipt', 'issue'
     var isDashboardLoading = false;
 
     function isStockWorkspacePage() {
@@ -161,7 +162,7 @@
                     </div>
                 `;
 
-                // --- 4. LADO A LADO REAJUSTADO (350px Armazéns | 1fr Tabela de Auditoria) ---
+                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO + TABELA COM FILTRO (TODOS | ENTRADAS | SAÍDAS) ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -187,27 +188,43 @@
                 }).join('');
 
                 var entriesList = (data.recent_entries && Array.isArray(data.recent_entries)) ? data.recent_entries : [];
+                
+                // Filtragem em memória pela aba ativa (Todos | Entradas | Saídas)
+                var filteredEntries = entriesList.filter(function(row) {
+                    if (currentTableTypeFilter === 'receipt') {
+                        return row.tipo_label === 'Entrada';
+                    } else if (currentTableTypeFilter === 'issue') {
+                        return row.tipo_label === 'Saída';
+                    }
+                    return true;
+                });
+
                 var tableRowsHTML = '';
-                if (entriesList.length > 0) {
-                    tableRowsHTML = entriesList.map(function(row) {
+                if (filteredEntries.length > 0) {
+                    tableRowsHTML = filteredEntries.map(function(row) {
                         return `
                             <tr>
                                 <td>
                                     <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link" style="font-weight: 700; color: #2563eb; font-size: 11px;">${row.codigo}</a>
                                 </td>
                                 <td style="font-weight: 600; color: #475569; font-size: 11px;">${row.data}</td>
-                                <td style="font-size: 11px; font-weight: 500; color: #0f172a;">${row.armazem}</td>
+                                <td style="font-size: 11px; font-weight: 600; color: #0f172a;">${row.armazem}</td>
                                 <td style="font-weight: 600; font-size: 11px;">${row.total_itens} <span style="font-size: 10px; font-weight: 400; color: #64748b;">(${row.total_pecas} pç)</span></td>
-                                <td>
-                                    <span class="cdc-exec-badge ${row.tipo_class}" style="font-size: 10px; padding: 2px 6px;">${row.tipo_label}</span>
-                                </td>
                                 <td style="font-weight: 500; color: #475569; font-size: 11px;">${row.usuario}</td>
                             </tr>
                         `;
                     }).join('');
                 } else {
-                    tableRowsHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 16px;">Nenhuma movimentação registrada.</td></tr>';
+                    tableRowsHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 16px;">Nenhuma movimentação para o filtro selecionado.</td></tr>';
                 }
+
+                var tableFilterPills = `
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <button class="cdc-table-filter-btn ${currentTableTypeFilter === 'all' ? 'active' : ''}" data-type="all">Todos</button>
+                        <button class="cdc-table-filter-btn ${currentTableTypeFilter === 'receipt' ? 'active' : ''}" data-type="receipt">Entradas</button>
+                        <button class="cdc-table-filter-btn ${currentTableTypeFilter === 'issue' ? 'active' : ''}" data-type="issue">Saídas</button>
+                    </div>
+                `;
 
                 var sideBySideRow = `
                     <div style="display: grid; grid-template-columns: 350px 1fr; gap: 16px; margin-bottom: 20px;">
@@ -222,11 +239,11 @@
                             </div>
                         </div>
 
-                        <!-- Tabela de Movimentações (Expandida: Todo o Espaço Restante) -->
+                        <!-- Tabela de Movimentações (5 Colunas Limpas + Filtros em Cima) -->
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
-                                <span>Últimas Movimentações de Estoque</span>
-                                <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
+                                <span>Últimas Movimentações</span>
+                                ${tableFilterPills}
                             </div>
                             <div class="cdc-table-container" style="max-height: 380px; overflow-y: auto;">
                                 <table class="cdc-table">
@@ -236,7 +253,6 @@
                                             <th>Data</th>
                                             <th>Armazém</th>
                                             <th>Qtd.</th>
-                                            <th>Tipo</th>
                                             <th>Responsável</th>
                                         </tr>
                                     </thead>
@@ -374,11 +390,20 @@
 
                 window._cdc_debug_dashboard_data = data;
 
-                // Event Listeners sem re-renderizações destrutivas
+                // Event Listeners
                 $('#cdc-unit-filter-select').off('change').on('change', function(e) {
                     e.stopPropagation();
                     currentSelectedUnit = $(this).val();
                     renderStockDashboard();
+                });
+
+                $('.cdc-table-filter-btn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    var type = $(this).data('type');
+                    if (type && type !== currentTableTypeFilter) {
+                        currentTableTypeFilter = type;
+                        renderStockDashboard();
+                    }
                 });
 
                 $('.cdc-period-btn').off('click').on('click', function(e) {

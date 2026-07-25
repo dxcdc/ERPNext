@@ -51,7 +51,6 @@ header.navbar .cdc-topbar-btn {
 
 header.navbar .cdc-topbar-btn:hover {
   background-color: rgba(36, 144, 239, 0.12) !important;
-  transform: scale(1.05) !important;
 }
 
 .cdc-topbar-menu {
@@ -86,7 +85,7 @@ header.navbar .cdc-topbar-btn:hover {
 }
 
 /* ==========================================================================
-   2. LAHOMES EXECUTIVE THEME OVERRIDES (Ativado na Versão B)
+   2. LAHOMES EXECUTIVE THEME OVERRIDES
    ========================================================================== */
 html[data-cdc-layout="lahomes"] body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
@@ -106,7 +105,7 @@ html[data-cdc-layout="lahomes"] .frappe-card:hover {
   box-shadow: var(--cdc-shadow-subtle) !important;
 }
 
-/* Soft Buttons in Lahomes Mode */
+/* Soft Buttons */
 html[data-cdc-layout="lahomes"] .btn-primary {
   background-color: var(--cdc-accent) !important;
   border-color: var(--cdc-accent) !important;
@@ -131,10 +130,15 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   background-color: rgba(245, 158, 11, 0.12) !important;
 }
 
+.badge-soft-danger {
+  background-color: rgba(225, 29, 72, 0.1);
+  color: #e11d48;
+}
+
 .cdc-table-container {
   width: 100%;
   overflow-x: auto;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .cdc-table {
@@ -178,15 +182,31 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   text-decoration: underline;
 }
 
-.badge-soft-danger {
-  background-color: rgba(225, 29, 72, 0.1);
-  color: #e11d48;
+/* Table Type Filter Buttons (Todos | Entradas | Saídas) */
+.cdc-table-filter-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
+.cdc-table-filter-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
 
-/* ==========================================================================
-   CDC Custom Executive Dashboard Cards (Lahomes Mode)
-   ========================================================================== */
+.cdc-table-filter-btn.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* Dashboard Cards (Estáticos) */
 #cdc-stock-exec-dashboard {
   width: 100% !important;
   max-width: 100% !important;
@@ -195,30 +215,20 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   margin-bottom: 24px;
 }
 
-.cdc-exec-dashboard-grid-3col {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-@media (max-width: 992px) {
-  .cdc-exec-dashboard-grid-3col {
-    grid-template-columns: 1fr;
-  }
-}
-
 .cdc-exec-card {
   background: var(--cdc-bg-card, #ffffff);
   border: 1px solid var(--cdc-border-card, #e2e8f0);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
+}
+
+.cdc-exec-card:hover {
+  transform: none !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .cdc-exec-card-title {
@@ -232,30 +242,6 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   gap: 8px;
 }
 
-
-
-.cdc-exec-card:hover {
-  transform: none !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-}
-
-.cdc-exec-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #64748b;
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.cdc-exec-metric {
-  font-size: 26px;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.5px;
-}
-
 .cdc-exec-badge {
   display: inline-flex;
   align-items: center;
@@ -266,7 +252,6 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   font-weight: 600;
 }
 
-/* 100% Stacked Bar Progress */
 .cdc-stacked-bar {
   display: flex;
   height: 10px;
@@ -281,106 +266,30 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   transition: width 0.4s ease;
 }
 
-.cdc-legend-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.cdc-legend-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  color: #334155;
-}
-
-.cdc-legend-bullet {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 8px;
-}
-
-/* Sparkline Days Bar */
-.cdc-sparkline-days {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.cdc-sparkline-days span.active {
-  font-weight: 700;
-  color: #10b981;
-  border-bottom: 2px solid #10b981;
-}
-
-/* ==========================================================================
-   5. PERIOD FILTER PILLS (Mês / Trimestre / Semestre / Ano)
-   ========================================================================== */
 .cdc-period-filter-group {
-  display: inline-flex;
-  background-color: #f1f5f9;
-  padding: 4px;
-  border-radius: 8px;
+  display: flex;
   gap: 4px;
-  border: 1px solid #e2e8f0;
 }
 
 .cdc-period-btn {
-  padding: 5px 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 4px 10px;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
-  border: none;
-  background: transparent;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .cdc-period-btn:hover {
+  background: #e2e8f0;
   color: #1e293b;
-  background-color: rgba(255, 255, 255, 0.6);
 }
 
 .cdc-period-btn.active {
-  background-color: #ffffff;
-  color: #2563eb;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
 }
-
-
-.cdc-city-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.cdc-city-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-/* Hide native 'desde ontem' subtitle on Number Cards safely */
-.widget-num-card .stat-period,
-.number-card .stat-period,
-[data-widget-type="number_card"] .stat-period {
-  display: none !important;
-}
-
-
-
