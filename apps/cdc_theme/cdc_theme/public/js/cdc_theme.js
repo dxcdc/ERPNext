@@ -339,26 +339,34 @@
                     </div>
                 `;
 
-                // --- CARD 4: Tabela de Movimentações Recentes (Limpa / Sem Ícones) ---
-                var entriesList = (data.recent_entries && data.recent_entries.length > 0) ? data.recent_entries : [];
+                window._cdc_debug_dashboard_data = data;
+                console.log("[CDC Theme Debug] Dashboard Data Loaded:", data);
 
-                var tableRows = entriesList.map(function(row) {
-                    return `
-                        <tr>
-                            <td>
-                                <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link">${row.codigo}</a>
-                            </td>
-                            <td style="font-weight: 600; color: #475569;">${row.data}</td>
-                            <td style="font-weight: 600; color: #0f172a;">${row.projeto}</td>
-                            <td>${row.armazem}</td>
-                            <td style="font-weight: 600;">${row.total_itens} itens <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} peças)</span></td>
-                            <td>
-                                <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
-                            </td>
-                            <td style="font-weight: 500;">${row.usuario}</td>
-                        </tr>
-                    `;
-                }).join('');
+                // --- CARD 4: Tabela de Movimentações Recentes (Log Operacional) ---
+                var entriesList = (data.recent_entries && Array.isArray(data.recent_entries)) ? data.recent_entries : [];
+
+                var tableRowsHTML = '';
+                if (entriesList.length > 0) {
+                    tableRowsHTML = entriesList.map(function(row) {
+                        return `
+                            <tr>
+                                <td>
+                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link">${row.codigo}</a>
+                                </td>
+                                <td style="font-weight: 600; color: #475569;">${row.data}</td>
+                                <td style="font-weight: 600; color: #0f172a;">${row.projeto}</td>
+                                <td>${row.armazem}</td>
+                                <td style="font-weight: 600;">${row.total_itens} itens <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} peças)</span></td>
+                                <td>
+                                    <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
+                                </td>
+                                <td style="font-weight: 500;">${row.usuario}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tableRowsHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma movimentação registrada para este armazém.</td></tr>';
+                }
 
                 var tableCard = `
                     <div class="cdc-exec-card" style="margin-top: 20px;">
@@ -367,7 +375,6 @@
                             <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
                         </div>
                         <div class="cdc-table-container" style="max-height: 480px; overflow-y: auto;">
-
                             <table class="cdc-table">
                                 <thead>
                                     <tr>
@@ -381,12 +388,13 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${tableRows.length > 0 ? tableRows : '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma movimentação registrada neste mês.</td></tr>'}
+                                    ${tableRowsHTML}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 `;
+
 
                 dashDiv.innerHTML = `
                     ${selectorHeader}
