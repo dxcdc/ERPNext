@@ -405,11 +405,21 @@
 
                 if (parentBlock && parentBlock.parentNode && parentBlock !== workspaceBody) {
                     parentBlock.parentNode.insertBefore(dashDiv, parentBlock);
+                } else if (workspaceBody) {
+                    workspaceBody.appendChild(dashDiv);
+                }
 
-
-
+                $('#cdc-unit-filter-select').off('change').on('change', function() {
+                    currentSelectedUnit = $(this).val();
+                    lastRenderedUnit = null;
+                    injectStockExecutiveDashboard();
+                });
+            }
+        });
+    }
 
     function customizeStockNumberCardsSubtitles() {
+
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
 
         var numberCards = document.querySelectorAll('.widget-num-card, [data-widget-type="number_card"], .number-card, .widget');
