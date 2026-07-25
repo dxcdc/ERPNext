@@ -11,6 +11,7 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
       DB_HOST: db
       DB_PORT: "3306"
@@ -45,6 +46,7 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
 
   create-site:
     image: frappe/erpnext:v15.88.1
@@ -124,6 +126,7 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     ports:
       - "8085:8080"
 

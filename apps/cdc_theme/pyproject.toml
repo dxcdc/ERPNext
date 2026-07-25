@@ -1,0 +1,19 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "cdc_theme"
+version = "1.0.0"
+description = "CDC Theme and Jinja2 Templates for NextERP"
+authors = [
+    {name = "CDC Org"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "frappe"
+]
+
+[project.urls]
+Home = "https://github.com/dxcdc/ERPNext"
