@@ -258,7 +258,20 @@
 
                 dashDiv.innerHTML = card1 + card2 + card3;
 
-                // Inserir antes ou no topo do workspace
+                // Inserir exatamente abaixo da seção "Indicadores Executivos & Tendências"
+                var targetHeader = Array.from(workspaceBody.querySelectorAll('.widget, .widget-header, h4, h5, div')).find(function(el) {
+                    return el.textContent && el.textContent.includes('Indicadores Executivos');
+                });
+
+                if (targetHeader) {
+                    var containerWidget = targetHeader.closest('.widget') || targetHeader;
+                    if (containerWidget && containerWidget.parentNode) {
+                        containerWidget.parentNode.insertBefore(dashDiv, containerWidget.nextSibling);
+                        return;
+                    }
+                }
+
+                // Fallback: Inserir após os Number Cards
                 var numberCardsContainer = workspaceBody.querySelector('.widget-group') || workspaceBody.firstChild;
                 if (numberCardsContainer && numberCardsContainer.nextSibling) {
                     workspaceBody.insertBefore(dashDiv, numberCardsContainer.nextSibling);
@@ -268,6 +281,7 @@
             }
         });
     }
+
 
     applyCDCState();
 
