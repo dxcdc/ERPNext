@@ -26,13 +26,15 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
     if not entry_type or entry_type == 'undefined':
         entry_type = 'receipt'
 
-    purpose_clause = "AND se.purpose = 'Material Issue'" if entry_type == 'issue' else "AND se.purpose = 'Material Receipt'"
-        
+    is_issue = (entry_type == 'issue')
+    purpose_val = 'Material Issue' if is_issue else 'Material Receipt'
+    wh_field = "se.from_warehouse" if is_issue else "se.to_warehouse"
+
     unit_prefix = get_unit_prefix(selected_unit)
     where_unit = ""
     if unit_prefix != 'All':
         unit_keyword = unit_prefix.replace("'", "''")
-        where_unit = f" AND (se.from_warehouse = '{unit_keyword}' OR se.to_warehouse = '{unit_keyword}' OR se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
+        where_unit = f" AND ({wh_field} = '{unit_keyword}' OR {wh_field} LIKE '%{unit_keyword}%')"
 
     projects_list = [
         "Projeto Atitude II.I",
@@ -53,8 +55,8 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
     }
 
     month_names_pt = {
-        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "MAIO", 6: "JUNHO",
-        7: "JULHO", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
+        1: "JAN", 2: "FEV", 3: "MAR", 4: "ABR", 5: "MAIO", 6: "JUNHO",
+        7: "JULHO", 8: "AGO", 9: "SET", 10: "OUT", 11: "NOV", 12: "DEZ"
     }
 
     if period == 'month':
@@ -63,16 +65,16 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
             SELECT 
                 FLOOR((DAY(se.posting_date)-1)/7)+1 as sem_num,
                 CASE 
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                    WHEN COALESCE({wh_field}, '') LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE({wh_field}, '') LIKE '%CAIS%' THEN 'Projeto Cais'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATM%' THEN 'Projeto ATM'
                     ELSE 'Institucional / Geral'
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
+            WHERE se.docstatus = 1 AND se.purpose = '{purpose_val}' {where_date} {where_unit}
             GROUP BY sem_num, projeto
         """
         rows = frappe.db.sql(query, as_dict=True)
@@ -106,41 +108,39 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         }
 
     elif period == 'quarter':
-        # ORDEM DECRESCENTE: Julho (7), Junho (6), Maio (5)
         where_date = "AND se.posting_date >= '2026-05-01'"
         query = f"""
             SELECT 
                 MONTH(se.posting_date) as mes_num,
                 FLOOR((DAY(se.posting_date)-1)/7)+1 as sem_num,
                 CASE 
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                    WHEN COALESCE({wh_field}, '') LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE({wh_field}, '') LIKE '%CAIS%' THEN 'Projeto Cais'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATM%' THEN 'Projeto ATM'
                     ELSE 'Institucional / Geral'
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
+            WHERE se.docstatus = 1 AND se.purpose = '{purpose_val}' {where_date} {where_unit}
             GROUP BY mes_num, sem_num, projeto
-            ORDER BY mes_num DESC, sem_num ASC
+            ORDER BY mes_num ASC, sem_num ASC
         """
         rows = frappe.db.sql(query, as_dict=True)
 
-        target_months = [7, 6, 5]
+        target_months = [5, 6, 7]
         grouped_months = []
         labels = []
         label_key_map = {}
 
         for m_num in target_months:
             m_name = month_names_pt.get(m_num, str(m_num))
-            label_display = f"{m_name} (MÊS ATUAL)" if m_num == 7 else m_name
             w_count = 5 if m_num == 6 else 4
             w_labels = [f"S{w}" for w in range(1, w_count + 1)]
             
             grouped_months.append({
-                "month": label_display,
+                "month": m_name,
                 "weeks": w_labels
             })
             
@@ -182,18 +182,18 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 DATE_FORMAT(se.posting_date, '%Y-%m') as period_key,
                 DATE_FORMAT(se.posting_date, '%b/%y') as label_ref,
                 CASE 
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
-                    WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                    WHEN COALESCE({wh_field}, '') LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE({wh_field}, '') LIKE '%CAIS%' THEN 'Projeto Cais'
+                    WHEN COALESCE({wh_field}, '') LIKE '%ATM%' THEN 'Projeto ATM'
                     ELSE 'Institucional / Geral'
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
+            WHERE se.docstatus = 1 AND se.purpose = '{purpose_val}' {where_date} {where_unit}
             GROUP BY period_key, projeto
-            ORDER BY MIN(se.posting_date) DESC
+            ORDER BY MIN(se.posting_date) ASC
         """
         rows = frappe.db.sql(query, as_dict=True)
         
@@ -206,7 +206,7 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 labels.append(lbl)
                 
         if not labels:
-            labels = ["Jul/26", "Jun/26", "Mai/26"]
+            labels = ["Mai/26", "Jun/26", "Jul/26"]
 
         grouped_months = [{ "month": "PERÍODO", "weeks": labels }]
         project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
@@ -413,7 +413,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
             "usuario": row['usuario']
         })
         
-    # 6. Indicadores de Ocorrências por Projeto (Julho -> Junho -> Maio)
+    # 6. Indicadores de Ocorrências por Projeto (Material Issue vs Material Receipt)
     occurrences_data = get_project_weekly_occurrences(period=period, selected_unit=selected_unit, entry_type=entry_type)
 
     unit_display_label = "Todos os Armazéns (46 Armazéns)"

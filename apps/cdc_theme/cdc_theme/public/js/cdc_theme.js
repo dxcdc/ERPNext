@@ -164,7 +164,7 @@
                     </div>
                 `;
 
-                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO + TABELA COM BOTÕES DE FILTRO EM AZUL/VERMELHO ---
+                // --- 4. LADO A LADO COM ESPAÇAMENTO AJUSTADO (330px vs 1fr) ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -233,8 +233,8 @@
                 `;
 
                 var sideBySideRow = `
-                    <div style="display: grid; grid-template-columns: 350px 1fr; gap: 16px; margin-bottom: 20px;">
-                        <!-- Armazéns por Projeto Clicáveis (Compacto: 350px) -->
+                    <div style="display: grid; grid-template-columns: 330px 1fr; gap: 16px; margin-bottom: 20px;">
+                        <!-- Armazéns por Projeto (Espaçamento Ajustado: 330px) -->
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Armazéns por Projeto</span>
@@ -245,7 +245,7 @@
                             </div>
                         </div>
 
-                        <!-- Tabela de Movimentações (Qtd Azul para Entrada | Vermelho para Saída) -->
+                        <!-- Tabela de Movimentações (Espaçamento Ajustado: 1fr) -->
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Últimas Movimentações</span>
@@ -320,7 +320,7 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (FLAT CONTINUOUS ROW WITH MONTH BANNERS AT BOTTOM) ---
+                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (DADOS PRECISOS + FAIXAS DELIMITADORAS DE MÊS NA BASE) ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
@@ -370,11 +370,11 @@
                     var monthHeadersHTML = '';
                     if (groupedMonthsList.length > 0) {
                         monthHeadersHTML = `
-                            <div style="display: flex; gap: 6px; margin-top: 10px; width: 100%;">
+                            <div style="display: flex; gap: 8px; margin-top: 10px; width: 100%;">
                                 ${groupedMonthsList.map(function(gm) {
                                     return `
                                         <div style="flex: ${gm.weeks.length}; text-align: center; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 0; border-radius: 6px; font-size: 10px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px;">
-                                            └─ ${gm.month} ─┘
+                                            └────── ${gm.month} ──────┘
                                         </div>
                                     `;
                                 }).join('')}
@@ -394,7 +394,7 @@
                                 <span class="${badgeClass}" style="font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 6px;">${d.total_occurrences} ${chartTypeBadgeText}</span>
                             </div>
                             
-                            <!-- Régua Y + Quadro Único da Linha Contínua + Faixas de Meses na Base -->
+                            <!-- Régua Y + Quadro Único com Faixas Delimitadoras de Mês na Base -->
                             <div style="display: flex; align-items: flex-end; gap: 10px;">
                                 <div style="display: flex; flex-direction: column; justify-content: space-between; height: 60px; font-size: 9px; font-weight: 700; color: #64748b; text-align: right; min-width: 32px; padding-bottom: 22px;">
                                     <span>${topOcc} ┤</span>
@@ -449,46 +449,46 @@
                 `;
 
                 window._cdc_debug_dashboard_data = data;
-
-                // Event Listeners
-                $('#cdc-unit-filter-select').off('change').on('change', function(e) {
-                    e.stopPropagation();
-                    currentSelectedUnit = $(this).val();
-                    renderStockDashboard();
-                });
-
-                $('.cdc-table-filter-btn').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    var type = $(this).data('type');
-                    if (type && type !== currentTableTypeFilter) {
-                        currentTableTypeFilter = type;
-                        renderStockDashboard();
-                    }
-                });
-
-                $('[data-occ-type]').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    var occType = $(this).data('occ-type');
-                    if (occType && occType !== currentOccurrencesType) {
-                        currentOccurrencesType = occType;
-                        renderStockDashboard();
-                    }
-                });
-
-                $('.cdc-period-btn').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    var newPeriod = $(this).data('period');
-                    if (newPeriod && newPeriod !== currentSelectedPeriod) {
-                        currentSelectedPeriod = newPeriod;
-                        renderStockDashboard();
-                    }
-                });
             }
         });
     }
 
+    // --- EVENT DELEGATION GLOBAL (PREVINE PERDA DE EVENT LISTENERS) ---
     $(document).ready(function() {
         renderStockDashboard();
+
+        $(document).off('change', '#cdc-unit-filter-select').on('change', '#cdc-unit-filter-select', function(e) {
+            e.stopPropagation();
+            currentSelectedUnit = $(this).val();
+            renderStockDashboard();
+        });
+
+        $(document).off('click', '.cdc-table-filter-btn').on('click', '.cdc-table-filter-btn', function(e) {
+            e.preventDefault();
+            var type = $(this).data('type');
+            if (type && type !== currentTableTypeFilter) {
+                currentTableTypeFilter = type;
+                renderStockDashboard();
+            }
+        });
+
+        $(document).off('click', '[data-occ-type]').on('click', '[data-occ-type]', function(e) {
+            e.preventDefault();
+            var occType = $(this).attr('data-occ-type') || $(this).data('occ-type');
+            if (occType && occType !== currentOccurrencesType) {
+                currentOccurrencesType = occType;
+                renderStockDashboard();
+            }
+        });
+
+        $(document).off('click', '.cdc-period-btn').on('click', '.cdc-period-btn', function(e) {
+            e.preventDefault();
+            var newPeriod = $(this).attr('data-period') || $(this).data('period');
+            if (newPeriod && newPeriod !== currentSelectedPeriod) {
+                currentSelectedPeriod = newPeriod;
+                renderStockDashboard();
+            }
+        });
     });
 
     $(document).on('page-change', function() {
