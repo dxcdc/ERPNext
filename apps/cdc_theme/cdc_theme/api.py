@@ -4,11 +4,14 @@ import frappe
 def get_stock_dashboard_data():
     """
     Retorna métricas em tempo real para o Painel Executivo do Estoque:
-    1. Movimentações por Dia da Semana (Seg, Qua, Sex)
+    1. Movimentações por Dia da Semana (Seg, Qua, Sex) com Entradas e Saídas
     2. Composição 100% Empilhada por Categoria de Item
     3. Distribuição por Cidade / Unidade Física
     """
-    # 1. Total de Peças & Tendência Semanal
+    # 1. Mês atual: Entradas vs Saídas
+    receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+    issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+    
     total_qty = frappe.db.sql("SELECT SUM(actual_qty) FROM tabBin")[0][0] or 0
     total_items = frappe.db.count("Item", {"disabled": 0})
     
@@ -68,6 +71,8 @@ def get_stock_dashboard_data():
         })
         
     return {
+        "receipts_month": receipts_month,
+        "issues_month": issues_month,
         "total_qty": round(total_qty, 2),
         "total_items": total_items,
         "categories": top_categories,

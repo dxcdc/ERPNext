@@ -198,31 +198,46 @@
                 dashDiv.className = 'cdc-exec-dashboard-grid';
                 dashDiv.setAttribute('data-correctly-placed', 'true');
 
-                // --- CARD 1: Sparkline Semanal ---
+                // --- CARD 1: Sparkline Semanal (Seg - Qua - Sex) ---
                 var card1 = `
                     <div class="cdc-exec-card">
                         <div class="cdc-exec-card-title">
-                            <span>Tendência de Movimentação (Seg - Qua - Sex)</span>
-                            <span class="cdc-exec-badge badge-soft-success">↑ +6.4% Mês</span>
+                            <span>Fluxo Operacional de Movimentação</span>
+                            <span class="cdc-exec-badge badge-soft-primary">Seg • Qua • Sex</span>
                         </div>
-                        <div class="cdc-exec-metric">${data.total_qty.toLocaleString()} <span style="font-size: 14px; font-weight: 500; color: #64748b;">peças</span></div>
-                        <div style="margin-top: 15px;">
-                            <svg viewBox="0 0 300 45" style="width: 100%; height: 45px; overflow: visible;">
-                                <path d="M0,35 Q30,30 60,38 T120,15 T180,25 T240,8 T300,20" fill="none" stroke="#2490ef" stroke-width="3" stroke-linecap="round"/>
-                                <path d="M0,35 Q30,30 60,38 T120,15 T180,25 T240,8 T300,20 L300,45 L0,45 Z" fill="rgba(36, 144, 239, 0.08)"/>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 6px; margin: 12px 0 16px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #10b981;">
+                                <span>📥 Entradas este mês:</span>
+                                <span class="badge-soft-success" style="padding: 3px 8px; border-radius: 6px; font-size: 13px;">${data.receipts_month} lançamentos</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #e11d48;">
+                                <span>📤 Saídas este mês:</span>
+                                <span style="background-color: rgba(225, 29, 72, 0.1); color: #e11d48; padding: 3px 8px; border-radius: 6px; font-size: 13px;">${data.issues_month} lançamento</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <svg viewBox="0 0 300 50" style="width: 100%; height: 50px; overflow: visible;">
+                                <!-- Linha Verde: Entradas -->
+                                <path d="M0,40 Q35,10 75,35 T150,8 T225,30 T300,12" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
+                                <path d="M0,40 Q35,10 75,35 T150,8 T225,30 T300,12 L300,50 L0,50 Z" fill="rgba(16, 185, 129, 0.08)"/>
+                                
+                                <!-- Linha Vermelha: Saídas -->
+                                <path d="M0,45 Q35,38 75,42 T150,30 T225,40 T300,35" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 2"/>
                             </svg>
                         </div>
-                        <div class="cdc-sparkline-days">
-                            <span>Dom</span>
+
+                        <div class="cdc-sparkline-days" style="margin-top: 10px;">
                             <span class="active" title="Dia Operacional de Movimentação">Seg</span>
                             <span>Ter</span>
                             <span class="active" title="Dia Operacional de Movimentação">Qua</span>
                             <span>Qui</span>
                             <span class="active" title="Dia Operacional de Movimentação">Sex</span>
-                            <span>Sáb</span>
                         </div>
                     </div>
                 `;
+
 
                 // --- CARD 2: Composição 100% Empilhada por Categoria ---
                 var stackedSegments = data.categories.map(function(c) {
