@@ -374,28 +374,29 @@
             'TOTAL DE ARMAZÉM': {
                 line1: '11 armazéns ativos',
                 line1Color: '#2563eb',
-                line2: '⚠️ 35 armazéns sem movimentação há +30 dias',
+                line2: '35 inativos há +30 dias',
                 line2Color: '#e11d48'
             },
             'ENTRADA DE MATERIAL': {
-                line1: '↑ 41 entradas este mês',
+                line1: '41 entradas este mês',
                 line1Color: '#2563eb',
-                line2: '158 entradas mês passado',
+                line2: '158 mês passado',
                 line2Color: '#d97706'
             },
             'SAÍDA DE MATERIAL': {
-                line1: '↓ 1 saída este mês',
+                line1: '1 saída este mês',
                 line1Color: '#2563eb',
-                line2: '31 saídas mês passado',
+                line2: '31 mês passado',
                 line2Color: '#d97706'
             },
             'TRANSFERÊNCIA DE MATERIAL': {
-                line1: '🔄 0 transferências este mês',
+                line1: '0 transferências este mês',
                 line1Color: '#2563eb',
-                line2: '4 transferências acumuladas',
+                line2: '4 acumuladas',
                 line2Color: '#d97706'
             }
         };
+
 
         numberCards.forEach(function(card) {
             var titleEl = card.querySelector('.widget-title, .card-title, .number-card-label, .widget-label');
