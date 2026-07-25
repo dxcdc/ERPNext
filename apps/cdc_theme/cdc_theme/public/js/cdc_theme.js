@@ -3,6 +3,7 @@
 
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'month';
+    var isDashboardLoading = false;
 
     function isStockWorkspacePage() {
         var href = (window.location.href || '').toLowerCase();
@@ -13,7 +14,6 @@
             return true;
         }
 
-        // Caso a rota ativa seja 'Stock' no workspace
         var curRoute = (frappe.router && frappe.router.current_route) ? frappe.router.current_route : [];
         var curStr = curRoute.join('/').toLowerCase();
         if (curStr.includes('stock')) {
@@ -23,8 +23,9 @@
         return false;
     }
 
-    function injectStockExecutiveDashboard() {
+    function renderStockDashboard() {
         if (!isStockWorkspacePage()) return;
+        if (isDashboardLoading) return;
 
         var workspaceBody = document.querySelector('.workspace-body') || 
                             document.querySelector('.layout-main-section') || 
@@ -50,6 +51,8 @@
             workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
         }
 
+        isDashboardLoading = true;
+
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
             args: { 
@@ -57,11 +60,12 @@
                 period: currentSelectedPeriod 
             },
             callback: function(r) {
+                isDashboardLoading = false;
                 if (!r || !r.message) return;
 
                 var data = r.message;
 
-                // --- 1. SELETOR DE ARMAZÉM ---
+                // --- 1. SELETOR DE ARMAZÉM COM ALTA FACILIDADE DE CLIQUE E LEITURA ---
                 var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
                 var unitOptions = availableUnits.map(function(u) {
                     var val = (typeof u === 'object') ? u.value : ((u === 'Todos os Armazéns') ? 'All' : u);
@@ -71,12 +75,13 @@
                 }).join('');
 
                 var selectorHeader = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px 22px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #0f172a; font-size: 15px;">
-                            <span>👁️ Filtrar Visão por Armazém:</span>
+                            <span style="font-size: 18px;">👁️</span>
+                            <span>Filtrar Visão por Armazém:</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; min-width: 280px; max-width: 420px; height: 38px; font-weight: 600; border-radius: 8px; border-color: #cbd5e1; color: #0f172a; cursor: pointer; background-color: #f8fafc;">
+                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; min-width: 320px; max-width: 460px; height: 42px; font-size: 14px; font-weight: 700; border-radius: 8px; border: 2px solid #2563eb; color: #0f172a; cursor: pointer; background-color: #f8fafc; padding: 0 12px;">
                                 ${unitOptions}
                             </select>
                         </div>
@@ -96,14 +101,14 @@
                 var projectPills = projectsList.map(function(pj) {
                     var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens ativos` : 'Sem saldo acumulado';
                     return `
-                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; text-decoration: none; transition: all 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#ffffff'; this.style.boxShadow='0 2px 8px rgba(37,99,235,0.1)';" onmouseout="this.style.borderColor='#f1f5f9'; this.style.backgroundColor='#f8fafc'; this.style.boxShadow='none';">
+                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; transition: background-color 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#ffffff';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#f8fafc';">
                             <div style="display: flex; flex-direction: column; gap: 2px;">
-                                <span style="font-weight: 700; color: #1e293b; font-size: 13px; display: flex; align-items: center; gap: 4px;">
+                                <span style="font-weight: 700; color: #1e293b; font-size: 13px; display: flex; align-items: center; gap: 6px;">
                                     🔗 ${pj.project}
                                 </span>
                                 <span style="font-size: 11px; color: #64748b; font-weight: 500;">${subtext}</span>
                             </div>
-                            <span class="badge-soft-primary" style="padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">${pj.warehouses} armazéns</span>
+                            <span class="badge-soft-primary" style="padding: 5px 12px; border-radius: 6px; font-weight: 700; font-size: 12px;">${pj.warehouses} armazéns</span>
                         </a>
                     `;
                 }).join('');
@@ -173,48 +178,56 @@
                     </div>
                 `;
 
-                // --- 3. COMPOSIÇÃO POR CATEGORIA (LARGURA 100% EXCLUSIVA) ---
+                // --- 3. COMPOSIÇÃO POR CATEGORIA (PARAMETRIZADO APENAS POR QTD DE ITENS) ---
                 var categoriesList = (data.categories && data.categories.length > 0) ? data.categories : [
-                    { label: 'MAT. HIGIENE E LIMPEZA', percent: 14.0, color: '#2563eb' },
-                    { label: 'CEREAIS', percent: 12.9, color: '#d97706' },
-                    { label: 'MAT. ESPORTIVO E PEDAGÓGICO', percent: 10.9, color: '#059669' },
-                    { label: 'MAT. EXPEDIENTE', percent: 10.0, color: '#7c3aed' },
-                    { label: 'Outras Categorias', percent: 52.3, color: '#64748b' }
+                    { label: 'MAT. HIGIENE E LIMPEZA', count: 154, percent: 14.0, color: '#2563eb' },
+                    { label: 'CEREAIS', count: 144, percent: 12.9, color: '#d97706' },
+                    { label: 'MAT. ESPORTIVO E PEDAGÓGICO', count: 129, percent: 10.9, color: '#059669' },
+                    { label: 'MAT. EXPEDIENTE', count: 110, percent: 10.0, color: '#7c3aed' },
+                    { label: 'Outras Categorias', count: 980, percent: 52.3, color: '#64748b' }
                 ];
 
                 var stackedSegments = categoriesList.map(function(c) {
-                    return `<div class="cdc-stacked-bar-segment" style="width: ${c.percent}%; background-color: ${c.color};" title="${c.label}: ${c.percent}%"></div>`;
+                    return `<div class="cdc-stacked-bar-segment" style="width: ${c.percent}%; background-color: ${c.color};" title="${c.label}: ${c.count} itens (${c.percent}%)"></div>`;
                 }).join('');
 
                 var legendItems = categoriesList.map(function(c) {
                     return `
-                        <div class="cdc-legend-item">
-                            <div>
-                                <span class="cdc-legend-bullet" style="background-color: ${c.color};"></span>
-                                <span>${c.label}</span>
+                        <div class="cdc-legend-item" style="padding: 6px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #f1f5f9;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="cdc-legend-bullet" style="background-color: ${c.color}; width: 10px; height: 10px; border-radius: 3px;"></span>
+                                <span style="font-weight: 600; color: #1e293b;">${c.label}</span>
                             </div>
-                            <span style="font-weight: 700;">${c.percent}%</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-weight: 700; color: #0f172a; font-size: 13px;">${c.count} itens</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b;">(${c.percent}%)</span>
+                            </div>
                         </div>
                     `;
                 }).join('');
 
                 var totalItemsCount = data.total_items || 655;
+                var unitDisplay = data.unit_display_label || 'Todos os Armazéns (46 Armazéns)';
+
                 var categoryFullWidthCard = `
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
-                        <div class="cdc-exec-card-title">
-                            <span>Composição por Categoria (100% Empilhado)</span>
-                            <span style="font-size: 12px; color: #94a3b8;">${totalItemsCount} Itens Ativos</span>
+                        <div class="cdc-exec-card-title" style="margin-bottom: 6px;">
+                            <span>Composição por Categoria (Parametrizado por Qtd. de Itens)</span>
+                            <span style="font-size: 12px; font-weight: 700; color: #2563eb;">Total: ${totalItemsCount} Itens Ativos</span>
                         </div>
-                        <div class="cdc-stacked-bar" style="height: 16px; border-radius: 8px; margin: 12px 0;">
+                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 12px;">
+                            📍 Unidade Filtrada: <span style="color: #0f172a; font-weight: 700;">${unitDisplay}</span>
+                        </div>
+                        <div class="cdc-stacked-bar" style="height: 18px; border-radius: 8px; margin: 12px 0;">
                             ${stackedSegments}
                         </div>
-                        <div class="cdc-legend-list" style="display: flex; flex-wrap: wrap; gap: 16px;">
+                        <div class="cdc-legend-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-top: 14px;">
                             ${legendItems}
                         </div>
                     </div>
                 `;
 
-                // --- 4. INDICADORES EXECUTIVOS & TENDÊNCIAS (SUB-GRÁFICOS POR PROJETO COM SEMANAS) ---
+                // --- 4. INDICADORES EXECUTIVOS & TENDÊNCIAS (SUB-GRÁFICOS POR PROJETO COM SEMANAS E MÊS) ---
                 var periodBtns = `
                     <div class="cdc-period-filter-group" id="cdc-period-filter-group">
                         <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
@@ -236,24 +249,24 @@
                         var barColor = val > 0 ? d.color : '#e2e8f0';
                         return `
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 32px;">
-                                <div style="height: 50px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: #ffffff; border-radius: 4px; padding: 2px; border: 1px solid #f1f5f9;">
-                                    <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} entradas"></div>
+                                <div style="height: 55px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: #ffffff; border-radius: 4px; padding: 2px; border: 1px solid #f1f5f9;">
+                                    <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} lançamentos de entrada"></div>
                                 </div>
-                                <span style="font-size: 10px; font-weight: 600; color: #475569;">${lbl}</span>
+                                <span style="font-size: 10px; font-weight: 600; color: #475569; white-space: nowrap;">${lbl}</span>
                             </div>
                         `;
                     }).join('');
 
                     return `
-                        <div style="padding: 12px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="font-size: 13px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                        <div style="padding: 14px 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
                                     <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${d.color}; display: inline-block;"></span>
                                     ${d.project}
                                 </span>
-                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 700;">${d.total_occurrences} entradas</span>
+                                <span class="badge-soft-primary" style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px;">${d.total_occurrences} lançamentos de entrada</span>
                             </div>
-                            <div style="display: flex; align-items: flex-end; gap: 6px;">
+                            <div style="display: flex; align-items: flex-end; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
                                 ${barsHTML}
                             </div>
                         </div>
@@ -262,8 +275,11 @@
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
-                        <div class="cdc-exec-card-title" style="margin-bottom: 14px;">
-                            <span>Entradas de Estoque por Projeto</span>
+                        <div class="cdc-exec-card-title" style="margin-bottom: 16px;">
+                            <div>
+                                <span style="font-size: 15px; font-weight: 700; color: #0f172a;">Entradas de Estoque por Projeto</span>
+                                <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Quantidade de lançamentos por semana e programa do CDC</div>
+                            </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 12px; font-weight: 700; color: #64748b;">Período:</span>
                                 ${periodBtns}
@@ -284,11 +300,12 @@
                 `;
 
                 window._cdc_debug_dashboard_data = data;
-                console.log("[CDC Theme Debug] Dashboard Data Loaded Successfully:", data);
 
-                $('#cdc-unit-filter-select').off('change').on('change', function() {
+                // Event Listeners sem loops destrutivos
+                $('#cdc-unit-filter-select').off('change').on('change', function(e) {
+                    e.stopPropagation();
                     currentSelectedUnit = $(this).val();
-                    injectStockExecutiveDashboard();
+                    renderStockDashboard();
                 });
 
                 $('.cdc-period-btn').off('click').on('click', function(e) {
@@ -296,7 +313,7 @@
                     var newPeriod = $(this).data('period');
                     if (newPeriod && newPeriod !== currentSelectedPeriod) {
                         currentSelectedPeriod = newPeriod;
-                        injectStockExecutiveDashboard();
+                        renderStockDashboard();
                     }
                 });
             }
@@ -355,18 +372,16 @@
         });
     }
 
-    function initLoop() {
-        injectStockExecutiveDashboard();
-        customizeStockNumberCardsSubtitles();
-    }
-
     $(document).ready(function() {
-        initLoop();
-        setInterval(initLoop, 1000);
+        renderStockDashboard();
+        customizeStockNumberCardsSubtitles();
     });
 
     $(document).on('page-change', function() {
-        setTimeout(initLoop, 300);
+        setTimeout(function() {
+            renderStockDashboard();
+            customizeStockNumberCardsSubtitles();
+        }, 300);
     });
 
 })();
