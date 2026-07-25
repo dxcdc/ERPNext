@@ -12,8 +12,21 @@
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var routeStr = route.join('/').toLowerCase();
 
-        // RECONHECIMENTO COMPLETO DE TODAS AS ROTAS DO ESTOQUE (/app/stock, /app/workspace/stock, workspaces/stock)
-        if (href.includes('/app/stock') || href.includes('/app/workspace/stock') || routeStr.includes('stock')) {
+        // 1. Verificação por URL
+        if (href.includes('/app/stock') || href.includes('workspace/stock') || href.includes('workspaces/stock')) {
+            return true;
+        }
+
+        // 2. Verificação por Rota do Router Frappe
+        if (routeStr.includes('stock')) {
+            return true;
+        }
+
+        // 3. Verificação por Título da Página / Sidebar Nativa ("Estoque" / "Stock")
+        var pageTitle = ($('.page-title').text() || $('h1').text() || $('.title-text').text() || '').toLowerCase();
+        var activeSidebar = ($('.sidebar-item.selected').text() || $('.desk-sidebar .selected').text() || '').toLowerCase();
+
+        if (pageTitle.includes('estoque') || pageTitle.includes('stock') || activeSidebar.includes('estoque') || activeSidebar.includes('stock')) {
             return true;
         }
 
@@ -24,7 +37,8 @@
         if (!isStockWorkspacePage()) return;
         if (isDashboardLoading) return;
 
-        var workspaceBody = document.querySelector('.workspace-body') || 
+        var workspaceBody = document.querySelector('.workspace-page-content') ||
+                            document.querySelector('.workspace-body') || 
                             document.querySelector('.layout-main-section') || 
                             document.querySelector('.page-body') ||
                             document.querySelector('.page-container') ||
@@ -51,13 +65,8 @@
             dashDiv.addEventListener('selectstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
         }
 
-        // Inserir no topo absoluto da página do Workspace
-        var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card, .widget-box');
-        if (firstWidget && firstWidget.parentNode) {
-            if (dashDiv.parentNode !== firstWidget.parentNode) {
-                firstWidget.parentNode.insertBefore(dashDiv, firstWidget);
-            }
-        } else if (dashDiv.parentNode !== workspaceBody) {
+        // Inserir como o primeiro filho do container principal
+        if (workspaceBody.firstChild !== dashDiv) {
             workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
         }
 
@@ -76,11 +85,11 @@
 
                 var data = r.message;
 
-                // BANNER DE CONFIRMAÇÃO DA PÁGINA CORRETA SOLICITADO PELO USUÁRIO
+                // BANNER DE CONFIRMAÇÃO DE DIAGNÓSTICO
                 var debugMarkerBanner = `
                     <div style="background: #10b981; color: #ffffff; padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; text-align: center; margin-bottom: 18px; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16,185,129,0.25); display: flex; align-items: center; justify-content: center; gap: 8px;">
                         <span>✅ CONFIRMAÇÃO DE ROTA:</span>
-                        <span>PÁGINA CORRETA</span>
+                        <span>PÁGINA CORRETA (TEMA CDC ATIVO)</span>
                     </div>
                 `;
 
@@ -489,10 +498,20 @@
         });
     });
 
+    // POLLING CONTÍNUO DE 400MS PARA GARANTIR INJEÇÃO EM QUALQUER NAVEGAÇÃO SPA DO FRAPPE
+    setInterval(function() {
+        if (isStockWorkspacePage()) {
+            var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
+            if (!dashContainer && !isDashboardLoading) {
+                renderStockDashboard();
+            }
+        }
+    }, 400);
+
     $(document).on('page-change', function() {
         setTimeout(function() {
             renderStockDashboard();
-        }, 150);
+        }, 100);
     });
 
 })();
