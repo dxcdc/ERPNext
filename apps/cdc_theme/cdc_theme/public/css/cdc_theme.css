@@ -255,3 +255,13 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   font-weight: 600;
 }
 
+/* Hide native '0 % desde ontem' subtitle on Number Cards */
+.widget-num-card .stat-period,
+.number-card .stat-period,
+[data-widget-type="number_card"] .stat-period,
+.percentage-stat-label,
+.card-stats {
+  display: none !important;
+}
+
+

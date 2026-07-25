@@ -311,26 +311,45 @@
 
             Object.keys(customSubtitles).forEach(function(key) {
                 if (titleText.toUpperCase().includes(key.toUpperCase())) {
-                    var subtitleEl = card.querySelector('.card-subtitle, .number-card-subtitle, .stat-period, .widget-subtitle, .percentage-stat-label');
-                    if (subtitleEl) {
-                        subtitleEl.textContent = customSubtitles[key];
-                        subtitleEl.style.fontWeight = '600';
-                        subtitleEl.style.color = key.includes('ARMAZÉM') ? '#e11d48' : '#475569';
-                    } else if (!card.querySelector('.cdc-custom-subtitle')) {
-                        var bodyEl = card.querySelector('.widget-body') || card;
+                    
+                    // 1. Ocultar e remover qualquer elemento com o texto nativo "desde ontem" / "0 %"
+                    var nativeSubtitles = Array.from(card.querySelectorAll('.card-subtitle, .number-card-subtitle, .stat-period, .widget-subtitle, .percentage-stat-label, div, span, p'));
+                    nativeSubtitles.forEach(function(el) {
+                        if (el.textContent && (el.textContent.includes('desde ontem') || el.textContent.includes('0 %') || el.textContent.includes('0%'))) {
+                            el.style.display = 'none';
+                        }
+                    });
+
+                    // 2. Garantir que nosso indicador personalizado fique exatamente ABAIXO do número principal
+                    var existingCustom = card.querySelector('.cdc-custom-subtitle');
+                    var bodyEl = card.querySelector('.widget-body') || card.querySelector('.card-body') || card;
+
+                    if (existingCustom) {
+                        existingCustom.textContent = customSubtitles[key];
+                        // Mover para o final da div do card para garantir que fique ABAIXO do número
+                        if (bodyEl && existingCustom.parentNode !== bodyEl) {
+                            bodyEl.appendChild(existingCustom);
+                        } else if (bodyEl) {
+                            bodyEl.appendChild(existingCustom); // Re-append ao final
+                        }
+                    } else {
                         var newSub = document.createElement('div');
                         newSub.className = 'cdc-custom-subtitle';
                         newSub.style.fontSize = '12px';
-                        newSub.style.marginTop = '6px';
+                        newSub.style.marginTop = '8px';
                         newSub.style.fontWeight = '600';
+                        newSub.style.lineHeight = '1.3';
                         newSub.style.color = key.includes('ARMAZÉM') ? '#e11d48' : '#475569';
                         newSub.textContent = customSubtitles[key];
-                        bodyEl.appendChild(newSub);
+                        if (bodyEl) {
+                            bodyEl.appendChild(newSub); // Adiciona ao FINAL da div (abaixo do número!)
+                        }
                     }
                 }
             });
         });
     }
+
 
     applyCDCState();
 
