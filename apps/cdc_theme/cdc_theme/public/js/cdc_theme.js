@@ -193,21 +193,20 @@
                         return `
                             <tr>
                                 <td>
-                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link" style="font-weight: 700; color: #2563eb;">${row.codigo}</a>
+                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link" style="font-weight: 700; color: #2563eb; font-size: 11px;">${row.codigo}</a>
                                 </td>
-                                <td style="font-weight: 600; color: #475569;">${row.data}</td>
-                                <td style="font-weight: 700; color: #0f172a;">${row.projeto}</td>
-                                <td>${row.armazem}</td>
-                                <td style="font-weight: 600;">${row.total_itens} <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} pç)</span></td>
+                                <td style="font-weight: 600; color: #475569; font-size: 11px;">${row.data}</td>
+                                <td style="font-size: 11px; font-weight: 500; color: #0f172a;">${row.armazem}</td>
+                                <td style="font-weight: 600; font-size: 11px;">${row.total_itens} <span style="font-size: 10px; font-weight: 400; color: #64748b;">(${row.total_pecas} pç)</span></td>
                                 <td>
-                                    <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
+                                    <span class="cdc-exec-badge ${row.tipo_class}" style="font-size: 10px; padding: 2px 6px;">${row.tipo_label}</span>
                                 </td>
-                                <td style="font-weight: 500; color: #475569;">${row.usuario}</td>
+                                <td style="font-weight: 500; color: #475569; font-size: 11px;">${row.usuario}</td>
                             </tr>
                         `;
                     }).join('');
                 } else {
-                    tableRowsHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma movimentação registrada.</td></tr>';
+                    tableRowsHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 16px;">Nenhuma movimentação registrada.</td></tr>';
                 }
 
                 var sideBySideRow = `
@@ -235,7 +234,6 @@
                                         <tr>
                                             <th>Código</th>
                                             <th>Data</th>
-                                            <th>Projeto</th>
                                             <th>Armazém</th>
                                             <th>Qtd.</th>
                                             <th>Tipo</th>
