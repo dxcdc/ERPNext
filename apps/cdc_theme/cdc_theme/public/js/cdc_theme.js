@@ -273,10 +273,14 @@
 
                 // --- CARD 3: Agrupamento de Armazéns por PROJETO ---
                 var projectPills = (data.projects || []).map(function(pj) {
+                    var subtext = pj.items > 0 ? `${pj.items} itens ativos` : 'Sem saldo acumulado';
                     return `
-                        <div class="cdc-city-item" style="padding: 6px 10px; margin-bottom: 6px;">
-                            <span style="font-weight: 600; color: #1e293b;">${pj.project}</span>
-                            <span class="badge-soft-primary" style="padding: 3px 8px; border-radius: 6px; font-weight: 700;">${pj.warehouses} Armazéns</span>
+                        <div class="cdc-city-item" style="padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9;">
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-weight: 700; color: #1e293b; font-size: 13px;">${pj.project}</span>
+                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${subtext}</span>
+                            </div>
+                            <span class="badge-soft-primary" style="padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">${pj.warehouses} armazéns</span>
                         </div>
                     `;
                 }).join('');
@@ -288,10 +292,11 @@
                             <span style="font-size: 12px; color: #94a3b8;">CDC Programas</span>
                         </div>
                         <div class="cdc-city-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto;">
-                            ${projectPills}
+                            ${projectPills.length > 0 ? projectPills : '<div style="color:#94a3b8; font-size:12px; padding:10px;">Sem projetos vinculados nesta unidade.</div>'}
                         </div>
                     </div>
                 `;
+
 
                 // --- CARD 4: Tabela de Movimentações Recentes (Limpa / Sem Ícones) ---
                 var tableRows = (data.recent_entries || []).map(function(row) {
