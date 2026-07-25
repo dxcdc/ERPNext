@@ -293,6 +293,52 @@
                     </div>
                 `;
 
+                // --- CARD 4: Tabela de Movimentações Recentes (Limpa / Sem Ícones) ---
+                var tableRows = (data.recent_entries || []).map(function(row) {
+                    return `
+                        <tr>
+                            <td>
+                                <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link">${row.codigo}</a>
+                            </td>
+                            <td style="font-weight: 600; color: #475569;">${row.data}</td>
+                            <td style="font-weight: 600; color: #0f172a;">${row.projeto}</td>
+                            <td>${row.armazem}</td>
+                            <td style="font-weight: 600;">${row.total_itens} itens <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} peças)</span></td>
+                            <td>
+                                <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
+                            </td>
+                            <td style="font-weight: 500;">${row.usuario}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                var tableCard = `
+                    <div class="cdc-exec-card" style="margin-top: 20px;">
+                        <div class="cdc-exec-card-title">
+                            <span>Últimas Movimentações de Estoque</span>
+                            <span style="font-size: 12px; color: #94a3b8;">Log do Mês Atual</span>
+                        </div>
+                        <div class="cdc-table-container">
+                            <table class="cdc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Data</th>
+                                        <th>Projeto / Programa</th>
+                                        <th>Armazém</th>
+                                        <th>Qtd. Itens</th>
+                                        <th>Tipo</th>
+                                        <th>Responsável</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows.length > 0 ? tableRows : '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma movimentação registrada neste mês.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
                 dashDiv.innerHTML = `
                     <div class="cdc-exec-dashboard-grid-2col">
                         ${card1}
@@ -301,12 +347,14 @@
                     <div style="margin-top: 16px;">
                         ${card3}
                     </div>
+                    ${tableCard}
                 `;
 
                 // Inserir DENTRO do container principal, diretamente ACIMA do gráfico de Estoque
                 if (parentBlock && parentBlock.parentNode) {
                     parentBlock.parentNode.insertBefore(dashDiv, parentBlock);
                 }
+
 
             }
         });

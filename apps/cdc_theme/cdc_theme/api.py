@@ -1,25 +1,39 @@
 import frappe
 
 @frappe.whitelist()
-def get_stock_dashboard_data():
+def get_stock_dashboard_data(selected_unit=None):
     """
-    Retorna métricas em tempo real para o Painel Executivo do Estoque:
-    1. Movimentações por Dia da Semana (Seg, Qua, Sex) com Entradas e Saídas
-    2. Composição 100% Empilhada por Categoria de Item
-    3. Distribuição por Cidade / Unidade Física
+    Retorna métricas dinâmicas para o Painel Executivo do Estoque com filtro por Unidade/Armazém
+    e Lista de Movimentações Recentes (Log de Auditoria).
     """
-    # 1. Mês atual: Entradas vs Saídas
-    receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
-    issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+    if not selected_unit or selected_unit == 'null' or selected_unit == 'undefined':
+        selected_unit = 'All'
+        
+    # Filtros condicionais por Unidade
+    where_se = "WHERE docstatus=1 AND posting_date >= '2026-07-01'"
+    where_bin = "WHERE 1=1"
+    where_wh = "WHERE is_group=0"
     
-    total_qty = frappe.db.sql("SELECT SUM(actual_qty) FROM tabBin")[0][0] or 0
-    total_items = frappe.db.count("Item", {"disabled": 0})
+    if selected_unit != 'All':
+        unit_keyword = selected_unit.replace("'", "''")
+        where_se += f" AND (from_warehouse LIKE '%{unit_keyword}%' OR to_warehouse LIKE '%{unit_keyword}%')"
+        where_bin += f" AND warehouse LIKE '%{unit_keyword}%'"
+        where_wh += f" AND (parent_warehouse LIKE '%{unit_keyword}%' OR name LIKE '%{unit_keyword}%')"
+        
+    # 1. Contadores de Movimentação do Mês Atual
+    receipts_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` {where_se} AND purpose='Material Receipt'")[0][0] or 0
+    issues_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` {where_se} AND purpose='Material Issue'")[0][0] or 0
+    transfers_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` {where_se} AND purpose='Material Transfer'")[0][0] or 0
+    
+    total_qty = frappe.db.sql(f"SELECT SUM(actual_qty) FROM tabBin {where_bin}")[0][0] or 0
+    total_items = frappe.db.sql(f"SELECT COUNT(DISTINCT item_code) FROM tabBin {where_bin} AND actual_qty > 0")[0][0] or 0
     
     # 2. Categorias (Top 4 + Outros)
-    categories = frappe.db.sql("""
-        SELECT i.item_group, COUNT(*) as cnt 
-        FROM tabItem i 
-        WHERE i.disabled = 0 
+    categories = frappe.db.sql(f"""
+        SELECT i.item_group, COUNT(DISTINCT b.item_code) as cnt 
+        FROM tabBin b
+        JOIN tabItem i ON b.item_code = i.name
+        {where_bin} AND b.actual_qty > 0 AND i.disabled = 0 
         GROUP BY i.item_group 
         ORDER BY cnt DESC
     """, as_dict=True)
@@ -28,7 +42,7 @@ def get_stock_dashboard_data():
     top_categories = []
     others_cnt = 0
     
-    colors = ["#4361ee", "#111827", "#06b6d4", "#e2e8f0", "#10b981", "#f59e0b"]
+    colors = ["#2563eb", "#d97706", "#059669", "#7c3aed", "#64748b"]
     
     for idx, cat in enumerate(categories):
         if idx < 4:
@@ -51,13 +65,28 @@ def get_stock_dashboard_data():
             "color": colors[4]
         })
         
-    # 3. Cidades / Unidades
-    cities_query = frappe.db.sql("""
+    # 3. Lista de Unidades Disponíveis para o Selector
+    units_raw = frappe.db.sql("""
+        SELECT DISTINCT parent_warehouse 
+        FROM tabWarehouse 
+        WHERE is_group=0 AND parent_warehouse IS NOT NULL AND parent_warehouse != ''
+    """)
+    
+    available_units = ["Todos os Armazéns"]
+    seen = set()
+    for u in units_raw:
+        clean = u[0].replace(': ATITUDE - C', '').replace(' - C', '').strip()
+        if clean and clean not in seen and clean != 'Todos os Armazéns':
+            seen.add(clean)
+            available_units.append(clean)
+            
+    # Cidades / Unidades
+    cities_query = frappe.db.sql(f"""
         SELECT 
             COALESCE(NULLIF(w.parent_warehouse, ''), 'Sem Unidade') as cidade,
             COUNT(w.name) as total_armazens
         FROM tabWarehouse w
-        WHERE w.is_group = 0
+        {where_wh}
         GROUP BY cidade
         ORDER BY total_armazens DESC
     """, as_dict=True)
@@ -69,12 +98,73 @@ def get_stock_dashboard_data():
             "city": name,
             "warehouses": c['total_armazens']
         })
+
+    # 4. Tabela de Movimentações Recentes (Log Operacional)
+    recent_entries_raw = frappe.db.sql(f"""
+        SELECT 
+            se.name as codigo,
+            DATE_FORMAT(se.posting_date, '%%d/%%m') as data_postagem,
+            COALESCE(NULLIF(se.to_warehouse, ''), se.from_warehouse, 'Estoque Geral') as warehouse_name,
+            se.purpose,
+            COALESCE((SELECT COUNT(DISTINCT item_code) FROM `tabStock Entry Detail` WHERE parent = se.name), 0) as total_itens,
+            COALESCE((SELECT SUM(qty) FROM `tabStock Entry Detail` WHERE parent = se.name), 0) as total_pecas,
+            COALESCE(u.full_name, u.first_name, se.owner) as usuario
+        FROM `tabStock Entry` se
+        LEFT JOIN `tabUser` u ON se.owner = u.name
+        {where_se}
+        ORDER BY se.posting_date DESC, se.creation DESC
+        LIMIT 10
+    """, as_dict=True)
+    
+    recent_entries = []
+    for row in recent_entries_raw:
+        wh = row['warehouse_name'].replace(' - C', '').strip()
+        
+        # Extrair Projeto / Programa e Armazém Específico
+        projeto = "Geral"
+        armazem_especifico = wh
+        
+        if "ATITUDE" in wh:
+            parts = wh.split(" - ")
+            projeto = parts[0].strip()
+            if len(parts) > 1:
+                armazem_especifico = " - ".join(parts[1:]).strip()
+        elif " - " in wh:
+            parts = wh.split(" - ")
+            projeto = parts[0].strip()
+            armazem_especifico = " - ".join(parts[1:]).strip()
+
+        # Tradução amigável do Tipo de Movimentação (sem emojis)
+        tipo_label = "Entrada"
+        tipo_class = "badge-soft-success"
+        if row['purpose'] == "Material Issue":
+            tipo_label = "Saída"
+            tipo_class = "badge-soft-danger"
+        elif row['purpose'] == "Material Transfer":
+            tipo_label = "Transferência"
+            tipo_class = "badge-soft-primary"
+
+        recent_entries.append({
+            "codigo": row['codigo'],
+            "data": row['data_postagem'],
+            "projeto": projeto,
+            "armazem": armazem_especifico,
+            "total_itens": int(row['total_itens']),
+            "total_pecas": round(float(row['total_pecas']), 1),
+            "tipo_label": tipo_label,
+            "tipo_class": tipo_class,
+            "usuario": row['usuario']
+        })
         
     return {
+        "selected_unit": selected_unit,
+        "available_units": available_units,
         "receipts_month": receipts_month,
         "issues_month": issues_month,
+        "transfers_month": transfers_month,
         "total_qty": round(total_qty, 2),
         "total_items": total_items,
         "categories": top_categories,
-        "cities": formatted_cities
+        "cities": formatted_cities,
+        "recent_entries": recent_entries
     }
