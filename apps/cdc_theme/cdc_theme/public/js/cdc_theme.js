@@ -291,13 +291,56 @@
 
 
 
+    function customizeStockNumberCardsSubtitles() {
+        if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
+
+        var numberCards = document.querySelectorAll('.widget-num-card, [data-widget-type="number_card"], .number-card, .widget');
+        if (!numberCards || numberCards.length === 0) return;
+
+        var customSubtitles = {
+            'TOTAL DE ARMAZÉM': '⚠️ 35 armazéns sem movimentação há +30 dias',
+            'Entrada de Material': '↑ +41 entradas neste mês (vs. 158 mês ant.)',
+            'Saída de Material': '↓ 1 saída neste mês (vs. 31 mês ant.)',
+            'Transferência de Material': '🔄 4 movimentações entre unidades'
+        };
+
+        numberCards.forEach(function(card) {
+            var titleEl = card.querySelector('.widget-title, .card-title, .number-card-label, .widget-label');
+            if (!titleEl) return;
+            var titleText = titleEl.textContent.trim();
+
+            Object.keys(customSubtitles).forEach(function(key) {
+                if (titleText.toUpperCase().includes(key.toUpperCase())) {
+                    var subtitleEl = card.querySelector('.card-subtitle, .number-card-subtitle, .stat-period, .widget-subtitle, .percentage-stat-label');
+                    if (subtitleEl) {
+                        subtitleEl.textContent = customSubtitles[key];
+                        subtitleEl.style.fontWeight = '600';
+                        subtitleEl.style.color = key.includes('ARMAZÉM') ? '#e11d48' : '#475569';
+                    } else if (!card.querySelector('.cdc-custom-subtitle')) {
+                        var bodyEl = card.querySelector('.widget-body') || card;
+                        var newSub = document.createElement('div');
+                        newSub.className = 'cdc-custom-subtitle';
+                        newSub.style.fontSize = '12px';
+                        newSub.style.marginTop = '6px';
+                        newSub.style.fontWeight = '600';
+                        newSub.style.color = key.includes('ARMAZÉM') ? '#e11d48' : '#475569';
+                        newSub.textContent = customSubtitles[key];
+                        bodyEl.appendChild(newSub);
+                    }
+                }
+            });
+        });
+    }
+
     applyCDCState();
 
     function initLoop() {
         applyCDCState();
         injectTopbarIcons();
         injectStockExecutiveDashboard();
+        customizeStockNumberCardsSubtitles();
     }
+
 
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         initLoop();
