@@ -179,18 +179,24 @@
 
         var parentBlock = null;
 
-        // Localizar a seção "Indicadores Executivos & Tendências" ou o primeiro widget de gráfico
-        var targetEl = Array.from(workspaceBody.querySelectorAll('.ce-block, .widget, h3, h4, h5, .widget-header')).find(function(el) {
+        // 1. Procurar especificamente pelo bloco do título "Indicadores Executivos & Tendências"
+        var headerEl = Array.from(workspaceBody.querySelectorAll('.ce-block, h3, h4, h5, .ce-header, .widget-header, div')).find(function(el) {
             var text = (el.textContent || '').trim();
-            return (text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('widget-header'))) || 
-                   el.getAttribute('data-widget-name') === 'Estoque' || 
-                   el.querySelector('[data-chart-name="Estoque"]') || 
-                   el.querySelector('.chart-container');
+            return text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('ce-header') || el.classList.contains('widget-header'));
         });
 
-        if (targetEl) {
-            parentBlock = targetEl.closest('.ce-block') || targetEl.closest('.widget') || targetEl;
+        if (headerEl) {
+            parentBlock = headerEl.closest('.ce-block') || headerEl.closest('.widget') || headerEl;
+        } else {
+            // 2. Fallback: procurar o widget do gráfico "Estoque"
+            var chartEl = Array.from(workspaceBody.querySelectorAll('.widget, .ce-block, [data-widget-name]')).find(function(el) {
+                return el.getAttribute('data-widget-name') === 'Estoque' || el.querySelector('.chart-container');
+            });
+            if (chartEl) {
+                parentBlock = chartEl.closest('.ce-block') || chartEl.closest('.widget') || chartEl;
+            }
         }
+
 
 
         frappe.call({
