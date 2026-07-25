@@ -293,12 +293,21 @@
                     </div>
                 `;
 
-                dashDiv.innerHTML = card1 + card2 + card3;
+                dashDiv.innerHTML = `
+                    <div class="cdc-exec-dashboard-grid-2col">
+                        ${card1}
+                        ${card2}
+                    </div>
+                    <div style="margin-top: 16px;">
+                        ${card3}
+                    </div>
+                `;
 
                 // Inserir DENTRO do container principal, diretamente ACIMA do gráfico de Estoque
                 if (parentBlock && parentBlock.parentNode) {
                     parentBlock.parentNode.insertBefore(dashDiv, parentBlock);
                 }
+
             }
         });
     }
