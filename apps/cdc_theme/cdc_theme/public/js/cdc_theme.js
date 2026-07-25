@@ -76,11 +76,11 @@
 
                 var data = r.message;
 
-                // BANNER DE VERIFICAÇÃO SOLICITADO PELO USUÁRIO
+                // BANNER DE CONFIRMAÇÃO DA PÁGINA CORRETA SOLICITADO PELO USUÁRIO
                 var debugMarkerBanner = `
-                    <div style="background: #dc2626; color: #ffffff; padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; text-align: center; margin-bottom: 18px; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(220,38,38,0.25); display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span>🚨 MARCADOR DE TESTE DE ROTA:</span>
-                        <span>PÁGINA SUPOSTAMENTE ERRADA</span>
+                    <div style="background: #10b981; color: #ffffff; padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; text-align: center; margin-bottom: 18px; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16,185,129,0.25); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>✅ CONFIRMAÇÃO DE ROTA:</span>
+                        <span>PÁGINA CORRETA</span>
                     </div>
                 `;
 
@@ -435,7 +435,7 @@
                     </div>
                 `;
 
-                // MONTAGEM DA PÁGINA ÚNICA COM O BANNER DE VERIFICAÇÃO VERMELHO NO TOPO
+                // MONTAGEM DA PÁGINA ÚNICA COM O BANNER DE CONFIRMAÇÃO VERDE
                 dashDiv.innerHTML = `
                     ${debugMarkerBanner}
                     ${selectorHeader}
