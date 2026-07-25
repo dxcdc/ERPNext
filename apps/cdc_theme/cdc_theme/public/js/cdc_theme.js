@@ -160,44 +160,23 @@
     }
 
     var currentSelectedUnit = 'All';
-    var lastRenderedUnit = null;
 
     function injectStockExecutiveDashboard() {
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
 
-        var workspaceBody = document.querySelector('.workspace-body') || 
-                            document.querySelector('.layout-main-section') || 
-                            document.querySelector('.page-body');
-        if (!workspaceBody) return;
+        var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
+        var isNativeBlock = true;
 
-        var existingDash = document.getElementById('cdc-stock-exec-dashboard');
+        if (!dashDiv) {
+            isNativeBlock = false;
+            var workspaceBody = document.querySelector('.workspace-body') || 
+                                document.querySelector('.layout-main-section') || 
+                                document.querySelector('.page-body');
+            if (!workspaceBody) return;
 
-        // Se já existe no DOM e a unidade não mudou, não precisa re-executar a requisição
-        if (existingDash && lastRenderedUnit === currentSelectedUnit && document.body.contains(existingDash)) {
-            return;
+            dashDiv = document.createElement('div');
+            dashDiv.id = 'cdc-stock-exec-dashboard';
         }
-
-        var parentBlock = null;
-
-        // 1. Procurar especificamente pelo bloco do título "Indicadores Executivos & Tendências"
-        var headerEl = Array.from(workspaceBody.querySelectorAll('.ce-block, h3, h4, h5, .ce-header, .widget-header, div')).find(function(el) {
-            var text = (el.textContent || '').trim();
-            return text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('ce-header') || el.classList.contains('widget-header'));
-        });
-
-        if (headerEl) {
-            parentBlock = headerEl.closest('.ce-block') || headerEl.closest('.widget') || headerEl;
-        } else {
-            // 2. Fallback: procurar o widget do gráfico "Estoque"
-            var chartEl = Array.from(workspaceBody.querySelectorAll('.widget, .ce-block, [data-widget-name]')).find(function(el) {
-                return el.getAttribute('data-widget-name') === 'Estoque' || el.querySelector('.chart-container');
-            });
-            if (chartEl) {
-                parentBlock = chartEl.closest('.ce-block') || chartEl.closest('.widget') || chartEl;
-            }
-        }
-
-
 
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
@@ -206,13 +185,7 @@
                 if (!r || !r.message) return;
 
                 var data = r.message;
-                lastRenderedUnit = currentSelectedUnit;
-
-                var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
-                if (!dashDiv) {
-                    dashDiv = document.createElement('div');
-                    dashDiv.id = 'cdc-stock-exec-dashboard';
-                }
+                var mountDiv = document.getElementById('cdc-stock-exec-dashboard') || dashDiv;
 
                 // Selector de "Ver como / Unidade"
                 var availableUnits = data.available_units || ["Todos os Armazéns", "CABO", "CARUARU", "JABOATÃO", "RECIFE"];
@@ -234,6 +207,7 @@
                         </div>
                     </div>
                 `;
+
 
                 var receiptsCount = (data.receipts_month !== undefined && data.receipts_month !== null) ? data.receipts_month : 41;
                 var issuesCount = (data.issues_month !== undefined && data.issues_month !== null) ? data.issues_month : 1;
@@ -399,7 +373,7 @@
                     </div>
                 `;
 
-                dashDiv.innerHTML = `
+                mountDiv.innerHTML = `
                     ${selectorHeader}
                     <div class="cdc-exec-dashboard-grid-3col">
                         ${card1}
@@ -411,11 +385,25 @@
                     </div>
                 `;
 
-                if (parentBlock && parentBlock.parentNode && parentBlock !== workspaceBody) {
-                    parentBlock.parentNode.insertBefore(dashDiv, parentBlock);
-                } else if (workspaceBody) {
-                    workspaceBody.appendChild(dashDiv);
+                if (!isNativeBlock && !mountDiv.parentNode) {
+                    var workspaceBody = document.querySelector('.workspace-body') || 
+                                        document.querySelector('.layout-main-section') || 
+                                        document.querySelector('.page-body');
+
+                    var headerEl = workspaceBody ? Array.from(workspaceBody.querySelectorAll('.ce-block, h3, h4, h5, .ce-header, .widget-header, div')).find(function(el) {
+                        var text = (el.textContent || '').trim();
+                        return text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('ce-header') || el.classList.contains('widget-header'));
+                    }) : null;
+
+                    var parentBlock = headerEl ? (headerEl.closest('.ce-block') || headerEl.closest('.widget') || headerEl) : null;
+
+                    if (parentBlock && parentBlock.parentNode && parentBlock !== workspaceBody) {
+                        parentBlock.parentNode.insertBefore(mountDiv, parentBlock);
+                    } else if (workspaceBody) {
+                        workspaceBody.appendChild(mountDiv);
+                    }
                 }
+
 
                 $('#cdc-unit-filter-select').off('change').on('change', function() {
                     currentSelectedUnit = $(this).val();
