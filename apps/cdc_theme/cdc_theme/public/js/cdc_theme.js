@@ -203,7 +203,6 @@
                     tableRowsHTML = filteredEntries.map(function(row) {
                         var isIssue = (row.tipo_label === 'Saída');
                         var qtyColor = isIssue ? '#dc2626' : '#2563eb';
-                        var qtyIcon = isIssue ? '📤' : '📥';
 
                         return `
                             <tr>
@@ -213,7 +212,7 @@
                                 <td style="font-weight: 600; color: #475569; font-size: 11px;">${row.data}</td>
                                 <td style="font-size: 11px; font-weight: 600; color: #0f172a;">${row.armazem}</td>
                                 <td style="font-weight: 700; font-size: 11px; color: ${qtyColor}; white-space: nowrap;">
-                                    ${qtyIcon} ${row.total_itens} <span style="font-size: 10px; font-weight: 500; opacity: 0.85;">(${row.total_pecas} pç)</span>
+                                    ${row.total_itens} <span style="font-size: 10px; font-weight: 500; opacity: 0.85;">(${row.total_pecas} pç)</span>
                                 </td>
                                 <td style="font-weight: 500; color: #475569; font-size: 11px;">${row.usuario}</td>
                             </tr>
