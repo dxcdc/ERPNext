@@ -179,17 +179,19 @@
 
         var parentBlock = null;
 
-        var targetEl = Array.from(workspaceBody.querySelectorAll('.widget, .ce-block, .widget-header, h4, h5')).find(function(el) {
+        // Localizar a seção "Indicadores Executivos & Tendências" ou o primeiro widget de gráfico
+        var targetEl = Array.from(workspaceBody.querySelectorAll('.ce-block, .widget, h3, h4, h5, .widget-header')).find(function(el) {
             var text = (el.textContent || '').trim();
-            return el.getAttribute('data-widget-name') === 'Estoque' || 
+            return (text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('widget-header'))) || 
+                   el.getAttribute('data-widget-name') === 'Estoque' || 
                    el.querySelector('[data-chart-name="Estoque"]') || 
-                   el.querySelector('.chart-container') ||
-                   (text.includes('Indicadores Executivos') && (el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('widget-header')));
+                   el.querySelector('.chart-container');
         });
 
         if (targetEl) {
             parentBlock = targetEl.closest('.ce-block') || targetEl.closest('.widget') || targetEl;
         }
+
 
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
