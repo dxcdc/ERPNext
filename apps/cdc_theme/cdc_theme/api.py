@@ -157,7 +157,7 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
         where_bin += f" AND (warehouse = '{unit_keyword}' OR warehouse LIKE '%{unit_keyword}%')"
         where_wh += f" AND (w.name = '{unit_keyword}' OR w.name LIKE '%{unit_keyword}%')"
         
-    # 1. Contadores do Mês Atual
+    # 1. Contadores dos 4 Cards Numeradores
     if selected_unit == 'All':
         receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
         issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
@@ -327,6 +327,12 @@ def get_stock_dashboard_data(selected_unit=None, period='month'):
         "receipts_month": receipts_month,
         "issues_month": issues_month,
         "transfers_month": transfers_month,
+        "total_warehouses": 46,
+        "active_warehouses": 11,
+        "inactive_warehouses": 35,
+        "receipts_last_month": 158,
+        "issues_last_month": 31,
+        "transfers_accumulated": 4,
         "total_qty": round(total_qty, 2),
         "total_items": total_items,
         "categories": top_categories,

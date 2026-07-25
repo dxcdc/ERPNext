@@ -38,7 +38,13 @@
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
-            dashDiv.style.marginBottom = '24px';
+            dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%;';
+            
+            // Prevenir o seletor azul de arrasto nativo do workspace do Frappe
+            dashDiv.addEventListener('mousedown', function(e) { e.stopPropagation(); }, true);
+            dashDiv.addEventListener('mousemove', function(e) { e.stopPropagation(); }, true);
+            dashDiv.addEventListener('dragstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+            dashDiv.addEventListener('selectstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
         }
 
         // Posicionar no topo do Workspace
@@ -65,7 +71,7 @@
 
                 var data = r.message;
 
-                // --- 1. SELETOR DE ARMAZÉM COM ALTA FACILIDADE DE CLIQUE E LEITURA ---
+                // --- 1. SELETOR DE ARMAZÉM COM ALTÍSSIMA FACILIDADE DE CLIQUE ---
                 var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
                 var unitOptions = availableUnits.map(function(u) {
                     var val = (typeof u === 'object') ? u.value : ((u === 'Todos os Armazéns') ? 'All' : u);
@@ -75,7 +81,7 @@
                 }).join('');
 
                 var selectorHeader = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px 22px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #0f172a; font-size: 15px;">
                             <span style="font-size: 18px;">👁️</span>
                             <span>Filtrar Visão por Armazém:</span>
@@ -88,7 +94,74 @@
                     </div>
                 `;
 
-                // --- 2. LADO A LADO: ARMAZÉNS POR PROJETO (CLICÁVEIS 🔗) + TABELA DE MOVIMENTAÇÕES ---
+                // --- 2. 4 CARDS NUMERADORES DO TOPO ---
+                var receiptsCount = (data.receipts_month !== undefined) ? data.receipts_month : 41;
+                var issuesCount = (data.issues_month !== undefined) ? data.issues_month : 1;
+                var transfersCount = (data.transfers_month !== undefined) ? data.transfers_month : 0;
+                var totalWh = data.total_warehouses || 46;
+                var activeWh = data.active_warehouses || 11;
+                var inactiveWh = data.inactive_warehouses || 35;
+
+                var top4CardsGrid = `
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <!-- Card 1: Total de Armazém -->
+                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🏭 TOTAL DE ARMAZÉM</div>
+                            <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${totalWh}</div>
+                            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
+                                <span style="color: #2563eb;">🔵 ${activeWh} ativos</span>
+                                <span style="color: #ef4444;">🔴 ${inactiveWh} inativos (+30 dias)</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Entrada Material -->
+                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📥 ENTRADA MATERIAL</div>
+                            <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${receiptsCount}</div>
+                            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
+                                <span style="color: #2563eb;">🔵 ${receiptsCount} este mês</span>
+                                <span style="color: #d97706;">🟠 158 mês passado</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 3: Saída de Material -->
+                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📤 SAÍDA DE MATERIAL</div>
+                            <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${issuesCount}</div>
+                            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
+                                <span style="color: #2563eb;">🔵 ${issuesCount} este mês</span>
+                                <span style="color: #d97706;">🟠 31 mês passado</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 4: Transferência -->
+                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🔄 TRANSFERÊNCIA</div>
+                            <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${transfersCount}</div>
+                            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
+                                <span style="color: #2563eb;">🔵 ${transfersCount} este mês</span>
+                                <span style="color: #d97706;">🟠 4 acumuladas</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // --- 3. ATALHOS SOLTO NO TOPO ---
+                var shortcutsBar = `
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                        <div style="font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <span>🚀 Atalhos Operacionais</span>
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                            <a href="/app/stock-entry/new" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">📥 Lançamento no Estoque</a>
+                            <a href="/app/stock-reconciliation/new" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">📊 Conciliação de Estoque</a>
+                            <a href="/app/query-report/Stock%20Balance" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">📖 Livro de Inventário</a>
+                            <a href="/app/query-report/Stock%20Summary" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">⚖️ Balanço de Estoque</a>
+                        </div>
+                    </div>
+                `;
+
+                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO (CLICÁVEIS 🔗) + TABELA DE MOVIMENTAÇÕES ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -145,7 +218,7 @@
                                 <span>Armazéns por Projeto</span>
                                 <span style="font-size: 11px; color: #2563eb; font-weight: 700;">🔗 Clique para abrir</span>
                             </div>
-                            <div class="cdc-city-list" style="max-height: 400px; overflow-y: auto;">
+                            <div class="cdc-city-list" style="max-height: 380px; overflow-y: auto;">
                                 ${projectPills}
                             </div>
                         </div>
@@ -156,7 +229,7 @@
                                 <span>Últimas Movimentações de Estoque</span>
                                 <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
                             </div>
-                            <div class="cdc-table-container" style="max-height: 400px; overflow-y: auto;">
+                            <div class="cdc-table-container" style="max-height: 380px; overflow-y: auto;">
                                 <table class="cdc-table">
                                     <thead>
                                         <tr>
@@ -178,7 +251,7 @@
                     </div>
                 `;
 
-                // --- 3. COMPOSIÇÃO POR CATEGORIA (PARAMETRIZADO APENAS POR QTD DE ITENS) ---
+                // --- 5. COMPOSIÇÃO POR CATEGORIA (PARAMETRIZADO APENAS POR QTD DE ITENS) ---
                 var categoriesList = (data.categories && data.categories.length > 0) ? data.categories : [
                     { label: 'MAT. HIGIENE E LIMPEZA', count: 154, percent: 14.0, color: '#2563eb' },
                     { label: 'CEREAIS', count: 144, percent: 12.9, color: '#d97706' },
@@ -227,7 +300,7 @@
                     </div>
                 `;
 
-                // --- 4. INDICADORES EXECUTIVOS & TENDÊNCIAS (SUB-GRÁFICOS POR PROJETO COM SEMANAS E MÊS) ---
+                // --- 6. INDICADORES EXECUTIVOS & TENDÊNCIAS (SUB-GRÁFICOS POR PROJETO COM SEMANAS E MÊS) ---
                 var periodBtns = `
                     <div class="cdc-period-filter-group" id="cdc-period-filter-group">
                         <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
@@ -294,6 +367,8 @@
                 // --- MONTAGEM FINAL DA PÁGINA REFORMULADA ---
                 dashDiv.innerHTML = `
                     ${selectorHeader}
+                    ${top4CardsGrid}
+                    ${shortcutsBar}
                     ${sideBySideRow}
                     ${categoryFullWidthCard}
                     ${occurrencesSection}
@@ -301,7 +376,7 @@
 
                 window._cdc_debug_dashboard_data = data;
 
-                // Event Listeners sem loops destrutivos
+                // Event Listeners sem re-renderizações destrutivas
                 $('#cdc-unit-filter-select').off('change').on('change', function(e) {
                     e.stopPropagation();
                     currentSelectedUnit = $(this).val();
@@ -320,67 +395,13 @@
         });
     }
 
-    function customizeStockNumberCardsSubtitles() {
-        if (!isStockWorkspacePage()) return;
-
-        var numberCards = document.querySelectorAll('.widget-num-card, [data-widget-type="number_card"], .number-card, .widget');
-        if (!numberCards || numberCards.length === 0) return;
-
-        var customSubtitles = {
-            'TOTAL DE ARMAZÉM': {
-                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 11 ativos</span>',
-                sub2: '<span style="color: #ef4444; font-weight: 600;">🔴 35 inativos (+30 dias)</span>'
-            },
-            'ENTRADA MATERIAL': {
-                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 41 este mês</span>',
-                sub2: '<span style="color: #d97706; font-weight: 600;">🟠 158 mês passado</span>'
-            },
-            'SAÍDA DE MATERIAL': {
-                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 1 este mês</span>',
-                sub2: '<span style="color: #d97706; font-weight: 600;">🟠 31 mês passado</span>'
-            },
-            'TRANSFERÊNCIA': {
-                sub1: '<span style="color: #2563eb; font-weight: 600;">🔵 0 este mês</span>',
-                sub2: '<span style="color: #d97706; font-weight: 600;">🟠 4 acumuladas</span>'
-            }
-        };
-
-        numberCards.forEach(function(card) {
-            var titleEl = card.querySelector('.widget-title, .number-card-title, .ellipsis, .widget-title-text, h5, h4');
-            if (!titleEl) return;
-            
-            var titleText = titleEl.textContent.trim().toUpperCase();
-            
-            Object.keys(customSubtitles).forEach(function(key) {
-                if (titleText.includes(key)) {
-                    var subContainer = card.querySelector('.cdc-custom-subtitle-box');
-                    if (!subContainer) {
-                        subContainer = document.createElement('div');
-                        subContainer.className = 'cdc-custom-subtitle-box';
-                        subContainer.style.cssText = 'display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 11px;';
-                        
-                        var cardBody = card.querySelector('.widget-body, .number-card-body') || card;
-                        cardBody.appendChild(subContainer);
-                    }
-                    
-                    subContainer.innerHTML = `
-                        <div>${customSubtitles[key].sub1}</div>
-                        <div>${customSubtitles[key].sub2}</div>
-                    `;
-                }
-            });
-        });
-    }
-
     $(document).ready(function() {
         renderStockDashboard();
-        customizeStockNumberCardsSubtitles();
     });
 
     $(document).on('page-change', function() {
         setTimeout(function() {
             renderStockDashboard();
-            customizeStockNumberCardsSubtitles();
         }, 300);
     });
 
