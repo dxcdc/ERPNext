@@ -223,6 +223,41 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   color: #ffffff !important;
 }
 
+/* Botões do Filtro de Tipo do Gráfico (Entradas em Azul | Saídas em Vermelho) */
+.cdc-occ-type-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cdc-occ-type-btn[data-occ-type="receipt"] {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.cdc-occ-type-btn[data-occ-type="receipt"].active-receipt {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.cdc-occ-type-btn[data-occ-type="issue"] {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.cdc-occ-type-btn[data-occ-type="issue"].active-issue {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
 /* Dashboard Cards (Estáticos) */
 #cdc-stock-exec-dashboard {
   width: 100% !important;

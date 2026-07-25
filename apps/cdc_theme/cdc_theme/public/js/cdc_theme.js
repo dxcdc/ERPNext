@@ -320,11 +320,11 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (COM QUANTIDADE SOBRE AS BARRAS E FILTRO DE TIPO ENTRADA/SAÍDA) ---
+                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (TIPO EM BAIXO DO PERÍODO COM CORES AZUL E VERMELHO) ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
-                        <button class="cdc-table-filter-btn ${currentOccurrencesType === 'receipt' ? 'active' : ''}" data-occ-type="receipt">Entradas</button>
-                        <button class="cdc-table-filter-btn ${currentOccurrencesType === 'issue' ? 'active' : ''}" data-occ-type="issue">Saídas</button>
+                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
+                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'issue' ? 'active-issue' : ''}" data-occ-type="issue">Saídas</button>
                     </div>
                 `;
 
@@ -400,14 +400,15 @@
                                 <span style="font-size: 15px; font-weight: 700; color: #0f172a;">${chartTitleText}</span>
                                 <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Quantidade de lançamentos por semana e programa do CDC</div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 16px;">
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <span style="font-size: 12px; font-weight: 700; color: #64748b;">Tipo:</span>
-                                    ${typeFilterBtns}
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 6px;">
+                            <!-- Período no Topo e Tipo em Baixo -->
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 12px; font-weight: 700; color: #64748b;">Período:</span>
                                     ${periodBtns}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 12px; font-weight: 700; color: #64748b;">Tipo:</span>
+                                    ${typeFilterBtns}
                                 </div>
                             </div>
                         </div>
