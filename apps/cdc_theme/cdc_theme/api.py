@@ -3,26 +3,32 @@ import frappe
 @frappe.whitelist()
 def get_stock_dashboard_data(selected_unit=None):
     """
-    Retorna métricas dinâmicas para o Painel Executivo do Estoque com filtro por Unidade/Armazém,
-    Consulta Inteligente de Armazéns e Saldo por Projeto e Log de Auditoria.
+    Retorna métricas dinâmicas para o Painel Executivo do Estoque com filtro por Unidade/Armazém.
+    Sem ambiguidades de colunas nas consultas SQL.
     """
     if not selected_unit or selected_unit == 'null' or selected_unit == 'undefined':
         selected_unit = 'All'
         
-    where_se = "WHERE docstatus=1 AND posting_date >= '2026-07-01'"
+    # Filtros condicionais para Stock Entry (usando se. para evitar ambiguidades)
+    where_se = "WHERE se.docstatus=1 AND se.posting_date >= '2026-07-01'"
     where_bin = "WHERE 1=1"
-    where_wh = "WHERE is_group=0"
+    where_wh = "WHERE w.is_group=0"
     
     if selected_unit != 'All':
         unit_keyword = selected_unit.replace("'", "''")
-        where_se += f" AND (from_warehouse LIKE '%{unit_keyword}%' OR to_warehouse LIKE '%{unit_keyword}%')"
+        where_se += f" AND (se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
         where_bin += f" AND warehouse LIKE '%{unit_keyword}%'"
-        where_wh += f" AND (parent_warehouse LIKE '%{unit_keyword}%' OR name LIKE '%{unit_keyword}%')"
+        where_wh += f" AND (w.parent_warehouse LIKE '%{unit_keyword}%' OR w.name LIKE '%{unit_keyword}%')"
         
-    # 1. Contadores de Movimentação do Mês Atual
-    receipts_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` {where_se} AND purpose='Material Receipt'")[0][0] or 0
-    issues_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` {where_se} AND purpose='Material Issue'")[0][0] or 0
-    transfers_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` {where_se} AND purpose='Material Transfer'")[0][0] or 0
+    # 1. Contadores de Movimentação do Mês Atual (Julho/2026)
+    if selected_unit == 'All':
+        receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+        issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+        transfers_month = frappe.db.count('Stock Entry', {'purpose': 'Material Transfer', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+    else:
+        receipts_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Receipt'")[0][0] or 0
+        issues_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Issue'")[0][0] or 0
+        transfers_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Transfer'")[0][0] or 0
     
     total_qty = frappe.db.sql(f"SELECT SUM(actual_qty) FROM tabBin {where_bin}")[0][0] or 0
     total_items = frappe.db.sql(f"SELECT COUNT(DISTINCT item_code) FROM tabBin {where_bin} AND actual_qty > 0")[0][0] or 0
@@ -79,15 +85,15 @@ def get_stock_dashboard_data(selected_unit=None):
             seen.add(clean)
             available_units.append(clean)
             
-    # 4. CONSULTA INTELIGENTE: Armazéns e Saldo por PROJETO / PROGRAMA
-    projects_query = frappe.db.sql(f"""
+    # 4. Agrupamento por PROJETO / PROGRAMA
+    projects_query = frappe.db.sql("""
         SELECT 
             CASE 
-                WHEN w.name LIKE '%%ATITUDE II.I%%' THEN 'Projeto Atitude II.I'
-                WHEN w.name LIKE '%%ATITUDE%%' THEN 'Projeto Atitude'
-                WHEN w.name LIKE '%%BEM VIVER%%' THEN 'Projeto Bem Viver'
-                WHEN w.name LIKE '%%CAIS%%' THEN 'Projeto Cais'
-                WHEN w.name LIKE '%%ATM%%' THEN 'Projeto ATM'
+                WHEN w.name LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                WHEN w.name LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                WHEN w.name LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                WHEN w.name LIKE '%CAIS%' THEN 'Projeto Cais'
+                WHEN w.name LIKE '%ATM%' THEN 'Projeto ATM'
                 ELSE 'Institucional / Geral'
             END as projeto,
             COUNT(DISTINCT w.name) as total_armazens,
@@ -95,7 +101,7 @@ def get_stock_dashboard_data(selected_unit=None):
             COALESCE(SUM(CASE WHEN b.actual_qty > 0 THEN b.actual_qty ELSE 0 END), 0) as saldo_pecas
         FROM tabWarehouse w
         LEFT JOIN tabBin b ON b.warehouse = w.name
-        {where_wh}
+        WHERE w.is_group = 0
         GROUP BY projeto
         ORDER BY total_armazens DESC, total_itens DESC
     """, as_dict=True)
@@ -108,14 +114,6 @@ def get_stock_dashboard_data(selected_unit=None):
             "items": int(p['total_itens']),
             "qty": round(float(p['saldo_pecas']), 0)
         })
-
-    # Fallback de segurança se vier vazio
-    if not formatted_projects:
-        formatted_projects = [
-            {"project": "Projeto Atitude II.I", "warehouses": 16, "items": 619, "qty": 142805},
-            {"project": "Institucional / Geral", "warehouses": 15, "items": 64, "qty": 3863},
-            {"project": "Projeto Atitude", "warehouses": 12, "items": 0, "qty": 0}
-        ]
 
     # 5. Tabela de Movimentações Recentes (Log Operacional)
     recent_entries_raw = frappe.db.sql(f"""
