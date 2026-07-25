@@ -345,7 +345,9 @@
                         ${card2}
                         ${card3}
                     </div>
-                    ${tableCard}
+                    <div style="margin-top: 24px; width: 100%;">
+                        ${tableCard}
+                    </div>
                 `;
 
 
@@ -369,10 +371,30 @@
         if (!numberCards || numberCards.length === 0) return;
 
         var customSubtitles = {
-            'TOTAL DE ARMAZÉM': '⚠️ 35 armazéns sem movimentação há +30 dias',
-            'Entrada de Material': '↑ +41 entradas neste mês (vs. 158 mês ant.)',
-            'Saída de Material': '↓ 1 saída neste mês (vs. 31 mês ant.)',
-            'Transferência de Material': '🔄 4 movimentações entre unidades'
+            'TOTAL DE ARMAZÉM': {
+                line1: '11 armazéns ativos',
+                line1Color: '#2563eb',
+                line2: '⚠️ 35 armazéns sem movimentação há +30 dias',
+                line2Color: '#e11d48'
+            },
+            'ENTRADA DE MATERIAL': {
+                line1: '↑ 41 entradas este mês',
+                line1Color: '#2563eb',
+                line2: '158 entradas mês passado',
+                line2Color: '#d97706'
+            },
+            'SAÍDA DE MATERIAL': {
+                line1: '↓ 1 saída este mês',
+                line1Color: '#2563eb',
+                line2: '31 saídas mês passado',
+                line2Color: '#d97706'
+            },
+            'TRANSFERÊNCIA DE MATERIAL': {
+                line1: '🔄 0 transferências este mês',
+                line1Color: '#2563eb',
+                line2: '4 transferências acumuladas',
+                line2Color: '#d97706'
+            }
         };
 
         numberCards.forEach(function(card) {
@@ -382,6 +404,7 @@
 
             Object.keys(customSubtitles).forEach(function(key) {
                 if (titleText.toUpperCase().includes(key.toUpperCase())) {
+                    var conf = customSubtitles[key];
                     
                     // 1. Ocultar apenas nós folha com o texto "desde ontem" (sem ocultar a div pai!)
                     var leafNodes = Array.from(card.querySelectorAll('.stat-period, .percentage-stat-label, span, small, p'));
@@ -404,21 +427,22 @@
                     bodyEl.style.display = 'block';
                     bodyEl.style.visibility = 'visible';
 
-                    // 3. Anexar nosso indicador exatamente ABAIXO do número
+                    // 3. Anexar nosso indicador de 2 linhas (Azul + Laranja/Vermelho)
+                    var html = `
+                        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px; font-weight: 600; line-height: 1.3;">
+                            <span style="color: ${conf.line1Color};">${conf.line1}</span>
+                            <span style="color: ${conf.line2Color};">${conf.line2}</span>
+                        </div>
+                    `;
+
                     var existingCustom = card.querySelector('.cdc-custom-subtitle');
                     if (existingCustom) {
-                        existingCustom.textContent = customSubtitles[key];
+                        existingCustom.innerHTML = html;
                         existingCustom.style.display = 'block';
-                        bodyEl.appendChild(existingCustom);
                     } else {
                         var newSub = document.createElement('div');
                         newSub.className = 'cdc-custom-subtitle';
-                        newSub.style.fontSize = '12px';
-                        newSub.style.marginTop = '8px';
-                        newSub.style.fontWeight = '600';
-                        newSub.style.lineHeight = '1.3';
-                        newSub.style.color = key.includes('ARMAZÉM') ? '#e11d48' : '#475569';
-                        newSub.textContent = customSubtitles[key];
+                        newSub.innerHTML = html;
                         bodyEl.appendChild(newSub);
                     }
                 }
