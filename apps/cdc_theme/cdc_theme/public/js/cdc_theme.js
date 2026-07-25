@@ -12,13 +12,8 @@
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var routeStr = route.join('/').toLowerCase();
 
-        if (href.includes('/app/stock') || href.includes('/app/workspace/stock') || routeStr.includes('stock')) {
-            return true;
-        }
-
-        var curRoute = (frappe.router && frappe.router.current_route) ? frappe.router.current_route : [];
-        var curStr = curRoute.join('/').toLowerCase();
-        if (curStr.includes('stock')) {
+        // VALIDAÇÃO ESTRITA DE PÁGINA ÚNICA: Apenas na rota principal de Estoque (/app/stock)
+        if (routeStr === 'stock' || routeStr === 'workspace/stock' || href.endsWith('/app/stock') || href.endsWith('/app/workspace/stock') || (route.length === 1 && route[0].toLowerCase() === 'stock')) {
             return true;
         }
 
@@ -36,20 +31,27 @@
                             document.querySelector('.workspace-page');
         if (!workspaceBody) return;
 
+        // Garantir que exista APENAS UM contêiner do dashboard no DOM
+        var existingDashboards = document.querySelectorAll('#cdc-stock-exec-dashboard');
+        if (existingDashboards.length > 1) {
+            for (var i = 1; i < existingDashboards.length; i++) {
+                existingDashboards[i].remove();
+            }
+        }
+
         var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
             dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%;';
             
-            // Prevenir o seletor azul de arrasto nativo do workspace do Frappe
             dashDiv.addEventListener('mousedown', function(e) { e.stopPropagation(); }, true);
             dashDiv.addEventListener('mousemove', function(e) { e.stopPropagation(); }, true);
             dashDiv.addEventListener('dragstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
             dashDiv.addEventListener('selectstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
         }
 
-        // Posicionar no topo do Workspace
+        // Inserir como o único contêiner principal no topo do Workspace
         var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card, .widget-box');
         if (firstWidget && firstWidget.parentNode) {
             if (dashDiv.parentNode !== firstWidget.parentNode) {
@@ -320,7 +322,7 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (DADOS PRECISOS + FAIXAS DELIMITADORAS DE MÊS NA BASE) ---
+                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
@@ -438,7 +440,7 @@
                     </div>
                 `;
 
-                // --- MONTAGEM FINAL DA PÁGINA REFORMULADA ---
+                // MONTAGEM FINAL DA PÁGINA ÚNICA UNIFICADA
                 dashDiv.innerHTML = `
                     ${selectorHeader}
                     ${top4CardsGrid}
@@ -453,7 +455,7 @@
         });
     }
 
-    // --- EVENT DELEGATION GLOBAL (PREVINE PERDA DE EVENT LISTENERS) ---
+    // --- EVENT DELEGATION GLOBAL ---
     $(document).ready(function() {
         renderStockDashboard();
 
