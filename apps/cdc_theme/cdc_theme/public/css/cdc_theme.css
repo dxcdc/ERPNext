@@ -98,12 +98,12 @@ html[data-cdc-layout="lahomes"] .workspace-page .widget {
   border: 1px solid var(--cdc-border-color) !important;
   border-radius: var(--cdc-radius-md) !important;
   box-shadow: var(--cdc-shadow-subtle) !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  transition: box-shadow 0.2s ease !important;
 }
 
 html[data-cdc-layout="lahomes"] .frappe-card:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: var(--cdc-shadow-hover) !important;
+  transform: none !important;
+  box-shadow: var(--cdc-shadow-subtle) !important;
 }
 
 /* Soft Buttons in Lahomes Mode */
@@ -234,8 +234,8 @@ html[data-cdc-layout="lahomes"] .btn-primary {
 
 
 .cdc-exec-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+  transform: none !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .cdc-exec-card-title {
