@@ -170,26 +170,23 @@
                             document.querySelector('.page-body');
         if (!workspaceBody) return;
 
-        // 1. Encontrar especificamente o bloco do título "Indicadores Executivos & Tendências"
-        var headerEl = Array.from(workspaceBody.querySelectorAll('.ce-block, h3, h4, h5, .ce-header, .widget-header, div')).find(function(el) {
-            var text = (el.textContent || '').trim();
-            return text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('ce-header') || el.classList.contains('widget-header'));
-        });
-
-        var targetBlock = headerEl ? (headerEl.closest('.ce-block') || headerEl.closest('.widget') || headerEl) : null;
-
         var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
         }
 
-        // Posicionar imediatamente ACIMA do título "Indicadores Executivos & Tendências"
-        if (targetBlock && targetBlock.parentNode) {
-            targetBlock.parentNode.insertBefore(dashDiv, targetBlock);
+        // 1. Posicionar dashDiv no topo do Workspace (acima de todos os widgets)
+        var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card');
+        if (firstWidget && firstWidget.parentNode) {
+            if (dashDiv.parentNode !== firstWidget.parentNode) {
+                firstWidget.parentNode.insertBefore(dashDiv, firstWidget);
+            }
         } else if (!dashDiv.parentNode && workspaceBody) {
             workspaceBody.appendChild(dashDiv);
         }
+
+
 
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
