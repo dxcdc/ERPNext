@@ -71,7 +71,7 @@
 
                 var data = r.message;
 
-                // --- 1. SELETOR DE ARMAZÉM COM ALTÍSSIMA FACILIDADE DE CLIQUE ---
+                // --- 1. SELETOR DE ARMAZÉM ---
                 var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
                 var unitOptions = availableUnits.map(function(u) {
                     var val = (typeof u === 'object') ? u.value : ((u === 'Todos os Armazéns') ? 'All' : u);
@@ -161,7 +161,7 @@
                     </div>
                 `;
 
-                // --- 4. LADO A LADO: ARMAZÉNS POR PROJETO (CLICÁVEIS 🔗) + TABELA DE MOVIMENTAÇÕES ---
+                // --- 4. LADO A LADO REAJUSTADO (350px Armazéns | 1fr Tabela de Auditoria) ---
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
                     { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
                     { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
@@ -172,16 +172,16 @@
                 ];
 
                 var projectPills = projectsList.map(function(pj) {
-                    var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens ativos` : 'Sem saldo acumulado';
+                    var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens` : 'Sem saldo';
                     return `
-                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; transition: background-color 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#ffffff';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#f8fafc';">
+                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; text-decoration: none; transition: background-color 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#ffffff';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#f8fafc';">
                             <div style="display: flex; flex-direction: column; gap: 2px;">
-                                <span style="font-weight: 700; color: #1e293b; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-weight: 700; color: #1e293b; font-size: 12px; display: flex; align-items: center; gap: 4px;">
                                     🔗 ${pj.project}
                                 </span>
-                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${subtext}</span>
+                                <span style="font-size: 10px; color: #64748b; font-weight: 500;">${subtext}</span>
                             </div>
-                            <span class="badge-soft-primary" style="padding: 5px 12px; border-radius: 6px; font-weight: 700; font-size: 12px;">${pj.warehouses} armazéns</span>
+                            <span class="badge-soft-primary" style="padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">${pj.warehouses} armazéns</span>
                         </a>
                     `;
                 }).join('');
@@ -211,21 +211,21 @@
                 }
 
                 var sideBySideRow = `
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-                        <!-- Armazéns por Projeto Clicáveis -->
-                        <div class="cdc-exec-card" style="margin-bottom: 0;">
-                            <div class="cdc-exec-card-title">
+                    <div style="display: grid; grid-template-columns: 350px 1fr; gap: 16px; margin-bottom: 20px;">
+                        <!-- Armazéns por Projeto Clicáveis (Compacto: 350px) -->
+                        <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
+                            <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Armazéns por Projeto</span>
-                                <span style="font-size: 11px; color: #2563eb; font-weight: 700;">🔗 Clique para abrir</span>
+                                <span style="font-size: 11px; color: #2563eb; font-weight: 700;">🔗 Abrir</span>
                             </div>
                             <div class="cdc-city-list" style="max-height: 380px; overflow-y: auto;">
                                 ${projectPills}
                             </div>
                         </div>
 
-                        <!-- Tabela de Movimentações (30 Registros) -->
-                        <div class="cdc-exec-card" style="margin-bottom: 0;">
-                            <div class="cdc-exec-card-title">
+                        <!-- Tabela de Movimentações (Expandida: Todo o Espaço Restante) -->
+                        <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
+                            <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Últimas Movimentações de Estoque</span>
                                 <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
                             </div>
