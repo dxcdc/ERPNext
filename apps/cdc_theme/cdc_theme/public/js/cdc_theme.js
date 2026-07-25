@@ -164,18 +164,30 @@
     function injectStockExecutiveDashboard() {
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
 
+        var workspaceBody = document.querySelector('.workspace-body') || 
+                            document.querySelector('.layout-main-section') || 
+                            document.querySelector('.page-body');
+        if (!workspaceBody) return;
+
+        // 1. Encontrar especificamente o bloco do título "Indicadores Executivos & Tendências"
+        var headerEl = Array.from(workspaceBody.querySelectorAll('.ce-block, h3, h4, h5, .ce-header, .widget-header, div')).find(function(el) {
+            var text = (el.textContent || '').trim();
+            return text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('ce-header') || el.classList.contains('widget-header'));
+        });
+
+        var targetBlock = headerEl ? (headerEl.closest('.ce-block') || headerEl.closest('.widget') || headerEl) : null;
+
         var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
-        var isNativeBlock = true;
-
         if (!dashDiv) {
-            isNativeBlock = false;
-            var workspaceBody = document.querySelector('.workspace-body') || 
-                                document.querySelector('.layout-main-section') || 
-                                document.querySelector('.page-body');
-            if (!workspaceBody) return;
-
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
+        }
+
+        // Posicionar imediatamente ACIMA do título "Indicadores Executivos & Tendências"
+        if (targetBlock && targetBlock.parentNode) {
+            targetBlock.parentNode.insertBefore(dashDiv, targetBlock);
+        } else if (!dashDiv.parentNode && workspaceBody) {
+            workspaceBody.appendChild(dashDiv);
         }
 
         frappe.call({
@@ -185,7 +197,6 @@
                 if (!r || !r.message) return;
 
                 var data = r.message;
-                var mountDiv = document.getElementById('cdc-stock-exec-dashboard') || dashDiv;
 
                 // Selector de "Ver como / Unidade"
                 var availableUnits = data.available_units || ["Todos os Armazéns", "CABO", "CARUARU", "JABOATÃO", "RECIFE"];
@@ -207,6 +218,7 @@
                         </div>
                     </div>
                 `;
+
 
 
                 var receiptsCount = (data.receipts_month !== undefined && data.receipts_month !== null) ? data.receipts_month : 41;
@@ -373,7 +385,7 @@
                     </div>
                 `;
 
-                mountDiv.innerHTML = `
+                dashDiv.innerHTML = `
                     ${selectorHeader}
                     <div class="cdc-exec-dashboard-grid-3col">
                         ${card1}
@@ -385,24 +397,10 @@
                     </div>
                 `;
 
-                if (!isNativeBlock && !mountDiv.parentNode) {
-                    var workspaceBody = document.querySelector('.workspace-body') || 
-                                        document.querySelector('.layout-main-section') || 
-                                        document.querySelector('.page-body');
-
-                    var headerEl = workspaceBody ? Array.from(workspaceBody.querySelectorAll('.ce-block, h3, h4, h5, .ce-header, .widget-header, div')).find(function(el) {
-                        var text = (el.textContent || '').trim();
-                        return text.includes('Indicadores Executivos') && (el.tagName === 'H3' || el.tagName === 'H4' || el.tagName === 'H5' || el.classList.contains('ce-header') || el.classList.contains('widget-header'));
-                    }) : null;
-
-                    var parentBlock = headerEl ? (headerEl.closest('.ce-block') || headerEl.closest('.widget') || headerEl) : null;
-
-                    if (parentBlock && parentBlock.parentNode && parentBlock !== workspaceBody) {
-                        parentBlock.parentNode.insertBefore(mountDiv, parentBlock);
-                    } else if (workspaceBody) {
-                        workspaceBody.appendChild(mountDiv);
-                    }
+                if (targetBlock && targetBlock.parentNode && dashDiv.nextElementSibling !== targetBlock) {
+                    targetBlock.parentNode.insertBefore(dashDiv, targetBlock);
                 }
+
 
 
                 $('#cdc-unit-filter-select').off('change').on('change', function() {
