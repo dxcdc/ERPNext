@@ -106,7 +106,6 @@
 
                 var top4CardsGrid = `
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
-                        <!-- Card 1: Total de Armazém -->
                         <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🏭 TOTAL DE ARMAZÉM</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${totalWh}</div>
@@ -116,7 +115,6 @@
                             </div>
                         </div>
 
-                        <!-- Card 2: Entrada Material -->
                         <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📥 ENTRADA MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${receiptsCount}</div>
@@ -126,7 +124,6 @@
                             </div>
                         </div>
 
-                        <!-- Card 3: Saída de Material -->
                         <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📤 SAÍDA DE MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${issuesCount}</div>
@@ -136,7 +133,6 @@
                             </div>
                         </div>
 
-                        <!-- Card 4: Transferência -->
                         <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🔄 TRANSFERÊNCIA</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${transfersCount}</div>
@@ -233,7 +229,6 @@
 
                 var sideBySideRow = `
                     <div style="display: grid; grid-template-columns: 330px 1fr; gap: 16px; margin-bottom: 20px;">
-                        <!-- Armazéns por Projeto (Espaçamento Ajustado: 330px) -->
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Armazéns por Projeto</span>
@@ -244,7 +239,6 @@
                             </div>
                         </div>
 
-                        <!-- Tabela de Movimentações (Espaçamento Ajustado: 1fr) -->
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Últimas Movimentações</span>
@@ -319,7 +313,7 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO: MONITORAMENTO DE LANÇAMENTOS (DELIMITAÇÃO DE MÊS VISÍVEL E BARRAS SEMANAIS) ---
+                // --- 6. GRÁFICO: MONITORAMENTO DE LANÇAMENTOS (IMPLEMENTAÇÃO FIEL AO ARTEFATO APROVADO) ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
@@ -337,7 +331,6 @@
                 `;
 
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
-                var labelsList = occurrencesData.labels || [];
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
@@ -348,37 +341,37 @@
                     var stepOcc = Math.max(Math.ceil(maxOcc / 2), 1);
                     var topOcc = stepOcc * 2;
 
-                    var barsHTML = labelsList.map(function(lbl, idx) {
-                        var val = d.occurrences[idx] || 0;
-                        var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
-                        var barColor = val > 0 ? (currentOccurrencesType === 'issue' ? '#dc2626' : d.color) : '#e2e8f0';
-                        var qtyText = val > 0 ? `<span style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${val}</span>` : '<span style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">-</span>';
+                    var globalIndex = 0;
+                    var monthBlocksHTML = groupedMonthsList.map(function(gm) {
+                        var monthBarsHTML = gm.weeks.map(function(wLbl) {
+                            var val = d.occurrences[globalIndex] || 0;
+                            globalIndex++;
+                            var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
+                            var barColor = val > 0 ? (currentOccurrencesType === 'issue' ? '#dc2626' : d.color) : '#e2e8f0';
+                            var qtyText = val > 0 ? `<span style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${val}</span>` : '<span style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">-</span>';
+
+                            return `
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 28px;">
+                                    ${qtyText}
+                                    <div style="height: 60px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: transparent; padding: 0;">
+                                        <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${gm.month} ${wLbl}): ${val} ${chartTypeBadgeText}"></div>
+                                    </div>
+                                    <span style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 4px;">${wLbl}</span>
+                                </div>
+                            `;
+                        }).join('');
 
                         return `
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 28px;">
-                                ${qtyText}
-                                <div style="height: 60px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: transparent; padding: 0;">
-                                    <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} ${chartTypeBadgeText}"></div>
+                            <div style="flex: ${gm.weeks.length}; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 140px;">
+                                <div style="background: #f1f5f9; color: #0f172a; font-size: 11px; font-weight: 800; border-radius: 6px; padding: 4px; text-align: center; letter-spacing: 0.5px; border: 1px solid #e2e8f0;">
+                                    🗓️ ${gm.month}
                                 </div>
-                                <span style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 4px;">${lbl.replace(/.*S/, 'S')}</span>
+                                <div style="display: flex; align-items: flex-end; gap: 4px; justify-content: space-around;">
+                                    ${monthBarsHTML}
+                                </div>
                             </div>
                         `;
                     }).join('');
-
-                    var monthHeadersHTML = '';
-                    if (groupedMonthsList.length > 0) {
-                        monthHeadersHTML = `
-                            <div style="display: flex; gap: 8px; margin-top: 10px; width: 100%;">
-                                ${groupedMonthsList.map(function(gm) {
-                                    return `
-                                        <div style="flex: ${gm.weeks.length}; text-align: center; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 0; border-radius: 6px; font-size: 10px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px;">
-                                            └────── ${gm.month} ──────┘
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        `;
-                    }
 
                     var badgeClass = (currentOccurrencesType === 'issue') ? 'badge-soft-danger' : 'badge-soft-primary';
 
@@ -392,19 +385,16 @@
                                 <span class="${badgeClass}" style="font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 6px;">${d.total_occurrences} ${chartTypeBadgeText}</span>
                             </div>
                             
-                            <!-- Régua Y + Quadro Único com Faixas Delimitadoras de Mês na Base -->
-                            <div style="display: flex; align-items: flex-end; gap: 10px;">
-                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 60px; font-size: 9px; font-weight: 700; color: #64748b; text-align: right; min-width: 32px; padding-bottom: 22px;">
+                            <!-- Régua Y + Blocos Modulares de Contêineres por Mês conforme Desenho Aprovado -->
+                            <div style="display: flex; align-items: stretch; gap: 10px; overflow-x: auto;">
+                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100px; font-size: 9px; font-weight: 700; color: #64748b; text-align: right; min-width: 32px; padding-top: 32px; padding-bottom: 20px;">
                                     <span>${topOcc} ┤</span>
                                     <span>${stepOcc} ┤</span>
                                     <span>0 ┴</span>
                                 </div>
                                 
-                                <div style="flex: 1; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column;">
-                                    <div style="display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; width: 100%;">
-                                        ${barsHTML}
-                                    </div>
-                                    ${monthHeadersHTML}
+                                <div style="flex: 1; display: flex; gap: 10px; width: 100%;">
+                                    ${monthBlocksHTML}
                                 </div>
                             </div>
                         </div>
