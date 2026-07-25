@@ -314,10 +314,47 @@ html[data-cdc-layout="lahomes"] .btn-primary {
 }
 
 .cdc-sparkline-days span.active {
-  color: #2490ef;
   font-weight: 700;
-  border-bottom: 2px solid #2490ef;
+  color: #10b981;
+  border-bottom: 2px solid #10b981;
 }
+
+/* ==========================================================================
+   5. PERIOD FILTER PILLS (Mês / Trimestre / Semestre / Ano)
+   ========================================================================== */
+.cdc-period-filter-group {
+  display: inline-flex;
+  background-color: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.cdc-period-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cdc-period-btn:hover {
+  color: #1e293b;
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.cdc-period-btn.active {
+  background-color: #ffffff;
+  color: #2563eb;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+}
+
 
 .cdc-city-list {
   display: flex;

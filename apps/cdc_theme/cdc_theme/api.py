@@ -1,12 +1,143 @@
 import frappe
 
+def get_unit_prefix(unit):
+    """ Mapeia os nomes das unidades de exibição para os prefixos reais dos Armazéns no MariaDB """
+    if not unit or unit == 'null' or unit == 'undefined' or unit == 'All' or unit == 'Todos os Armazéns':
+        return 'All'
+    u_upper = unit.upper()
+    if 'CABO' in u_upper or 'CAB' in u_upper:
+        return 'CAB'
+    if 'CARUARU' in u_upper or 'CAR' in u_upper:
+        return 'CAR'
+    if 'JABOAT' in u_upper or 'JAB' in u_upper:
+        return 'JAB'
+    if 'RECIFE' in u_upper or 'REC' in u_upper:
+        return 'REC'
+    return unit
+
 @frappe.whitelist()
-def get_stock_dashboard_data(selected_unit=None):
+def get_project_weekly_occurrences(period='month', selected_unit=None):
     """
-    Retorna métricas dinâmicas para o Painel Executivo do Estoque.
-    Suporta filtragem individual por cada um dos 46 Armazéns reais com sanitização de opções.
+    Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
+    Suporta períodos: 'month' (Mês), 'quarter' (Trimestre), 'semester' (Semestre), 'year' (Ano).
     """
-    # Normalizar qualquer variante de 'Todos os Armazéns' para 'All'
+    if not period or period == 'undefined':
+        period = 'month'
+        
+    unit_prefix = get_unit_prefix(selected_unit)
+    where_unit = ""
+    if unit_prefix != 'All':
+        unit_keyword = unit_prefix.replace("'", "''")
+        where_unit = f" AND (se.from_warehouse = '{unit_keyword}' OR se.to_warehouse = '{unit_keyword}' OR se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
+
+    if period == 'month':
+        where_date = "AND se.posting_date >= '2026-07-01'"
+        group_by = "WEEK(se.posting_date, 1)"
+        label_expr = "CONCAT('Sem ', WEEK(se.posting_date, 1))"
+    elif period == 'quarter':
+        where_date = "AND se.posting_date >= '2026-05-01'"
+        group_by = "WEEK(se.posting_date, 1)"
+        label_expr = "CONCAT('Sem ', WEEK(se.posting_date, 1))"
+    elif period == 'semester':
+        where_date = "AND se.posting_date >= '2026-02-01'"
+        group_by = "DATE_FORMAT(se.posting_date, '%Y-%m')"
+        label_expr = "DATE_FORMAT(se.posting_date, '%b/%y')"
+    else: # year
+        where_date = "AND se.posting_date >= '2025-08-01'"
+        group_by = "DATE_FORMAT(se.posting_date, '%Y-%m')"
+        label_expr = "DATE_FORMAT(se.posting_date, '%b/%y')"
+
+    query = f"""
+        SELECT 
+            {group_by} as period_key,
+            {label_expr} as label_ref,
+            CASE 
+                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE II.I%' THEN 'Projeto Atitude II.I'
+                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATITUDE%' THEN 'Projeto Atitude'
+                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%BEM VIVER%' THEN 'Projeto Bem Viver'
+                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%CAIS%' THEN 'Projeto Cais'
+                WHEN COALESCE(se.to_warehouse, se.from_warehouse) LIKE '%ATM%' THEN 'Projeto ATM'
+                ELSE 'Institucional / Geral'
+            END as projeto,
+            COUNT(DISTINCT se.name) as total_ocorrencias,
+            SUM(COALESCE((SELECT SUM(qty) FROM `tabStock Entry Detail` WHERE parent = se.name), 0)) as total_pecas
+        FROM `tabStock Entry` se
+        WHERE se.docstatus = 1 {where_date} {where_unit}
+        GROUP BY period_key, projeto
+        ORDER BY MIN(se.posting_date) ASC
+    """
+    
+    rows = frappe.db.sql(query, as_dict=True)
+    
+    labels = []
+    seen_labels = set()
+    project_map = {}
+    
+    projects_list = [
+        "Projeto Atitude II.I",
+        "Institucional / Geral",
+        "Projeto Atitude",
+        "Projeto Bem Viver",
+        "Projeto Cais",
+        "Projeto ATM"
+    ]
+    
+    colors_map = {
+        "Projeto Atitude II.I": "#2563eb",
+        "Institucional / Geral": "#10b981",
+        "Projeto Atitude": "#f59e0b",
+        "Projeto Bem Viver": "#8b5cf6",
+        "Projeto Cais": "#ef4444",
+        "Projeto ATM": "#06b6d4"
+    }
+
+    for p in projects_list:
+        project_map[p] = {}
+
+    for r in rows:
+        lbl = r['label_ref']
+        if lbl not in seen_labels:
+            seen_labels.add(lbl)
+            labels.append(lbl)
+            
+        pj = r['projeto']
+        if pj in project_map:
+            project_map[pj][lbl] = {
+                "occurrences": int(r['total_ocorrencias']),
+                "pieces": round(float(r['total_pecas']), 0)
+            }
+            
+    if not labels:
+        labels = ["Sem 27", "Sem 28", "Sem 29"]
+
+    datasets = []
+    for pj in projects_list:
+        data_occurrences = []
+        data_pieces = []
+        for lbl in labels:
+            item = project_map[pj].get(lbl, {"occurrences": 0, "pieces": 0})
+            data_occurrences.append(item["occurrences"])
+            data_pieces.append(item["pieces"])
+            
+        datasets.append({
+            "project": pj,
+            "color": colors_map.get(pj, "#64748b"),
+            "occurrences": data_occurrences,
+            "pieces": data_pieces,
+            "total_occurrences": sum(data_occurrences)
+        })
+
+    return {
+        "period": period,
+        "labels": labels,
+        "datasets": datasets
+    }
+
+@frappe.whitelist()
+def get_stock_dashboard_data(selected_unit=None, period='month'):
+    """
+    Retorna métricas dinâmicas para o Painel Executivo do Estoque e Ocorrências por Projeto.
+    """
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
         
@@ -73,7 +204,7 @@ def get_stock_dashboard_data(selected_unit=None):
             "color": colors[4]
         })
         
-    # 3. Lista Completa dos 46 Armazéns Reais (em vez de cidades)
+    # 3. Lista Completa dos 46 Armazéns Reais
     warehouses_raw = frappe.db.sql("""
         SELECT name 
         FROM tabWarehouse 
@@ -146,8 +277,6 @@ def get_stock_dashboard_data(selected_unit=None):
     recent_entries = []
     for row in recent_entries_raw:
         wh = row['warehouse_name'].replace(' - C', '').strip()
-        
-        # Formatar data como DD/MM (ex: 17/07)
         data_fmt = row['posting_date'].strftime('%d/%m') if row.get('posting_date') else '--/--'
         
         projeto = "Geral"
@@ -184,6 +313,9 @@ def get_stock_dashboard_data(selected_unit=None):
             "usuario": row['usuario']
         })
         
+    # 6. Indicadores de Ocorrências por Projeto
+    occurrences_data = get_project_weekly_occurrences(period=period, selected_unit=selected_unit)
+
     return {
         "selected_unit": selected_unit,
         "available_units": available_warehouses,
@@ -194,5 +326,6 @@ def get_stock_dashboard_data(selected_unit=None):
         "total_items": total_items,
         "categories": top_categories,
         "projects": formatted_projects,
-        "recent_entries": recent_entries
+        "recent_entries": recent_entries,
+        "occurrences_data": occurrences_data
     }

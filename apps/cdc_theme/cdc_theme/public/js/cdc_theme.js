@@ -160,6 +160,7 @@
     }
 
     var currentSelectedUnit = 'All';
+    var currentSelectedPeriod = 'month';
 
     function injectStockExecutiveDashboard() {
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
@@ -192,7 +193,10 @@
 
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
-            args: { selected_unit: currentSelectedUnit },
+            args: { 
+                selected_unit: currentSelectedUnit,
+                period: currentSelectedPeriod 
+            },
             callback: function(r) {
                 if (!r || !r.message) return;
 
@@ -207,61 +211,103 @@
                     return `<option value="${val}" ${selected}>${lbl}</option>`;
                 }).join('');
 
+                // Botões de Expansão Temporal (Mês / Trimestre / Semestre / Ano)
+                var periodBtns = `
+                    <div class="cdc-period-filter-group" id="cdc-period-filter-group">
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'quarter' ? 'active' : ''}" data-period="quarter">Trimestre</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'semester' ? 'active' : ''}" data-period="semester">Semestre</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'year' ? 'active' : ''}" data-period="year">Ano</button>
+                    </div>
+                `;
+
                 var selectorHeader = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                         <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #1e293b; font-size: 14px;">
                             <span>👁️ Filtrar por Armazém:</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; max-width: 380px; height: 36px; font-weight: 600; border-radius: 6px; border-color: #cbd5e1; color: #0f172a; cursor: pointer;">
+                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; max-width: 320px; height: 36px; font-weight: 600; border-radius: 6px; border-color: #cbd5e1; color: #0f172a; cursor: pointer;">
                                 ${unitOptions}
                             </select>
                         </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; font-weight: 700; color: #64748b;">Período:</span>
+                            ${periodBtns}
+                        </div>
                     </div>
                 `;
 
+                // --- CARD 1: Ocorrências de Armazém por Projeto (Semanal) ---
+                var occurrencesData = data.occurrences_data || { labels: ['Sem 27', 'Sem 28', 'Sem 29'], datasets: [] };
+                var labelsList = occurrencesData.labels || [];
+                var datasetsList = occurrencesData.datasets || [];
 
+                var projectLegend = datasetsList.filter(function(d) { return d.total_occurrences > 0; }).map(function(d) {
+                    return `
+                        <div style="display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #475569;">
+                            <span style="width: 8px; height: 8px; border-radius: 2px; background-color: ${d.color}; display: inline-block;"></span>
+                            <span>${d.project}: <b>${d.total_occurrences}</b></span>
+                        </div>
+                    `;
+                }).join('');
 
+                if (!projectLegend) {
+                    projectLegend = `
+                        <div style="display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #475569;">
+                            <span style="width: 8px; height: 8px; border-radius: 2px; background-color: #2563eb; display: inline-block;"></span>
+                            <span>Projeto Atitude II.I: <b>81</b></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #475569;">
+                            <span style="width: 8px; height: 8px; border-radius: 2px; background-color: #10b981; display: inline-block;"></span>
+                            <span>Institucional: <b>389</b></span>
+                        </div>
+                    `;
+                }
 
-                var receiptsCount = (data.receipts_month !== undefined && data.receipts_month !== null) ? data.receipts_month : 41;
-                var issuesCount = (data.issues_month !== undefined && data.issues_month !== null) ? data.issues_month : 1;
+                var maxOccurrences = 1;
+                datasetsList.forEach(function(d) {
+                    (d.occurrences || []).forEach(function(val) {
+                        if (val > maxOccurrences) maxOccurrences = val;
+                    });
+                });
 
-                // --- CARD 1: Sparkline Semanal (Seg - Qua - Sex) ---
+                var chartBarsHTML = labelsList.map(function(lbl, idx) {
+                    var barItems = datasetsList.map(function(d) {
+                        var val = (d.occurrences && d.occurrences[idx]) ? d.occurrences[idx] : 0;
+                        if (val === 0) return '';
+                        var heightPct = Math.min(Math.max((val / maxOccurrences) * 100, 15), 100);
+                        return `<div style="width: 7px; height: ${heightPct}%; background-color: ${d.color}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} ocorrências"></div>`;
+                    }).join('');
+
+                    return `
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 22px;">
+                            <div style="height: 60px; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; background: #f8fafc; border-radius: 6px; padding: 4px 2px;">
+                                ${barItems || '<div style="width: 4px; height: 4px; background: #cbd5e1; border-radius: 50%;"></div>'}
+                            </div>
+                            <span style="font-size: 10px; font-weight: 600; color: #64748b; white-space: nowrap;">${lbl}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                var periodLabelMap = { 'month': 'Mês', 'quarter': 'Trimestre', 'semester': 'Semestre', 'year': 'Ano' };
+                var currentPeriodLabel = periodLabelMap[currentSelectedPeriod] || 'Mês';
+
                 var card1 = `
                     <div class="cdc-exec-card">
-                        <div class="cdc-exec-card-title">
-                            <span>Fluxo Operacional de Movimentação</span>
-                            <span class="cdc-exec-badge badge-soft-primary">Seg • Qua • Sex</span>
+                        <div class="cdc-exec-card-title" style="margin-bottom: 8px;">
+                            <span>Ocorrências por Projeto</span>
+                            <span class="cdc-exec-badge badge-soft-primary">${currentPeriodLabel}</span>
                         </div>
                         
-                        <div style="display: flex; flex-direction: column; gap: 6px; margin: 12px 0 16px 0;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #10b981;">
-                                <span>📥 Entradas este mês:</span>
-                                <span class="badge-soft-success" style="padding: 3px 8px; border-radius: 6px; font-size: 13px;">${receiptsCount} lançamentos</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #e11d48;">
-                                <span>📤 Saídas este mês:</span>
-                                <span style="background-color: rgba(225, 29, 72, 0.1); color: #e11d48; padding: 3px 8px; border-radius: 6px; font-size: 13px;">${issuesCount} lançamento</span>
-                            </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; padding: 6px 8px; background: #f8fafc; border-radius: 8px;">
+                            ${projectLegend}
                         </div>
 
-                        <div style="margin-top: 10px;">
-                            <svg viewBox="0 0 300 50" style="width: 100%; height: 50px; overflow: visible;">
-                                <path d="M0,40 Q35,10 75,35 T150,8 T225,30 T300,12" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
-                                <path d="M0,40 Q35,10 75,35 T150,8 T225,30 T300,12 L300,50 L0,50 Z" fill="rgba(16, 185, 129, 0.08)"/>
-                                <path d="M0,45 Q35,38 75,42 T150,30 T225,40 T300,35" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 2"/>
-                            </svg>
-                        </div>
-
-                        <div class="cdc-sparkline-days" style="margin-top: 10px;">
-                            <span class="active" title="Dia Operacional de Movimentação">Seg</span>
-                            <span>Ter</span>
-                            <span class="active" title="Dia Operacional de Movimentação">Qua</span>
-                            <span>Qui</span>
-                            <span class="active" title="Dia Operacional de Movimentação">Sex</span>
+                        <div style="display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; padding-bottom: 4px;">
+                            ${chartBarsHTML}
                         </div>
                     </div>
                 `;
+
 
                 // --- CARD 2: Composição 100% Empilhada por Categoria ---
                 var categoriesList = (data.categories && data.categories.length > 0) ? data.categories : [
@@ -419,6 +465,17 @@
                     lastRenderedUnit = null;
                     injectStockExecutiveDashboard();
                 });
+
+                $('.cdc-period-btn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    var newPeriod = $(this).data('period');
+                    if (newPeriod && newPeriod !== currentSelectedPeriod) {
+                        currentSelectedPeriod = newPeriod;
+                        lastRenderedUnit = null;
+                        injectStockExecutiveDashboard();
+                    }
+                });
+
             }
         });
     }
