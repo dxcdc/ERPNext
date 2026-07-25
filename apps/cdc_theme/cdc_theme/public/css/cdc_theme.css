@@ -211,8 +211,16 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  margin-top: 20px;
+  margin-top: 10px;
   margin-bottom: 24px;
+}
+
+/* Ocultar blocos nativos duplicados abaixo do dashboard customizado */
+#cdc-stock-exec-dashboard ~ .ce-block,
+#cdc-stock-exec-dashboard ~ .widget,
+#cdc-stock-exec-dashboard ~ .widget-group,
+#cdc-stock-exec-dashboard ~ .widget-box {
+  display: none !important;
 }
 
 .cdc-exec-card {
