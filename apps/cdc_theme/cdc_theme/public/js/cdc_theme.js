@@ -4,28 +4,50 @@
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'month';
 
+    function isStockWorkspacePage() {
+        var href = (window.location.href || '').toLowerCase();
+        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
+        var routeStr = route.join('/').toLowerCase();
+
+        if (href.includes('/app/stock') || href.includes('/app/workspace/stock') || routeStr.includes('stock')) {
+            return true;
+        }
+
+        // Caso a rota ativa seja 'Stock' no workspace
+        var curRoute = (frappe.router && frappe.router.current_route) ? frappe.router.current_route : [];
+        var curStr = curRoute.join('/').toLowerCase();
+        if (curStr.includes('stock')) {
+            return true;
+        }
+
+        return false;
+    }
+
     function injectStockExecutiveDashboard() {
-        if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
+        if (!isStockWorkspacePage()) return;
 
         var workspaceBody = document.querySelector('.workspace-body') || 
                             document.querySelector('.layout-main-section') || 
-                            document.querySelector('.page-body');
+                            document.querySelector('.page-body') ||
+                            document.querySelector('.page-container') ||
+                            document.querySelector('.workspace-page');
         if (!workspaceBody) return;
 
         var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
+            dashDiv.style.marginBottom = '24px';
         }
 
-        // 1. Posicionar dashDiv no topo do Workspace (acima de todos os widgets)
-        var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card');
+        // Posicionar no topo do Workspace
+        var firstWidget = workspaceBody.querySelector('.ce-block, .widget, .workspace-page-content, .widget-group, .widget-num-card, .widget-box');
         if (firstWidget && firstWidget.parentNode) {
             if (dashDiv.parentNode !== firstWidget.parentNode) {
                 firstWidget.parentNode.insertBefore(dashDiv, firstWidget);
             }
-        } else if (!dashDiv.parentNode && workspaceBody) {
-            workspaceBody.appendChild(dashDiv);
+        } else if (dashDiv.parentNode !== workspaceBody) {
+            workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
         }
 
         frappe.call({
@@ -49,12 +71,12 @@
                 }).join('');
 
                 var selectorHeader = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #1e293b; font-size: 14px;">
-                            <span>👁️ Filtrar por Armazém:</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                        <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #0f172a; font-size: 15px;">
+                            <span>👁️ Filtrar Visão por Armazém:</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; max-width: 380px; height: 36px; font-weight: 600; border-radius: 6px; border-color: #cbd5e1; color: #0f172a; cursor: pointer;">
+                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; min-width: 280px; max-width: 420px; height: 38px; font-weight: 600; border-radius: 8px; border-color: #cbd5e1; color: #0f172a; cursor: pointer; background-color: #f8fafc;">
                                 ${unitOptions}
                             </select>
                         </div>
@@ -74,7 +96,7 @@
                 var projectPills = projectsList.map(function(pj) {
                     var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens ativos` : 'Sem saldo acumulado';
                     return `
-                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; transition: all 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.boxShadow='0 2px 8px rgba(37,99,235,0.1)';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';">
+                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; text-decoration: none; transition: all 0.15s ease;" onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#ffffff'; this.style.boxShadow='0 2px 8px rgba(37,99,235,0.1)';" onmouseout="this.style.borderColor='#f1f5f9'; this.style.backgroundColor='#f8fafc'; this.style.boxShadow='none';">
                             <div style="display: flex; flex-direction: column; gap: 2px;">
                                 <span style="font-weight: 700; color: #1e293b; font-size: 13px; display: flex; align-items: center; gap: 4px;">
                                     🔗 ${pj.project}
@@ -93,16 +115,16 @@
                         return `
                             <tr>
                                 <td>
-                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link">${row.codigo}</a>
+                                    <a href="/app/stock-entry/${row.codigo}" class="cdc-doc-link" style="font-weight: 700; color: #2563eb;">${row.codigo}</a>
                                 </td>
                                 <td style="font-weight: 600; color: #475569;">${row.data}</td>
-                                <td style="font-weight: 600; color: #0f172a;">${row.projeto}</td>
+                                <td style="font-weight: 700; color: #0f172a;">${row.projeto}</td>
                                 <td>${row.armazem}</td>
                                 <td style="font-weight: 600;">${row.total_itens} <span style="font-size: 11px; font-weight: 400; color: #64748b;">(${row.total_pecas} pç)</span></td>
                                 <td>
                                     <span class="cdc-exec-badge ${row.tipo_class}">${row.tipo_label}</span>
                                 </td>
-                                <td style="font-weight: 500;">${row.usuario}</td>
+                                <td style="font-weight: 500; color: #475569;">${row.usuario}</td>
                             </tr>
                         `;
                     }).join('');
@@ -113,23 +135,23 @@
                 var sideBySideRow = `
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
                         <!-- Armazéns por Projeto Clicáveis -->
-                        <div class="cdc-exec-card">
+                        <div class="cdc-exec-card" style="margin-bottom: 0;">
                             <div class="cdc-exec-card-title">
                                 <span>Armazéns por Projeto</span>
-                                <span style="font-size: 11px; color: #2563eb; font-weight: 600;">🔗 Clique para abrir</span>
+                                <span style="font-size: 11px; color: #2563eb; font-weight: 700;">🔗 Clique para abrir</span>
                             </div>
-                            <div class="cdc-city-list" style="max-height: 380px; overflow-y: auto;">
+                            <div class="cdc-city-list" style="max-height: 400px; overflow-y: auto;">
                                 ${projectPills}
                             </div>
                         </div>
 
                         <!-- Tabela de Movimentações (30 Registros) -->
-                        <div class="cdc-exec-card">
+                        <div class="cdc-exec-card" style="margin-bottom: 0;">
                             <div class="cdc-exec-card-title">
                                 <span>Últimas Movimentações de Estoque</span>
                                 <span style="font-size: 12px; color: #94a3b8;">Últimos 30 Registros</span>
                             </div>
-                            <div class="cdc-table-container" style="max-height: 380px; overflow-y: auto;">
+                            <div class="cdc-table-container" style="max-height: 400px; overflow-y: auto;">
                                 <table class="cdc-table">
                                     <thead>
                                         <tr>
@@ -262,7 +284,7 @@
                 `;
 
                 window._cdc_debug_dashboard_data = data;
-                console.log("[CDC Theme Debug] Dashboard Data Loaded:", data);
+                console.log("[CDC Theme Debug] Dashboard Data Loaded Successfully:", data);
 
                 $('#cdc-unit-filter-select').off('change').on('change', function() {
                     currentSelectedUnit = $(this).val();
@@ -282,7 +304,7 @@
     }
 
     function customizeStockNumberCardsSubtitles() {
-        if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
+        if (!isStockWorkspacePage()) return;
 
         var numberCards = document.querySelectorAll('.widget-num-card, [data-widget-type="number_card"], .number-card, .widget');
         if (!numberCards || numberCards.length === 0) return;
