@@ -14,7 +14,7 @@
   --cdc-border-color: #e2e8f0;
   --cdc-text-dark: #0f172a;
   --cdc-text-muted: #64748b;
-  
+
   /* Layout & Geometry */
   --cdc-radius-sm: 6px;
   --cdc-radius-md: 10px;
@@ -23,63 +23,107 @@
   --cdc-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.09);
 }
 
-/* Base Body Styling */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-  background-color: var(--cdc-bg-light) !important;
+/* ==========================================================================
+   1. TOPBAR ICON BUTTONS (Sol/Lua + Fontes A+/A-)
+   ========================================================================== */
+.cdc-topbar-item {
+  display: flex !important;
+  align-items: center !important;
+  margin-right: 4px !important;
+}
+
+.cdc-topbar-btn {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: transparent !important;
   color: var(--cdc-text-dark) !important;
+  transition: background-color 0.2s ease, transform 0.15s ease !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
-/* Card Improvements & Glassmorphism Touch */
-.workspace-page, .frappe-card, .widget, .page-head {
-  border-radius: var(--cdc-radius-md) !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+.cdc-topbar-btn:hover {
+  background-color: rgba(36, 144, 239, 0.12) !important;
+  transform: scale(1.08) !important;
 }
 
-.frappe-card {
+.cdc-topbar-menu {
+  border-radius: 12px !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+  padding: 8px 0 !important;
+  min-width: 210px !important;
+}
+
+.cdc-dropdown-header {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  padding: 6px 16px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.cdc-menu-opt, .cdc-font-opt {
+  font-size: 13px !important;
+  padding: 8px 16px !important;
+  color: #334155 !important;
+  display: flex !important;
+  align-items: center !important;
+  font-weight: 500 !important;
+}
+
+.cdc-menu-opt:hover, .cdc-font-opt:hover {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+/* ==========================================================================
+   2. LAHOMES EXECUTIVE THEME OVERRIDES (Ativado na Versão B)
+   ========================================================================== */
+html[data-cdc-layout="lahomes"] body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  background-color: var(--cdc-bg-light) !important;
+}
+
+html[data-cdc-layout="lahomes"] .frappe-card,
+html[data-cdc-layout="lahomes"] .workspace-page .widget {
   border: 1px solid var(--cdc-border-color) !important;
+  border-radius: var(--cdc-radius-md) !important;
   box-shadow: var(--cdc-shadow-subtle) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-.frappe-card:hover {
+html[data-cdc-layout="lahomes"] .frappe-card:hover {
+  transform: translateY(-2px) !important;
   box-shadow: var(--cdc-shadow-hover) !important;
 }
 
-/* Buttons Enhancement */
-.btn-primary {
+/* Soft Buttons in Lahomes Mode */
+html[data-cdc-layout="lahomes"] .btn-primary {
   background-color: var(--cdc-accent) !important;
   border-color: var(--cdc-accent) !important;
   border-radius: var(--cdc-radius-sm) !important;
   font-weight: 600 !important;
+  box-shadow: 0 4px 10px rgba(36, 144, 239, 0.25) !important;
 }
 
-.btn-primary:hover {
-  background-color: var(--cdc-accent-hover) !important;
-  border-color: var(--cdc-accent-hover) !important;
+/* Soft Badges */
+.badge-soft-primary {
+  color: #2490ef !important;
+  background-color: rgba(36, 144, 239, 0.12) !important;
 }
 
-/* Table & Grid Improvements */
-.grid-heading_row, .table thead th {
-  background-color: #f1f5f9 !important;
-  color: #334155 !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  font-size: 11px !important;
-  letter-spacing: 0.5px !important;
+.badge-soft-success {
+  color: #10b981 !important;
+  background-color: rgba(16, 185, 129, 0.12) !important;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.badge-soft-warning {
+  color: #f59e0b !important;
+  background-color: rgba(245, 158, 11, 0.12) !important;
 }
