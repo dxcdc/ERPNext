@@ -53,8 +53,8 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
     }
 
     month_names_pt = {
-        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Maio", 6: "Jun",
-        7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
+        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "MAIO", 6: "JUNHO",
+        7: "JULHO", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
     }
 
     if period == 'month':
@@ -77,12 +77,12 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         """
         rows = frappe.db.sql(query, as_dict=True)
         
-        labels = ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"]
-        grouped_months = [{ "month": "JULHO", "weeks": labels }]
+        labels = ["S1", "S2", "S3", "S4", "S5"]
+        grouped_months = [{ "month": "JULHO (MÊS ATUAL)", "weeks": labels }]
         
         project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
         for r in rows:
-            lbl = f"Sem {r['sem_num']}"
+            lbl = f"S{r['sem_num']}"
             pj = r['projeto']
             if pj in project_map and lbl in project_map[pj]:
                 project_map[pj][lbl] = int(r['total_ocorrencias'])
@@ -106,6 +106,7 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         }
 
     elif period == 'quarter':
+        # ORDEM DECRESCENTE: Julho (7), Junho (6), Maio (5)
         where_date = "AND se.posting_date >= '2026-05-01'"
         query = f"""
             SELECT 
@@ -123,22 +124,23 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
             FROM `tabStock Entry` se
             WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
             GROUP BY mes_num, sem_num, projeto
-            ORDER BY mes_num ASC, sem_num ASC
+            ORDER BY mes_num DESC, sem_num ASC
         """
         rows = frappe.db.sql(query, as_dict=True)
 
-        target_months = [5, 6, 7]
+        target_months = [7, 6, 5]
         grouped_months = []
         labels = []
         label_key_map = {}
 
         for m_num in target_months:
-            m_name = month_names_pt.get(m_num, str(m_num)).upper()
+            m_name = month_names_pt.get(m_num, str(m_num))
+            label_display = f"{m_name} (MÊS ATUAL)" if m_num == 7 else m_name
             w_count = 5 if m_num == 6 else 4
             w_labels = [f"S{w}" for w in range(1, w_count + 1)]
             
             grouped_months.append({
-                "month": m_name,
+                "month": label_display,
                 "weeks": w_labels
             })
             
@@ -191,7 +193,7 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
             FROM `tabStock Entry` se
             WHERE se.docstatus = 1 {purpose_clause} {where_date} {where_unit}
             GROUP BY period_key, projeto
-            ORDER BY MIN(se.posting_date) ASC
+            ORDER BY MIN(se.posting_date) DESC
         """
         rows = frappe.db.sql(query, as_dict=True)
         
@@ -204,7 +206,7 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 labels.append(lbl)
                 
         if not labels:
-            labels = ["Mai/26", "Jun/26", "Jul/26"]
+            labels = ["Jul/26", "Jun/26", "Mai/26"]
 
         grouped_months = [{ "month": "PERÍODO", "weeks": labels }]
         project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
@@ -411,7 +413,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
             "usuario": row['usuario']
         })
         
-    # 6. Indicadores de Ocorrências por Projeto
+    # 6. Indicadores de Ocorrências por Projeto (Julho -> Junho -> Maio)
     occurrences_data = get_project_weekly_occurrences(period=period, selected_unit=selected_unit, entry_type=entry_type)
 
     unit_display_label = "Todos os Armazéns (46 Armazéns)"
