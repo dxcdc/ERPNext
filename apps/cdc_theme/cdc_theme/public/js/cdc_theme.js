@@ -8,14 +8,13 @@
 
     var cdcState = {
         fontScale: parseFloat(localStorage.getItem('cdc_font_scale') || '1.0'),
-        themeMode: localStorage.getItem('cdc_theme_mode') || 'light', // light | dark | auto
-        layoutMode: localStorage.getItem('cdc_layout_mode') || 'lahomes' // standard | lahomes
+        themeMode: localStorage.getItem('cdc_theme_mode') || 'light',
+        layoutMode: localStorage.getItem('cdc_layout_mode') || 'lahomes'
     };
 
     function applyCDCState() {
         var scale = cdcState.fontScale;
         
-        // 1. Font scale override
         var fontStyle = document.getElementById('cdc-font-scale-style');
         if (!fontStyle) {
             fontStyle = document.createElement('style');
@@ -39,14 +38,12 @@
             `;
         }
 
-        // 2. Layout Mode (A = standard, B = lahomes)
         if (cdcState.layoutMode === 'lahomes') {
             document.documentElement.setAttribute('data-cdc-layout', 'lahomes');
         } else {
             document.documentElement.removeAttribute('data-cdc-layout');
         }
 
-        // 3. Theme Mode (light / dark)
         if (window.frappe && frappe.ui && frappe.ui.set_theme) {
             if (cdcState.themeMode === 'dark' && frappe.boot.user.theme !== 'Dark') {
                 frappe.ui.set_theme('dark');
@@ -57,10 +54,17 @@
     }
 
     function injectTopbarIcons() {
-        var navbarNav = document.querySelector('header.navbar .navbar-nav');
-        if (!navbarNav || document.getElementById('cdc-topbar-theme-item')) return;
+        if (document.getElementById('cdc-topbar-theme-item')) return;
 
-        // --- 1. Sol / Lua Dropdown Item ---
+        // Target the right side of header navbar (dropdown-help or dropdown-notifications)
+        var anchor = document.querySelector('header.navbar .dropdown-help') || 
+                     document.querySelector('header.navbar .dropdown-notifications') ||
+                     document.querySelector('header.navbar .dropdown-user');
+
+        if (!anchor || !anchor.parentNode) return;
+        var parentNav = anchor.parentNode;
+
+        // 1. Sol / Lua Dropdown Item
         var themeLi = document.createElement('li');
         themeLi.id = 'cdc-topbar-theme-item';
         themeLi.className = 'nav-item dropdown cdc-topbar-item';
@@ -87,13 +91,13 @@
             </div>
         `;
 
-        // --- 2. Fontes A+ / A- Dropdown Item ---
+        // 2. Fontes A+ / A- Dropdown Item
         var fontLi = document.createElement('li');
         fontLi.id = 'cdc-topbar-font-item';
         fontLi.className = 'nav-item dropdown cdc-topbar-item';
         fontLi.innerHTML = `
             <button class="btn-reset nav-link cdc-topbar-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Ajuste de Fonte (A+/A-)">
-                <span class="cdc-font-icon-display" style="font-weight: 700; font-size: 15px;">A±</span>
+                <span class="cdc-font-icon-display" style="font-weight: 700; font-size: 14px;">A±</span>
             </button>
             <div class="dropdown-menu dropdown-menu-right cdc-topbar-menu" role="menu">
                 <div class="cdc-dropdown-header">Tamanho do Texto</div>
@@ -109,17 +113,11 @@
             </div>
         `;
 
-        // Insert before notifications or at the beginning of navbar-nav
-        var notificationsItem = navbarNav.querySelector('.dropdown-notifications');
-        if (notificationsItem) {
-            navbarNav.insertBefore(themeLi, notificationsItem);
-            navbarNav.insertBefore(fontLi, notificationsItem);
-        } else {
-            navbarNav.prepend(fontLi);
-            navbarNav.prepend(themeLi);
-        }
+        // Insert right next to "Ajuda" / Sino de Notificações
+        parentNav.insertBefore(themeLi, anchor);
+        parentNav.insertBefore(fontLi, anchor);
 
-        // --- Event Listeners for Theme & Layout Options ---
+        // Listeners for Theme Options
         $(themeLi).find('[data-theme-opt]').on('click', function(e) {
             e.preventDefault();
             var opt = $(this).attr('data-theme-opt');
@@ -139,7 +137,7 @@
             applyCDCState();
         });
 
-        // --- Event Listeners for Font Size Options ---
+        // Listeners for Font Options
         $(fontLi).find('[data-font-action]').on('click', function(e) {
             e.preventDefault();
             var act = $(this).attr('data-font-action');
@@ -174,5 +172,5 @@
         document.addEventListener('DOMContentLoaded', initLoop);
     }
 
-    setInterval(initLoop, 800);
+    setInterval(initLoop, 600);
 })();
