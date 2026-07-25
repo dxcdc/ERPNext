@@ -161,20 +161,46 @@
 
     function injectStockExecutiveDashboard() {
         if (!window.location.href.includes('/app/stock') && !window.location.href.includes('/app/Stock')) return;
-        if (document.getElementById('cdc-stock-exec-dashboard')) return;
 
         var workspaceBody = document.querySelector('.workspace-body') || document.querySelector('.page-body');
         if (!workspaceBody) return;
 
+        // Procurar o elemento do título de seção na árvore do DOM
+        var targetHeader = Array.from(workspaceBody.querySelectorAll('.widget, .widget-header, .ce-block, h4, h5, div, span, p')).find(function(el) {
+            var text = (el.textContent || '').trim();
+            return text.includes('Indicadores Executivos') || text.includes('Alguma coisa');
+        });
+
+        // Se o cabeçalho de seção ainda não renderizou no DOM, remova da posição errada e aguarde o próximo ciclo
+        if (!targetHeader) {
+            var wrongDash = document.getElementById('cdc-stock-exec-dashboard');
+            if (wrongDash && !wrongDash.getAttribute('data-correctly-placed')) {
+                wrongDash.remove();
+            }
+            return;
+        }
+
+        var parentBlock = targetHeader.closest('.ce-block') || targetHeader.closest('.widget') || targetHeader;
+
+        // Se já existir no lugar correto, não faz nada
+        var existingDash = document.getElementById('cdc-stock-exec-dashboard');
+        if (existingDash) {
+            if (existingDash.previousElementSibling === parentBlock) {
+                return;
+            }
+            existingDash.remove();
+        }
+
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
             callback: function(r) {
-                if (!r.message || document.getElementById('cdc-stock-exec-dashboard')) return;
+                if (!r.message) return;
 
                 var data = r.message;
                 var dashDiv = document.createElement('div');
                 dashDiv.id = 'cdc-stock-exec-dashboard';
                 dashDiv.className = 'cdc-exec-dashboard-grid';
+                dashDiv.setAttribute('data-correctly-placed', 'true');
 
                 // --- CARD 1: Sparkline Semanal ---
                 var card1 = `
@@ -258,29 +284,14 @@
 
                 dashDiv.innerHTML = card1 + card2 + card3;
 
-                // Inserir exatamente abaixo da seção "Indicadores Executivos & Tendências"
-                var targetHeader = Array.from(workspaceBody.querySelectorAll('.widget, .widget-header, h4, h5, div')).find(function(el) {
-                    return el.textContent && el.textContent.includes('Indicadores Executivos');
-                });
-
-                if (targetHeader) {
-                    var containerWidget = targetHeader.closest('.widget') || targetHeader;
-                    if (containerWidget && containerWidget.parentNode) {
-                        containerWidget.parentNode.insertBefore(dashDiv, containerWidget.nextSibling);
-                        return;
-                    }
-                }
-
-                // Fallback: Inserir após os Number Cards
-                var numberCardsContainer = workspaceBody.querySelector('.widget-group') || workspaceBody.firstChild;
-                if (numberCardsContainer && numberCardsContainer.nextSibling) {
-                    workspaceBody.insertBefore(dashDiv, numberCardsContainer.nextSibling);
-                } else {
-                    workspaceBody.appendChild(dashDiv);
+                // Inserir exatamente após o bloco do título de seção
+                if (parentBlock && parentBlock.parentNode) {
+                    parentBlock.parentNode.insertBefore(dashDiv, parentBlock.nextSibling);
                 }
             }
         });
     }
+
 
 
     applyCDCState();
