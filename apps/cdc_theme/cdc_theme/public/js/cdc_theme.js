@@ -198,26 +198,28 @@
 
                 var data = r.message;
 
-                // Selector de "Ver como / Unidade"
-                var availableUnits = data.available_units || ["Todos os Armazéns", "CABO", "CARUARU", "JABOATÃO", "RECIFE"];
+                // Selector de "Filtrar por Armazém (46 Armazéns)"
+                var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
                 var unitOptions = availableUnits.map(function(u) {
-                    var val = (u === 'Todos os Armazéns') ? 'All' : u;
+                    var val = (typeof u === 'object') ? u.value : ((u === 'Todos os Armazéns') ? 'All' : u);
+                    var lbl = (typeof u === 'object') ? u.label : u;
                     var selected = (currentSelectedUnit === val) ? 'selected' : '';
-                    return `<option value="${val}" ${selected}>${u}</option>`;
+                    return `<option value="${val}" ${selected}>${lbl}</option>`;
                 }).join('');
 
                 var selectorHeader = `
                     <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px;">
                         <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #1e293b; font-size: 14px;">
-                            <span>👁️ Ver Visão de Estoque por:</span>
+                            <span>👁️ Filtrar por Armazém:</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; height: 36px; font-weight: 600; border-radius: 6px; border-color: #cbd5e1; color: #0f172a; cursor: pointer;">
+                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; max-width: 380px; height: 36px; font-weight: 600; border-radius: 6px; border-color: #cbd5e1; color: #0f172a; cursor: pointer;">
                                 ${unitOptions}
                             </select>
                         </div>
                     </div>
                 `;
+
 
 
 
