@@ -320,7 +320,7 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (UM ÚNICO CONTAINER BLOCCO POR MÊS, ORDEM DECRESCENTE) ---
+                // --- 6. GRÁFICO DE OCORRÊNCIAS POR PROJETO (FLAT CONTINUOUS ROW WITH MONTH BANNERS AT BOTTOM) ---
                 var typeFilterBtns = `
                     <div style="display: flex; gap: 4px; align-items: center;">
                         <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
@@ -338,6 +338,7 @@
                 `;
 
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
+                var labelsList = occurrencesData.labels || [];
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
@@ -349,43 +350,43 @@
                     var stepOcc = Math.max(Math.ceil(maxOcc / 2), 1);
                     var topOcc = stepOcc * 2;
 
-                    var globalIndex = 0;
-                    var monthBlocksHTML = groupedMonthsList.map(function(gm) {
-                        var monthBarsHTML = gm.weeks.map(function(wLbl) {
-                            var val = d.occurrences[globalIndex] || 0;
-                            globalIndex++;
-                            var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
-                            var barColor = val > 0 ? (currentOccurrencesType === 'issue' ? '#dc2626' : d.color) : '#e2e8f0';
-                            var qtyText = val > 0 ? `<span style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">${val}</span>` : '<span style="font-size: 9px; color: #cbd5e1; margin-bottom: 4px;">-</span>';
-
-                            return `
-                                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 32px;">
-                                    ${qtyText}
-                                    <div style="height: 65px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: transparent; padding: 0;">
-                                        <div style="width: 16px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 4px 4px 0 0;" title="${d.project} (${gm.month} ${wLbl}): ${val} ${chartTypeBadgeText}"></div>
-                                    </div>
-                                    <span style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 4px;">${wLbl}</span>
-                                </div>
-                            `;
-                        }).join('');
+                    var barsHTML = labelsList.map(function(lbl, idx) {
+                        var val = d.occurrences[idx] || 0;
+                        var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
+                        var barColor = val > 0 ? (currentOccurrencesType === 'issue' ? '#dc2626' : d.color) : '#e2e8f0';
+                        var qtyText = val > 0 ? `<span style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">${val}</span>` : '<span style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">-</span>';
 
                         return `
-                            <div style="flex: ${gm.weeks.length}; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 180px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                                <div style="background: #f1f5f9; color: #0f172a; font-size: 11px; font-weight: 800; border-radius: 6px; padding: 5px; text-align: center; letter-spacing: 0.5px; border: 1px solid #e2e8f0;">
-                                    ${gm.month}
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 28px;">
+                                ${qtyText}
+                                <div style="height: 60px; width: 100%; display: flex; align-items: flex-end; justify-content: center; background: transparent; padding: 0;">
+                                    <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;" title="${d.project} (${lbl}): ${val} ${chartTypeBadgeText}"></div>
                                 </div>
-                                <div style="display: flex; align-items: flex-end; gap: 8px; justify-content: space-around;">
-                                    ${monthBarsHTML}
-                                </div>
+                                <span style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 4px;">${lbl.replace(/.*S/, 'S')}</span>
                             </div>
                         `;
                     }).join('');
 
+                    var monthHeadersHTML = '';
+                    if (groupedMonthsList.length > 0) {
+                        monthHeadersHTML = `
+                            <div style="display: flex; gap: 6px; margin-top: 10px; width: 100%;">
+                                ${groupedMonthsList.map(function(gm) {
+                                    return `
+                                        <div style="flex: ${gm.weeks.length}; text-align: center; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 0; border-radius: 6px; font-size: 10px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px;">
+                                            └─ ${gm.month} ─┘
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+
                     var badgeClass = (currentOccurrencesType === 'issue') ? 'badge-soft-danger' : 'badge-soft-primary';
 
                     return `
-                        <div style="padding: 18px; background: #f8fafc; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                        <div style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <span style="font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
                                     <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
                                     ${d.project}
@@ -393,15 +394,19 @@
                                 <span class="${badgeClass}" style="font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 6px;">${d.total_occurrences} ${chartTypeBadgeText}</span>
                             </div>
                             
-                            <!-- Régua Y + Containers Únicos por Mês Lado a Lado (Ordem Decrescente Julho -> Junho -> Maio) -->
-                            <div style="display: flex; align-items: stretch; gap: 14px; overflow-x: auto; padding-bottom: 4px;">
-                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100px; font-size: 10px; font-weight: 700; color: #64748b; text-align: right; min-width: 32px; padding-top: 32px; padding-bottom: 24px;">
+                            <!-- Régua Y + Quadro Único da Linha Contínua + Faixas de Meses na Base -->
+                            <div style="display: flex; align-items: flex-end; gap: 10px;">
+                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 60px; font-size: 9px; font-weight: 700; color: #64748b; text-align: right; min-width: 32px; padding-bottom: 22px;">
                                     <span>${topOcc} ┤</span>
                                     <span>${stepOcc} ┤</span>
                                     <span>0 ┴</span>
                                 </div>
-                                <div style="flex: 1; display: flex; gap: 12px; width: 100%;">
-                                    ${monthBlocksHTML}
+                                
+                                <div style="flex: 1; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column;">
+                                    <div style="display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; width: 100%;">
+                                        ${barsHTML}
+                                    </div>
+                                    ${monthHeadersHTML}
                                 </div>
                             </div>
                         </div>
