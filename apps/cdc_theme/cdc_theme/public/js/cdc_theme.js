@@ -1,11 +1,12 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.7.0-20260725_2320-BAR-VALUES-ON-TOP';
+    var SYSTEM_ASSET_VERSION = 'v1.8.0-20260725_2325-SINGLE-PROJECT-TOP-CHART';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
     var currentTableTypeFilter = 'all';
+    var currentSelectedProjectFilter = 'all'; // Todos ou um projeto específico
     var activeCategoriesMap = {}; // Controle de categorias ativas (checkboxes)
     var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
@@ -21,7 +22,6 @@
             var svg = container.querySelector('svg');
             if (!svg) return;
 
-            // Remover rótulos antigos se houver
             svg.querySelectorAll('.cdc-bar-value-label').forEach(function(el) { el.remove(); });
 
             var bars = svg.querySelectorAll('rect.bar, rect.dataset-bar, rect');
@@ -575,7 +575,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (QUANTIDADES EXIBIDAS NO TOPO DAS BARRAS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (COM SELETOR DE PROJETO ÚNICO OU CONSOLIDADO NO PRIMEIRO CARD) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -583,6 +583,22 @@
                 var ptBrLabels = (occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"]).map(function(lbl) {
                     return lbl.replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
                 });
+
+                // OPÇÕES DO DROPDOWN PARA VISUALIZAR UM ÚNICO PROJETO NO PRIMEIRO CARD OU TODOS
+                var projectSelectOptions = `<option value="all" ${currentSelectedProjectFilter === 'all' ? 'selected' : ''}>🌐 Todos os Programas (Consolidado - 6 Projetos)</option>`;
+                datasetsList.forEach(function(ds) {
+                    var selected = (currentSelectedProjectFilter === ds.project) ? 'selected' : '';
+                    projectSelectOptions += `<option value="${ds.project}" ${selected}>📌 ${ds.project} (${ds.total_occurrences} lançamentos)</option>`;
+                });
+
+                var singleProjectFilterDropdown = `
+                    <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <span style="font-size: 11px; font-weight: 700; color: #475569;">Programa em Foco:</span>
+                        <select id="cdc-top-chart-project-select" class="form-control" style="width: auto; height: 32px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid #2563eb; color: #0f172a; cursor: pointer; background: #ffffff; padding: 0 8px;">
+                            ${projectSelectOptions}
+                        </select>
+                    </div>
+                `;
 
                 var periodButtonsHTML = `
                     <div class="cdc-period-filter-group" id="cdc-period-filter-group" style="display: flex; gap: 4px;">
@@ -618,7 +634,6 @@
                             return `
                                 <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 36px;" class="week-block-item">
                                     <div class="week-box" style="width: 100%; height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 4px; position: relative;">
-                                        <!-- QUANTIDADE DE LANÇAMENTOS NO TOPO DA CAIXA -->
                                         <span style="font-size: 11px; font-weight: 800; color: ${val > 0 ? '#0f172a' : '#cbd5e1'}; position: absolute; top: 4px;">${val > 0 ? val : '-'}</span>
                                         <div class="chart-bar-pill" style="width: 16px; height: ${barHeightPx}px; background-color: ${barColor}; border-radius: 4px; transition: height 0.3s ease;"></div>
                                     </div>
@@ -677,9 +692,12 @@
 
                 var nativeFrappeChartCard = `
                     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                        <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                            <span>📊 Visão Consolidada em Gráfico Nativo (Frappe.Chart) com Quantidades no Topo</span>
-                            <span style="font-size: 11px; font-weight: 700; color: #2563eb;">Interativo & Exportável</span>
+                        <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span>📊 Gráfico Principal de Lançamentos (frappe.Chart)</span>
+                                ${singleProjectFilterDropdown}
+                            </div>
+                            <span style="font-size: 11px; font-weight: 700; color: #2563eb;">Quantidades Exibidas no Topo das Barras</span>
                         </div>
                         <div id="cdc-native-frappe-chart" style="width: 100%; min-height: 250px;"></div>
                     </div>
@@ -693,7 +711,7 @@
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC (Com Quantidades Visíveis no Topo)</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC</p>
                             </div>
 
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
@@ -726,14 +744,22 @@
 
                 setTimeout(function() {
                     if (window.frappe && window.frappe.Chart) {
-                        // 1. Gráfico Consolidado no Topo
+                        // 1. Gráfico Consolidado ou de Projeto Único Selecionado no Primeiro Card
                         if (document.getElementById('cdc-native-frappe-chart')) {
                             try {
+                                var filteredDatasets = (currentSelectedProjectFilter === 'all')
+                                    ? occurrencesData.datasets
+                                    : occurrencesData.datasets.filter(function(ds) { return ds.project === currentSelectedProjectFilter; });
+
+                                var chartTitle = (currentSelectedProjectFilter === 'all') 
+                                    ? 'Volume Consolidado de Lançamentos (6 Programas)' 
+                                    : 'Volume de Lançamentos - ' + currentSelectedProjectFilter;
+
                                 new frappe.Chart('#cdc-native-frappe-chart', {
-                                    title: 'Volume de Lançamentos por Programa',
+                                    title: chartTitle,
                                     data: {
                                         labels: ptBrLabels,
-                                        datasets: (occurrencesData.datasets || []).map(function(ds) {
+                                        datasets: (filteredDatasets || []).map(function(ds) {
                                             return {
                                                 name: ds.project,
                                                 type: 'bar',
@@ -743,7 +769,9 @@
                                     },
                                     type: 'bar',
                                     height: 260,
-                                    colors: ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'],
+                                    colors: (currentSelectedProjectFilter === 'all') 
+                                        ? ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
+                                        : [currentOccurrencesType === 'issue' ? '#dc2626' : ((filteredDatasets[0] && filteredDatasets[0].color) || '#2563eb')],
                                     axisOptions: { xIsSeries: true },
                                     barOptions: { spaceRatio: 0.3 }
                                 });
@@ -754,7 +782,7 @@
                             }
                         }
 
-                        // 2. Gráficos por Programa
+                        // 2. Gráficos Individuais por Programa
                         datasetsList.forEach(function(ds, pIdx) {
                             var containerId = '#cdc-project-native-chart-' + pIdx;
                             if (document.querySelector(containerId)) {
@@ -800,6 +828,13 @@
         $(document).off('change', '#cdc-unit-filter-select').on('change', '#cdc-unit-filter-select', function(e) {
             e.stopPropagation();
             currentSelectedUnit = $(this).val();
+            renderStockDashboard();
+        });
+
+        // HANDLER PARA O SELETOR DE PROJETO EM FOCO NO PRIMEIRO CARD
+        $(document).off('change', '#cdc-top-chart-project-select').on('change', '#cdc-top-chart-project-select', function(e) {
+            e.stopPropagation();
+            currentSelectedProjectFilter = $(this).val();
             renderStockDashboard();
         });
 
