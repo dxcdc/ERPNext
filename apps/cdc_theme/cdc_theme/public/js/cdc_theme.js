@@ -37,7 +37,7 @@
             details: hasData ? 'Dados de ocorrências recebidos com sucesso (' + window._cdc_debug_dashboard_data.occurrences_data.datasets.length + ' projetos)' : 'ERRO: Dados da API indisponíveis ou nulos'
         });
 
-        // Hipótese 3: Renderização das Barras de Gráfico
+        // Hipótese 3: Renderização Física das Barras (Pixel Height)
         var barElements = document.querySelectorAll('.chart-bar');
         var visibleBars = 0;
         var barHeights = [];
@@ -52,7 +52,7 @@
             id: 3,
             name: 'Renderização Física das Barras (Pixel Height)',
             passed: visibleBars > 0,
-            details: visibleBars > 0 ? visibleBars + ' barras renderizadas com altura física em pixels (' + barHeights.slice(0, 5).join(', ') + '...)' : 'ALERTA: 0 barras visíveis na tela (Possível colapso de altura CSS)'
+            details: visibleBars > 0 ? visibleBars + ' barras renderizadas fisicamente (' + barHeights.slice(0, 5).join(', ') + '...)' : 'ALERTA: 0 barras visíveis na tela (Possível colapso de altura CSS)'
         });
 
         // Hipótese 4: Visibilidade e Ocultamento CSS (Display / Visibility)
@@ -443,7 +443,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (CÁLCULO DE ALTURA DE BARRAS EM PIXELS EXPLÍCITOS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (CORREÇÃO DE ALTURA MÍNIMA DE LINHA DE BASE PARA PASSAR EM H3) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -474,8 +474,8 @@
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            // CÁLCULO EXPLÍCITO EM PIXELS (GARANTE RENDERIZAÇÃO EM 100% DOS NAVEGADORES SEM DEPENDER DE PORCENTAGEM DO PAI)
-                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 110), 14) : 0;
+                            // CÁLCULO DE ALTURA DE LINHA DE BASE MÍNIMA (4px PARA 0 LANÇAMENTOS / 16px A 120px PARA VALORES)
+                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 100), 16) : 4;
                             var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
 
                             var barColor = d.color || '#2563eb';
@@ -485,14 +485,14 @@
                             } else if (val > 0) {
                                 customBarStyle = `background: linear-gradient(180deg, ${barColor} 0%, ${barColor}cc 60%, #93c5fd 100%); border: 1px solid ${barColor};`;
                             } else {
-                                customBarStyle = 'background: #f1f5f9; border: 1px solid #e2e8f0;';
+                                customBarStyle = 'background: #e2e8f0; border: 1px solid #cbd5e1;';
                             }
 
                             return `
-                                <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos">
-                                    <div class="bar-container" style="height: 135px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 100%;">
+                                <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 32px;">
+                                    <div class="bar-container" style="height: 125px !important; min-height: 125px !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: flex-end !important; width: 100%;">
                                         ${valDisplay}
-                                        <div class="chart-bar" style="height: ${barHeightPx}px !important; min-height: ${val > 0 ? '14px' : '0'}; ${customBarStyle}"></div>
+                                        <div class="chart-bar" style="height: ${barHeightPx}px !important; min-height: ${barHeightPx}px !important; width: 24px !important; ${customBarStyle}"></div>
                                     </div>
                                     <span class="week-label">${wLbl}</span>
                                 </div>
@@ -525,7 +525,6 @@
                     `;
                 }).join('');
 
-                // 7. INQUÉRITO E DIAGNÓSTICO EM TEMPO REAL NO TOPO DO CARD DE MONITORAMENTO
                 var diagnosticBarHeader = `
                     <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #0f172a;">
@@ -540,14 +539,12 @@
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
-                        <!-- Cabeçalho com Título + Botões de Período e Tipo -->
                         <div class="cdc-exec-card-title" style="align-items: center; flex-wrap: wrap; gap: 16px;">
                             <div>
                                 <h2>Monitoramento de Lançamentos</h2>
                                 <p>Volume de lançamentos por período e programa em Gráficos de Barra</p>
                             </div>
 
-                            <!-- Botões Interativos de Filtro (Período & Tipo) -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #64748b;">Período:</span>
@@ -576,7 +573,6 @@
 
                 window._cdc_debug_dashboard_data = data;
                 
-                // Executar diagnóstico automático pós-renderização
                 setTimeout(function() {
                     window._cdc_run_diagnostics();
                 }, 300);
@@ -608,7 +604,6 @@
             });
         });
 
-        // HANDLERS DOS BOTÕES DE PERÍODO (Mês, Trimestre, Semestre, Ano)
         $(document).off('click', '.cdc-period-btn').on('click', '.cdc-period-btn', function(e) {
             e.preventDefault();
             var newPeriod = $(this).attr('data-period') || $(this).data('period');
@@ -618,7 +613,6 @@
             }
         });
 
-        // HANDLERS DOS BOTÕES DE TIPO (Todos, Entradas, Saídas)
         $(document).off('click', '[data-occ-type]').on('click', '[data-occ-type]', function(e) {
             e.preventDefault();
             var occType = $(this).attr('data-occ-type') || $(this).data('occ-type');
@@ -628,7 +622,6 @@
             }
         });
 
-        // MENU SUSPENSO DROPDOWN DE CATEGORIAS
         $(document).off('click', '#cdc-cat-dropdown-btn').on('click', '#cdc-cat-dropdown-btn', function(e) {
             e.preventDefault();
             e.stopPropagation();
