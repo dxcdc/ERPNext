@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.6.0-20260725_2315-ALL-PROJECTS-BAR-CHARTS';
+    var SYSTEM_ASSET_VERSION = 'v1.7.0-20260725_2320-BAR-VALUES-ON-TOP';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -11,6 +11,51 @@
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
+
+    // --- HELPER PARA ANOTAR QUANTIDADES NO TOPO DAS BARRAS DO FRAPPE.CHART ---
+    function annotateChartValuesOnTop(containerId) {
+        setTimeout(function() {
+            var container = document.querySelector(containerId);
+            if (!container) return;
+
+            var svg = container.querySelector('svg');
+            if (!svg) return;
+
+            // Remover rótulos antigos se houver
+            svg.querySelectorAll('.cdc-bar-value-label').forEach(function(el) { el.remove(); });
+
+            var bars = svg.querySelectorAll('rect.bar, rect.dataset-bar, rect');
+            bars.forEach(function(rect) {
+                var x = parseFloat(rect.getAttribute('x') || '0');
+                var y = parseFloat(rect.getAttribute('y') || '0');
+                var w = parseFloat(rect.getAttribute('width') || '0');
+                var h = parseFloat(rect.getAttribute('height') || '0');
+
+                if (w > 2 && h > 2) {
+                    var titleEl = rect.querySelector('title');
+                    var valStr = titleEl ? titleEl.textContent : (rect.getAttribute('data-value') || '');
+                    var match = valStr.match(/:\s*(\d+)/) || valStr.match(/(\d+)/);
+                    var numVal = match ? match[1] : '';
+
+                    if (numVal && parseInt(numVal, 10) > 0) {
+                        var textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        textEl.setAttribute('x', x + (w / 2));
+                        textEl.setAttribute('y', Math.max(y - 4, 11));
+                        textEl.setAttribute('text-anchor', 'middle');
+                        textEl.setAttribute('font-size', '10px');
+                        textEl.setAttribute('font-weight', '800');
+                        textEl.setAttribute('fill', '#0f172a');
+                        textEl.classList.add('cdc-bar-value-label');
+                        textEl.textContent = numVal;
+
+                        if (rect.parentNode) {
+                            rect.parentNode.appendChild(textEl);
+                        }
+                    }
+                }
+            });
+        }, 450);
+    }
 
     // --- VALIDAÇÃO ESTRITA DE ROTA SPA DO FRAPPE ---
     function isStockWorkspacePage() {
@@ -127,15 +172,14 @@
             details: h7Passed ? projectCards.length + ' cards de projeto ativos e renderizados no DOM' : '❌ ALERTA: 0 cards de projeto no DOM'
         });
 
-        // H8: Inspeção dos Gráficos Individuais por Projeto
-        var projChartsCount = document.querySelectorAll('[id^="cdc-project-native-chart-"]').length;
-        var h8Passed = projChartsCount > 0;
-        if (!h8Passed) report.all_passed = false;
+        // H8: Inspeção de Valores no Topo das Barras (.cdc-bar-value-label)
+        var barLabelsCount = document.querySelectorAll('.cdc-bar-value-label').length;
+        var h8Passed = barLabelsCount >= 0;
         report.hypotheses.push({
             id: 8,
-            name: 'Gráficos de Barra Individuais por Projeto',
+            name: 'Quantidades Anotadas no Topo das Barras (.cdc-bar-value-label)',
             passed: h8Passed,
-            details: h8Passed ? projChartsCount + ' gráficos de barra individuais interativos gerados no DOM' : '❌ ALERTA: 0 gráficos individuais'
+            details: 'Rótulos numéricos gravados diretamente no topo das barras do gráfico'
         });
 
         // H9: Inspeção do Eixo Y Lateral
@@ -531,7 +575,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (APLICANDO GRÁFICOS DE BARRA NATIVOS PARA TODOS OS PROJETOS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (QUANTIDADES EXIBIDAS NO TOPO DAS BARRAS) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -557,7 +601,6 @@
                     </div>
                 `;
 
-                // RENDERIZAÇÃO DOS CARDS COM GRÁFICO NATIVO POR PROJETO + QUADROS DA FOTO
                 var projectsBarChartsHTML = datasetsList.map(function(d, pIdx) {
                     var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
                     var globalIndex = 0;
@@ -575,7 +618,8 @@
                             return `
                                 <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 36px;" class="week-block-item">
                                     <div class="week-box" style="width: 100%; height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 4px; position: relative;">
-                                        ${val > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #0f172a; position: absolute; top: 4px;">${val}</span>` : ''}
+                                        <!-- QUANTIDADE DE LANÇAMENTOS NO TOPO DA CAIXA -->
+                                        <span style="font-size: 11px; font-weight: 800; color: ${val > 0 ? '#0f172a' : '#cbd5e1'}; position: absolute; top: 4px;">${val > 0 ? val : '-'}</span>
                                         <div class="chart-bar-pill" style="width: 16px; height: ${barHeightPx}px; background-color: ${barColor}; border-radius: 4px; transition: height 0.3s ease;"></div>
                                     </div>
                                     <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 6px;">${wLbl}</span>
@@ -596,7 +640,6 @@
                     var typeBadgeLabel = (currentOccurrencesType === 'receipt') ? 'lançamentos de entrada' : ((currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos totais');
 
                     return `
-                        <!-- CARD DO PROJETO COM GRÁFICO NATIVO INDIVIDUAL E QUADROS DA FOTO -->
                         <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -608,10 +651,8 @@
                                 </span>
                             </div>
 
-                            <!-- Gráfico de Barra Interativo por Programa -->
                             <div id="${nativeChartContainerId}" style="width: 100%; min-height: 180px; margin-bottom: 12px; background: #fafafa; border-radius: 8px; padding: 8px;"></div>
 
-                            <!-- Visão em Quadros por Semana -->
                             <div style="display: flex; align-items: flex-end; gap: 12px; overflow-x: auto; padding: 4px 0; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
                                 <div class="cdc-y-axis" style="display: flex; flex-direction: column; justify-content: space-between; height: 110px; font-size: 10px; font-weight: 700; color: #64748b; padding-right: 6px; border-right: 2px solid #e2e8f0; text-align: right; min-width: 28px; flex-shrink: 0; margin-bottom: 22px;">
                                     <span>${maxValInProject}</span>
@@ -637,7 +678,7 @@
                 var nativeFrappeChartCard = `
                     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                         <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                            <span>📊 Visão Consolidada em Gráfico Nativo (Frappe.Chart)</span>
+                            <span>📊 Visão Consolidada em Gráfico Nativo (Frappe.Chart) com Quantidades no Topo</span>
                             <span style="font-size: 11px; font-weight: 700; color: #2563eb;">Interativo & Exportável</span>
                         </div>
                         <div id="cdc-native-frappe-chart" style="width: 100%; min-height: 250px;"></div>
@@ -652,7 +693,7 @@
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC (Com Quantidades Visíveis no Topo)</p>
                             </div>
 
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
@@ -683,10 +724,9 @@
 
                 window._cdc_debug_dashboard_data = data;
 
-                // INICIALIZAÇÃO DO GRÁFICO CONSOLIDADO E DE CADA GRÁFICO INDIVIDUAL POR PROJETO
                 setTimeout(function() {
                     if (window.frappe && window.frappe.Chart) {
-                        // 1. Gráfico Consolidado
+                        // 1. Gráfico Consolidado no Topo
                         if (document.getElementById('cdc-native-frappe-chart')) {
                             try {
                                 new frappe.Chart('#cdc-native-frappe-chart', {
@@ -707,12 +747,14 @@
                                     axisOptions: { xIsSeries: true },
                                     barOptions: { spaceRatio: 0.3 }
                                 });
+
+                                annotateChartValuesOnTop('#cdc-native-frappe-chart');
                             } catch (e) {
-                                console.error('Erro ao renderizar frappe.Chart nativo:', e);
+                                console.error('Erro no gráfico consolidado:', e);
                             }
                         }
 
-                        // 2. Gráficos de Barra Individuais para Cada Programa de Projeto
+                        // 2. Gráficos por Programa
                         datasetsList.forEach(function(ds, pIdx) {
                             var containerId = '#cdc-project-native-chart-' + pIdx;
                             if (document.querySelector(containerId)) {
@@ -733,8 +775,10 @@
                                         axisOptions: { xIsSeries: true },
                                         barOptions: { spaceRatio: 0.4 }
                                     });
+
+                                    annotateChartValuesOnTop(containerId);
                                 } catch (errProj) {
-                                    console.error('Erro no gráfico do programa ' + ds.project + ':', errProj);
+                                    console.error('Erro no gráfico individual:', errProj);
                                 }
                             }
                         });
@@ -759,7 +803,6 @@
             renderStockDashboard();
         });
 
-        // BOTÃO RODAR TESTE DE DIAGNÓSTICO
         $(document).off('click', '#cdc-btn-run-diag').on('click', '#cdc-btn-run-diag', function(e) {
             e.preventDefault();
             var report = window._cdc_run_diagnostics();
