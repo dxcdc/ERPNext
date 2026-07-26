@@ -696,12 +696,9 @@
                 });
 
                 var singleProjectFilterDropdown = `
-                    <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        <span style="font-size: 11px; font-weight: 700; color: #475569;">Programa em Foco:</span>
-                        <select id="cdc-top-chart-project-select" class="form-control" style="width: auto; height: 32px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid #2563eb; color: #0f172a; cursor: pointer; background: #ffffff; padding: 0 8px;">
-                            ${projectSelectOptions}
-                        </select>
-                    </div>
+                    <select id="cdc-top-chart-project-select" class="form-control" style="width: auto; height: 30px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid #2563eb; color: #0f172a; cursor: pointer; background: #ffffff; padding: 0 8px;">
+                        ${projectSelectOptions}
+                    </select>
                 `;
 
                 var periodButtonsHTML = `
@@ -733,10 +730,7 @@
                 var customMainChartCard = `
                     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin-bottom: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <span style="font-size: 15px; font-weight: 800; color: #0f172a;">📊 Gráfico Principal de Lançamentos</span>
-                                ${singleProjectFilterDropdown}
-                            </div>
+                            <span style="font-size: 15px; font-weight: 800; color: #0f172a;">📊 Gráfico Principal de Lançamentos</span>
                             <span style="font-size: 11.5px; font-weight: 800; color: #2563eb;">Cores Distintas por Mês • Quantidades no Topo • S1 S2 na Base</span>
                         </div>
 
@@ -760,6 +754,10 @@
                             </div>
 
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Programa:</span>
+                                    ${singleProjectFilterDropdown}
+                                </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #64748b;">Período:</span>
                                     ${periodButtonsHTML}
