@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.3.0-20260725_2305-FRAPPE-CHART';
+    var SYSTEM_ASSET_VERSION = 'v1.4.0-20260725_2310-STRICT-ROUTE-FIX';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -11,6 +11,32 @@
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
+
+    // --- VALIDAÇÃO ESTRITA DE ROTA SPA DO FRAPPE ---
+    function isStockWorkspacePage() {
+        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
+        if (!route || route.length === 0) return false;
+
+        var mainRoute = (route[0] || '').toLowerCase();
+        var subRoute = (route[1] || '').toLowerCase();
+
+        // Se for um formulário, lista, relatório ou árvore (ex: Form/Stock Entry, List/User, query-report), NÃO é a página inicial de Workspace!
+        if (mainRoute === 'form' || mainRoute === 'list' || mainRoute === 'query-report' || mainRoute === 'report' || mainRoute === 'tree' || mainRoute === 'dashboard-view' || mainRoute === 'print') {
+            return false;
+        }
+
+        // Apenas a página de Workspace de Estoque (/app/stock ou /app/workspaces/stock)
+        if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && (subRoute === 'stock' || subRoute === 'estoque')) {
+            return true;
+        }
+
+        var href = (window.location.href || '').toLowerCase();
+        if (href.endsWith('/app/stock') || href.endsWith('/app/workspace/stock') || href.endsWith('/app/workspaces/stock') || href.endsWith('/app/stock/')) {
+            return true;
+        }
+
+        return false;
+    }
 
     // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC ---
     window._cdc_run_diagnostics = function() {
@@ -154,27 +180,12 @@
         return report;
     };
 
-    function isStockWorkspacePage() {
-        var href = (window.location.href || '').toLowerCase();
-        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
-        var routeStr = route.join('/').toLowerCase();
-
-        if (href.includes('/app/stock') || href.includes('workspace/stock') || href.includes('workspaces/stock') || routeStr.includes('stock')) {
-            return true;
-        }
-
-        var pageTitle = ($('.page-title').text() || $('h1').text() || $('.title-text').text() || '').toLowerCase();
-        var activeSidebar = ($('.sidebar-item.selected').text() || $('.desk-sidebar .selected').text() || '').toLowerCase();
-
-        if (pageTitle.includes('estoque') || pageTitle.includes('stock') || activeSidebar.includes('estoque') || activeSidebar.includes('stock')) {
-            return true;
-        }
-
-        return false;
-    }
-
     function renderStockDashboard() {
-        if (!isStockWorkspacePage()) return;
+        if (!isStockWorkspacePage()) {
+            var dashToRemove = document.getElementById('cdc-stock-exec-dashboard');
+            if (dashToRemove) dashToRemove.remove();
+            return;
+        }
 
         if (isDashboardLoading && (Date.now() - lastFetchTime > 6000)) {
             isDashboardLoading = false;
@@ -522,7 +533,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (INCORPORANDO FRAPPE.CHART NATIVO + CARDS DE FOTO RESTAURADOS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (FRAPPE.CHART + CARDS FOTO) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -544,7 +555,6 @@
                     </div>
                 `;
 
-                // RENDERIZAÇÃO DOS CARDS EXATAMENTE IGUAIS À FOTO
                 var projectsBarChartsHTML = datasetsList.map(function(d) {
                     var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
                     var globalIndex = 0;
@@ -582,7 +592,6 @@
                     var typeBadgeLabel = (currentOccurrencesType === 'receipt') ? 'lançamentos de entrada' : ((currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos totais');
 
                     return `
-                        <!-- CARD DO PROJETO COM DESIGN EXATO DA FOTO -->
                         <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -616,7 +625,6 @@
                     </button>
                 `;
 
-                // RECEPTÁCULO DO GRÁFICO NATIVO DO FRAPPE
                 var nativeFrappeChartCard = `
                     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                         <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
@@ -666,7 +674,6 @@
 
                 window._cdc_debug_dashboard_data = data;
 
-                // INITIALIZE NATIVE FRAPPE CHART
                 setTimeout(function() {
                     if (window.frappe && window.frappe.Chart && document.getElementById('cdc-native-frappe-chart')) {
                         try {
@@ -716,7 +723,7 @@
             renderStockDashboard();
         });
 
-        // BOTÃO RODAR TESTE DE DIAGNÓSTICO COM CONTEXTO RELEVANTE E BOTÃO DE CÓPIA DE CLIPBOARD
+        // BOTÃO RODAR TESTE DE DIAGNÓSTICO
         $(document).off('click', '#cdc-btn-run-diag').on('click', '#cdc-btn-run-diag', function(e) {
             e.preventDefault();
             var report = window._cdc_run_diagnostics();
@@ -848,13 +855,25 @@
             if (!dashContainer && !isDashboardLoading) {
                 renderStockDashboard();
             }
+        } else {
+            var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
+            if (dashContainer) {
+                dashContainer.remove();
+            }
         }
     }, 400);
 
     $(document).on('page-change', function() {
-        setTimeout(function() {
-            renderStockDashboard();
-        }, 100);
+        if (!isStockWorkspacePage()) {
+            var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
+            if (dashContainer) {
+                dashContainer.remove();
+            }
+        } else {
+            setTimeout(function() {
+                renderStockDashboard();
+            }, 100);
+        }
     });
 
 })();
