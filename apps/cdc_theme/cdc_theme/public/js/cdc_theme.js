@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.0.6-20260725_2245';
+    var SYSTEM_ASSET_VERSION = 'v1.0.7-20260725_2250';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -11,8 +11,9 @@
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
+    var lastRenderedHTMLStringLength = 0;
 
-    // --- SUÍTE DE INQUÉRITO DE DIAGNÓSTICO EM TEMPO REAL ---
+    // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC (H1 A H10) ---
     window._cdc_run_diagnostics = function() {
         var now = new Date();
         var dateFormatted = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
@@ -62,7 +63,7 @@
             id: 3,
             name: 'Renderização Física das Barras (Pixel Height)',
             passed: h3Passed,
-            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas na tela (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalBarsCount + ' barras encontradas no DOM, porém com 0px de altura física'
+            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalBarsCount + ' barras encontradas no DOM'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -98,6 +99,47 @@
             details: 'Versão em execução: ' + SYSTEM_ASSET_VERSION
         });
 
+        // H7: Inspeção do Tamanho da String HTML de Saída
+        report.hypotheses.push({
+            id: 7,
+            name: 'Tamanho da String HTML Gerada',
+            passed: lastRenderedHTMLStringLength > 500,
+            details: lastRenderedHTMLStringLength > 500 ? 'HTML gerado com ' + lastRenderedHTMLStringLength + ' caracteres' : '❌ ERRO: String HTML vazia ou corrompida (' + lastRenderedHTMLStringLength + ' chars)'
+        });
+
+        // H8: Inspeção da Árvore de Nós Internos (.project-chart-box)
+        var chartBoxes = document.querySelectorAll('.project-chart-box');
+        report.hypotheses.push({
+            id: 8,
+            name: 'Contêineres Internos de Gráfico (.project-chart-box)',
+            passed: chartBoxes.length > 0,
+            details: chartBoxes.length > 0 ? chartBoxes.length + ' contêineres de gráfico ativos no DOM' : '❌ ALERTA: 0 contêineres .project-chart-box encontrados no DOM'
+        });
+
+        // H9: Inspeção das Divs de Semana (.week-item e .bar-container)
+        var weekItems = document.querySelectorAll('.week-item');
+        var barContainers = document.querySelectorAll('.bar-container');
+        report.hypotheses.push({
+            id: 9,
+            name: 'Contêineres de Semana e Barras (.bar-container)',
+            passed: barContainers.length > 0,
+            details: barContainers.length > 0 ? barContainers.length + ' contêineres de semana e ' + weekItems.length + ' blocos semanais no DOM' : '❌ ALERTA: 0 elementos .bar-container encontrados no DOM'
+        });
+
+        // H10: Diagnóstico do Estilo Computado da Primeira Barra
+        var firstBar = document.querySelector('.chart-bar');
+        var firstBarDetails = 'Nenhuma barra encontrada no DOM';
+        if (firstBar) {
+            var fbStyle = window.getComputedStyle(firstBar);
+            firstBarDetails = 'Primeira barra no DOM: height=' + fbStyle.height + ', display=' + fbStyle.display + ', background=' + fbStyle.backgroundColor;
+        }
+        report.hypotheses.push({
+            id: 10,
+            name: 'Estilo Computado da Primeira Barra CSS',
+            passed: !!firstBar,
+            details: firstBarDetails
+        });
+
         // Montagem do Texto Puro para Cópia
         var textLines = [];
         textLines.push('📅 DATA / HORA: ' + report.timestamp);
@@ -109,7 +151,7 @@
 
         lastDiagnosticReportText = textLines.join('\n');
 
-        console.group('🔍 INQUÉRITO DE DIAGNÓSTICO CDC - ' + dateFormatted);
+        console.group('🔍 INQUÉRITO DE DIAGNÓSTICO PROFUNDO CDC - ' + dateFormatted);
         console.log(lastDiagnosticReportText);
         console.groupEnd();
 
@@ -144,7 +186,6 @@
 
         if (isDashboardLoading) return;
 
-        // SELETOR HIERÁRQUICO PROTEGIDO CONTRA LIMPEZA DO LOADER DE WORKSPACE DO FRAPPE
         var workspaceBody = document.querySelector('.layout-main-section') || 
                             document.querySelector('.page-body') ||
                             document.querySelector('.workspace-page-content') ||
@@ -566,24 +607,24 @@
                     `;
                 }).join('');
 
-                var nowFormatted = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR');
-                var diagnosticBarHeader = `
-                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; color: #0f172a;">
-                            <span>🔍 Suíte de Inquérito CDC (${nowFormatted}):</span>
-                            <span style="color: #2563eb; font-weight: 700; background: #dbeafe; padding: 2px 8px; border-radius: 4px;">Asset: ${SYSTEM_ASSET_VERSION}</span>
-                        </div>
-                        <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 800; font-size: 11px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: #ffffff; padding: 6px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                            ⚡ Rodar Teste de Diagnóstico Detalhado
-                        </button>
-                    </div>
+                lastRenderedHTMLStringLength = projectsBarChartsHTML.length;
+
+                // BOTÃO DE DIAGNÓSTICO DISCRETO NO CANTO ESQUERDO DO CABEÇALHO DO CARD
+                var discreteDiagBtn = `
+                    <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 700; font-size: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 3px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;" title="Rodar Inquérito de Diagnóstico CDC">
+                        <span>🔍 Diag</span>
+                        <span style="color: #2563eb; font-size: 10px;">⚡</span>
+                    </button>
                 `;
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
                         <div class="cdc-exec-card-title" style="align-items: center; flex-wrap: wrap; gap: 16px;">
                             <div>
-                                <h2>Monitoramento de Lançamentos</h2>
+                                <h2 style="display: flex; align-items: center;">
+                                    Monitoramento de Lançamentos
+                                    ${discreteDiagBtn}
+                                </h2>
                                 <p>Volume de lançamentos por período e programa em Gráficos de Barra</p>
                             </div>
 
@@ -599,7 +640,6 @@
                             </div>
                         </div>
 
-                        ${diagnosticBarHeader}
                         ${projectsBarChartsHTML}
                     </div>
                 `;
@@ -646,7 +686,7 @@
             var modalContent = `
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 14px; border-radius: 8px;">
-                        <span style="color: #38bdf8; font-weight: 800; font-size: 12px;">📋 Relatório de Inquérito CDC</span>
+                        <span style="color: #38bdf8; font-weight: 800; font-size: 12px;">📋 Relatório de Inquérito CDC (10 Diagnósticos)</span>
                         <button id="cdc-btn-copy-diag" class="btn btn-xs" style="background: #2563eb; color: #ffffff; border: none; font-weight: 700; font-size: 11px; padding: 4px 12px; border-radius: 6px; cursor: pointer;">
                             📋 Copiar Diagnóstico
                         </button>
@@ -661,12 +701,11 @@
             `;
 
             var d = frappe.msgprint({
-                title: __('Inquérito de Diagnóstico CDC - Suíte de Validação'),
+                title: __('Inquérito de Diagnóstico CDC - Suíte de Validação Profunda'),
                 indicator: 'blue',
                 message: modalContent
             });
 
-            // ATRIBUIÇÃO DE EVENTO DE CÓPIA PARA ÁREA DE TRANSFERÊNCIA
             setTimeout(function() {
                 $('#cdc-btn-copy-diag').off('click').on('click', function(ev) {
                     ev.preventDefault();
