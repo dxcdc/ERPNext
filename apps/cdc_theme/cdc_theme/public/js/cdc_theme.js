@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.0.8-20260725_2255';
+    var SYSTEM_ASSET_VERSION = 'v1.0.9-20260725_2300-SVG';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -44,26 +44,26 @@
             details: (hasData && datasetsCount > 0) ? 'Payload recebido com sucesso (' + datasetsCount + ' programas de projetos)' : '❌ ERRO: Payload da API indisponível ou sem programas'
         });
 
-        // H3: Renderização Física de Pixels das Barras (Pixel Height)
-        var barElements = document.querySelectorAll('.chart-bar');
-        var totalBarsCount = barElements.length;
-        var visibleBarsCount = 0;
+        // H3: Renderização Física das Barras SVG (Pixel Height)
+        var svgRects = document.querySelectorAll('.chart-bar-rect');
+        var totalRectsCount = svgRects.length;
+        var visibleRectsCount = 0;
         var sampleHeights = [];
 
-        barElements.forEach(function(bar) {
-            var h = bar.offsetHeight || parseFloat(window.getComputedStyle(bar).height);
+        svgRects.forEach(function(rect) {
+            var h = parseFloat(rect.getAttribute('height') || '0');
             if (h > 0) {
-                visibleBarsCount++;
+                visibleRectsCount++;
                 if (sampleHeights.length < 5) sampleHeights.push(Math.round(h) + 'px');
             }
         });
 
-        var h3Passed = visibleBarsCount > 0;
+        var h3Passed = visibleRectsCount > 0;
         report.hypotheses.push({
             id: 3,
-            name: 'Renderização Física das Barras (Pixel Height)',
+            name: 'Renderização Física das Barras SVG (Pixel Height)',
             passed: h3Passed,
-            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalBarsCount + ' barras encontradas no DOM'
+            details: h3Passed ? visibleRectsCount + '/' + totalRectsCount + ' retângulos SVG renderizados fisicamente (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalRectsCount + ' barras SVG no DOM'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -104,7 +104,7 @@
             id: 7,
             name: 'Tamanho da String HTML Gerada',
             passed: lastRenderedHTMLStringLength > 500,
-            details: lastRenderedHTMLStringLength > 500 ? 'HTML gerado com ' + lastRenderedHTMLStringLength + ' caracteres' : '❌ ERRO: String HTML vazia ou corrompida (' + lastRenderedHTMLStringLength + ' chars)'
+            details: lastRenderedHTMLStringLength > 500 ? 'HTML gerado com ' + lastRenderedHTMLStringLength + ' caracteres' : '❌ ERRO: String HTML vazia'
         });
 
         // H8: Inspeção da Árvore de Nós Internos (.project-chart-box)
@@ -113,31 +113,29 @@
             id: 8,
             name: 'Contêineres Internos de Gráfico (.project-chart-box)',
             passed: chartBoxes.length > 0,
-            details: chartBoxes.length > 0 ? chartBoxes.length + ' contêineres de gráfico ativos no DOM' : '❌ ALERTA: 0 contêineres .project-chart-box encontrados no DOM'
+            details: chartBoxes.length > 0 ? chartBoxes.length + ' contêineres de gráfico ativos no DOM' : '❌ ALERTA: 0 contêineres .project-chart-box'
         });
 
-        // H9: Inspeção das Divs de Semana (.week-item e .bar-container)
-        var weekItems = document.querySelectorAll('.week-item');
-        var barContainers = document.querySelectorAll('.bar-container');
+        // H9: Inspeção dos Gráficos SVG Renderizados (.cdc-svg-chart)
+        var svgCharts = document.querySelectorAll('.cdc-svg-chart');
         report.hypotheses.push({
             id: 9,
-            name: 'Contêineres de Semana e Barras (.bar-container)',
-            passed: barContainers.length > 0,
-            details: barContainers.length > 0 ? barContainers.length + ' contêineres .bar-container e ' + weekItems.length + ' blocos .week-item no DOM' : '❌ ALERTA: 0 elementos .bar-container encontrados no DOM'
+            name: 'Gráficos Vetoriais SVG no DOM (.cdc-svg-chart)',
+            passed: svgCharts.length > 0,
+            details: svgCharts.length > 0 ? svgCharts.length + ' gráficos SVG independentes ativos com ' + totalRectsCount + ' retângulos de barra no DOM' : '❌ ALERTA: 0 gráficos SVG encontrados no DOM'
         });
 
-        // H10: Diagnóstico do Estilo Computado da Primeira Barra
-        var firstBar = document.querySelector('.chart-bar');
-        var firstBarDetails = 'Nenhuma barra encontrada no DOM';
-        if (firstBar) {
-            var fbStyle = window.getComputedStyle(firstBar);
-            firstBarDetails = 'Primeira barra no DOM: height=' + fbStyle.height + ', display=' + fbStyle.display + ', background=' + fbStyle.backgroundColor;
+        // H10: Diagnóstico de Atributos SVG do Primeiro Retângulo de Barra
+        var firstRect = document.querySelector('.chart-bar-rect');
+        var firstRectDetails = 'Nenhuma barra SVG encontrada no DOM';
+        if (firstRect) {
+            firstRectDetails = 'Primeira barra SVG: height=' + firstRect.getAttribute('height') + 'px, y=' + firstRect.getAttribute('y') + 'px, fill=' + firstRect.getAttribute('fill');
         }
         report.hypotheses.push({
             id: 10,
-            name: 'Estilo Computado da Primeira Barra CSS',
-            passed: !!firstBar,
-            details: firstBarDetails
+            name: 'Atributos Físicos da Primeira Barra SVG',
+            passed: !!firstRect,
+            details: firstRectDetails
         });
 
         // Montagem do Texto Puro para Cópia
@@ -526,7 +524,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GARANTIA DE RENDERIZAÇÃO DE BARRAS DE MÊS/SEMANA EM DIVS PADRONIZADAS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GRÁFICO DE BARRAS VETORIAL SVG - TOTALMENTE IMUNE A COLAPSO DE ALTURA CSS) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -554,40 +552,39 @@
 
                     var monthBlocksHTML = groupedMonthsList.map(function(gm) {
                         var weeksArr = gm.weeks || ['S1', 'S2', 'S3', 'S4'];
-                        var weekItemsHTML = weeksArr.map(function(wLbl) {
+                        var totalWeeks = weeksArr.length;
+                        var svgWidth = totalWeeks * 48;
+
+                        var svgRectsHTML = '';
+                        weeksArr.forEach(function(wLbl, idx) {
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 100), 16) : 6;
-                            var valDisplay = val > 0 ? `<span class="bar-value" style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px; margin-bottom: 4px;">-</span>';
+                            var hPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 95), 16) : 6;
+                            var yPos = 120 - hPx;
+                            var xPos = idx * 48 + 12;
 
                             var barColor = d.color || '#2563eb';
-                            var customBarStyle = '';
-                            if (currentOccurrencesType === 'issue' && val > 0) {
-                                customBarStyle = 'background: #dc2626 !important; border: 1px solid #dc2626 !important;';
-                            } else if (val > 0) {
-                                customBarStyle = `background: ${barColor} !important; border: 1px solid ${barColor} !important;`;
-                            } else {
-                                customBarStyle = 'background: #cbd5e1 !important; border: 1px solid #94a3b8 !important;';
-                            }
+                            var fillColor = (currentOccurrencesType === 'issue' && val > 0) ? '#dc2626' : (val > 0 ? barColor : '#cbd5e1');
+                            var valTextColor = val > 0 ? '#0f172a' : '#cbd5e1';
+                            var valText = val > 0 ? val : '-';
 
-                            return `
-                                <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 32px;">
-                                    <div class="bar-container" style="height: 125px !important; min-height: 125px !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: flex-end !important; width: 100%;">
-                                        ${valDisplay}
-                                        <div class="chart-bar" style="height: ${barHeightPx}px !important; min-height: ${barHeightPx}px !important; width: 22px !important; border-radius: 4px 4px 2px 2px !important; ${customBarStyle}"></div>
-                                    </div>
-                                    <span class="week-label" style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">${wLbl}</span>
-                                </div>
+                            svgRectsHTML += `
+                                <g class="svg-bar-group">
+                                    <text x="${xPos + 11}" y="${yPos - 5}" text-anchor="middle" font-size="11" font-weight="bold" fill="${valTextColor}">${valText}</text>
+                                    <rect x="${xPos}" y="${yPos}" width="22" height="${hPx}" fill="${fillColor}" rx="4" class="chart-bar-rect"><title>${gm.month}, ${wLbl}: ${val} lançamentos</title></rect>
+                                    <text x="${xPos + 11}" y="140" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">${wLbl}</text>
+                                </g>
                             `;
-                        }).join('');
+                        });
 
                         return `
-                            <div class="month-block" style="display: flex; flex: 1; flex-direction: column; min-width: 240px; padding: 0 10px;">
-                                <div class="weeks-row" role="list" style="display: flex; flex: 1; align-items: flex-end; justify-content: space-around; gap: 6px; min-height: 150px;">
-                                    ${weekItemsHTML}
-                                </div>
-                                <div class="month-label" style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; padding: 8px 0 4px; margin: 0;">${gm.month}</div>
+                            <div class="month-block" style="display: flex; flex-direction: column; align-items: center; padding: 0 8px; border-right: 1px dashed #e2e8f0;">
+                                <svg class="cdc-svg-chart" width="${svgWidth}" height="152" viewBox="0 0 ${svgWidth} 152" style="overflow: visible;">
+                                    <line x1="0" y1="120" x2="${svgWidth}" y2="120" stroke="#e2e8f0" stroke-width="1.5" />
+                                    ${svgRectsHTML}
+                                </svg>
+                                <div class="month-label" style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; padding: 6px 0 2px; margin: 0;">${gm.month}</div>
                             </div>
                         `;
                     }).join('');
@@ -601,7 +598,7 @@
                                 </div>
                                 <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
                             </div>
-                            <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}" style="display: flex; align-items: stretch; width: 100%; min-height: 200px; overflow-x: auto; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                            <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}" style="display: flex; align-items: stretch; width: 100%; min-height: 180px; overflow-x: auto; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding-top: 10px;">
                                 ${monthBlocksHTML}
                             </div>
                         </div>
@@ -627,7 +624,7 @@
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa em Gráficos de Barra</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa em Gráficos de Barra Vetoriais SVG</p>
                             </div>
 
                             <!-- Filtros Alinhados no Canto Superior Direito -->
@@ -704,7 +701,7 @@
             `;
 
             var d = frappe.msgprint({
-                title: __('Inquérito de Diagnóstico CDC - Suíte de Validação Profunda'),
+                title: __('Inquérito de Diagnóstico CDC - Suíte Vetorial SVG'),
                 indicator: 'blue',
                 message: modalContent
             });
