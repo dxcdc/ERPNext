@@ -247,84 +247,122 @@
                     </div>
                 `;
 
-                // --- 5. COMPOSIÇÃO POR CATEGORIA COM GRÁFICO ROSCA (DONUT CHART) + CHECKBOXES INTERATIVOS ---
+                // --- 5. COMPOSIÇÃO POR CATEGORIA (GRÁFICO ROSCA COM PORCENTAGENS + BARRAS AO LADO + LEGENDAS NO TOPO) ---
                 var rawCategoriesList = (data.categories && data.categories.length > 0) ? data.categories : [];
                 
-                // Inicializar mapa de checkboxes ativos se ainda não existir
                 rawCategoriesList.forEach(function(c) {
                     if (activeCategoriesMap[c.label] === undefined) {
                         activeCategoriesMap[c.label] = true;
                     }
                 });
 
-                // Filtrar categorias ativas conforme os Checkboxes
                 var activeCategories = rawCategoriesList.filter(function(c) {
                     return activeCategoriesMap[c.label] !== false;
                 });
 
                 var activeCategoriesTotal = activeCategories.reduce(function(sum, c) { return sum + c.count; }, 0);
+                var maxCategoryCount = Math.max.apply(null, activeCategories.map(function(c) { return c.count; }).concat([1]));
 
-                // Cálculo das fatias do Gráfico Rosca (SVG Donut Chart)
-                var accumulatedPercent = 0;
-                var donutSlicesSVG = activeCategories.map(function(c) {
-                    var pct = activeCategoriesTotal > 0 ? ((c.count / activeCategoriesTotal) * 100) : 0;
-                    var strokeDasharray = `${pct} ${100 - pct}`;
-                    var strokeDashoffset = 100 - accumulatedPercent + 25; // 25 compensa início no topo (12 horas)
-                    accumulatedPercent += pct;
-
-                    return `<circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="${c.color}" stroke-width="6" stroke-dasharray="${strokeDasharray}" stroke-dashoffset="${strokeDashoffset}" style="transition: all 0.3s ease;"></circle>`;
-                }).join('');
-
-                var donutSVGChart = `
-                    <div style="position: relative; width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="160" height="160" viewBox="0 0 42 42" style="transform: rotate(-90deg); border-radius: 50%;">
-                            <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" stroke-width="6"></circle>
-                            ${donutSlicesSVG}
-                        </svg>
-                        <div style="position: absolute; text-align: center; pointer-events: none;">
-                            <div style="font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1;">${activeCategoriesTotal}</div>
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px;">Itens</div>
-                        </div>
-                    </div>
-                `;
-
-                // Legenda com Checkboxes Interativos
-                var categoryCheckboxItems = rawCategoriesList.map(function(c) {
+                // 1. LEGENDAS COM CHECKBOXES QUE SUBIRAM PARA O TOPO
+                var topCheckboxPills = rawCategoriesList.map(function(c) {
                     var isChecked = activeCategoriesMap[c.label] !== false;
                     var displayPercent = activeCategoriesTotal > 0 && isChecked ? ((c.count / activeCategoriesTotal) * 100).toFixed(1) : c.percent;
 
                     return `
-                        <label style="padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: all 0.15s ease;" class="cdc-cat-label-item">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="checkbox" class="cdc-cat-checkbox" data-label="${c.label}" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;">
-                                <span style="background-color: ${c.color}; width: 12px; height: 12px; border-radius: 3px; display: inline-block;"></span>
-                                <span style="font-weight: 700; color: #1e293b; font-size: 12px;">${c.label}</span>
-                            </div>
-                            <span style="font-weight: 800; color: #0f172a; font-size: 12px;">${c.count} (${displayPercent}%)</span>
+                        <label style="padding: 6px 12px; background: ${isChecked ? '#ffffff' : '#f1f5f9'}; border-radius: 8px; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; opacity: ${isChecked ? '1' : '0.55'}; transition: all 0.15s ease;">
+                            <input type="checkbox" class="cdc-cat-checkbox" data-label="${c.label}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; cursor: pointer;">
+                            <span style="background-color: ${c.color}; width: 10px; height: 10px; border-radius: 3px; display: inline-block;"></span>
+                            <span style="font-weight: 700; color: #1e293b; font-size: 11px;">${c.label}</span>
+                            <span style="font-weight: 800; color: #2563eb; font-size: 11px; margin-left: 2px;">${c.count} (${displayPercent}%)</span>
                         </label>
                     `;
                 }).join('');
+
+                var topLegendsHeader = `
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 10px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #cbd5e1;">
+                        ${topCheckboxPills}
+                    </div>
+                `;
+
+                // 2. GRÁFICO ROSCA (DONUT CHART) COM PORCENTAGENS
+                var accumulatedPercent = 0;
+                var donutSlicesSVG = activeCategories.map(function(c) {
+                    var pct = activeCategoriesTotal > 0 ? ((c.count / activeCategoriesTotal) * 100) : 0;
+                    var strokeDasharray = `${pct} ${100 - pct}`;
+                    var strokeDashoffset = 100 - accumulatedPercent + 25;
+                    accumulatedPercent += pct;
+
+                    return `<circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="${c.color}" stroke-width="6.5" stroke-dasharray="${strokeDasharray}" stroke-dashoffset="${strokeDashoffset}" style="transition: all 0.3s ease;"><title>${c.label}: ${pct.toFixed(1)}% (${c.count} itens)</title></circle>`;
+                }).join('');
+
+                var donutSVGChart = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <div style="position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;">
+                            <svg width="170" height="170" viewBox="0 0 42 42" style="transform: rotate(-90deg); border-radius: 50%;">
+                                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" stroke-width="6.5"></circle>
+                                ${donutSlicesSVG}
+                            </svg>
+                            <div style="position: absolute; text-align: center; pointer-events: none;">
+                                <div style="font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1;">${activeCategoriesTotal}</div>
+                                <div style="font-size: 11px; font-weight: 800; color: #2563eb; margin-top: 3px;">100%</div>
+                                <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 1px;">Itens Ativos</div>
+                            </div>
+                        </div>
+                        <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 8px;">🍩 Gráfico Rosca com %</span>
+                    </div>
+                `;
+
+                // 3. GRÁFICO DE BARRAS AO LADO DO GRÁFICO ROSCA
+                var categoryBarsHTML = activeCategories.map(function(c) {
+                    var pct = activeCategoriesTotal > 0 ? ((c.count / activeCategoriesTotal) * 100).toFixed(1) : 0;
+                    var barWidthPct = maxCategoryCount > 0 ? Math.min(Math.max((c.count / maxCategoryCount) * 100, 4), 100) : 0;
+
+                    return `
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; font-weight: 700;">
+                                <span style="color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 10px; height: 10px; border-radius: 3px; background-color: ${c.color}; display: inline-block;"></span>
+                                    ${c.label}
+                                </span>
+                                <span style="color: #0f172a; font-weight: 800;">${c.count} itens <span style="color: #2563eb; font-weight: 700;">(${pct}%)</span></span>
+                            </div>
+                            <div style="height: 12px; background: #f1f5f9; border-radius: 6px; overflow: hidden; width: 100%; border: 1px solid #e2e8f0;">
+                                <div style="height: 100%; width: ${barWidthPct}%; background-color: ${c.color}; border-radius: 6px; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                var horizontalBarChartSection = `
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 280px; padding: 14px; background: #f8fafc; border-radius: 12px; border: 1px solid #cbd5e1;">
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>📊 Gráfico de Barras por Categoria</span>
+                            <span style="font-size: 11px; font-weight: 700; color: #64748b;">Qtd. & Porcentagem</span>
+                        </div>
+                        ${categoryBarsHTML}
+                    </div>
+                `;
 
                 var totalItemsCount = data.total_items || 655;
                 var unitDisplay = data.unit_display_label || 'Todos os Armazéns (46 Armazéns)';
 
                 var categoryFullWidthCard = `
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
-                        <div class="cdc-exec-card-title" style="margin-bottom: 6px;">
-                            <span>Composição por Categoria (Gráfico Rosca com Checkboxes)</span>
+                        <div class="cdc-exec-card-title" style="margin-bottom: 4px;">
+                            <span>Composição por Categoria (Visão Dual: Rosca com % + Barras)</span>
                             <span style="font-size: 12px; font-weight: 700; color: #2563eb;">Total Geral: ${totalItemsCount} Itens</span>
                         </div>
-                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 16px;">
+                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 14px;">
                             📍 Unidade Filtrada: <span style="color: #0f172a; font-weight: 700;">${unitDisplay}</span>
                         </div>
 
-                        <!-- Lado a Lado: Gráfico Rosca (Esquerda) + Checkboxes (Direita) -->
+                        <!-- 1. LEGENDAS COM CHECKBOXES NO TOPO -->
+                        ${topLegendsHeader}
+
+                        <!-- 2. LADO A LADO: GRÁFICO ROSCA (ESQUERDA) + BARRAS (DIREITA) -->
                         <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
                             ${donutSVGChart}
-
-                            <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; min-width: 300px;">
-                                ${categoryCheckboxItems}
-                            </div>
+                            ${horizontalBarChartSection}
                         </div>
                     </div>
                 `;
@@ -463,7 +501,6 @@
             renderStockDashboard();
         });
 
-        // CHECKBOXES INTERATIVOS DO GRÁFICO ROSCA DE CATEGORIAS
         $(document).off('change', '.cdc-cat-checkbox').on('change', '.cdc-cat-checkbox', function(e) {
             e.stopPropagation();
             var lbl = $(this).data('label');
