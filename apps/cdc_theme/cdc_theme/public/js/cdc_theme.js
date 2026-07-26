@@ -9,6 +9,71 @@
     var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
     var lastFetchTime = 0;
+    var lastDiagnosticReport = null;
+
+    // --- FERRAMENTA DE INQUÉRITO E DIAGNÓSTICO EM TEMPO REAL ---
+    window._cdc_run_diagnostics = function() {
+        var report = {
+            timestamp: new Date().toISOString(),
+            hypotheses: []
+        };
+
+        // Hipótese 1: Presença do Contêiner no DOM
+        var dash = document.getElementById('cdc-stock-exec-dashboard');
+        var isAttached = !!(dash && dash.parentNode && document.body.contains(dash));
+        report.hypotheses.push({
+            id: 1,
+            name: 'Presença do Painel no DOM',
+            passed: isAttached,
+            details: isAttached ? 'Contêiner pai encontrado em ' + (dash.parentNode ? dash.parentNode.className : 'DOM') : 'ERRO: Contêiner não encontrado no DOM'
+        });
+
+        // Hipótese 2: Payload da API Backend
+        var hasData = !!(window._cdc_debug_dashboard_data && window._cdc_debug_dashboard_data.occurrences_data);
+        report.hypotheses.push({
+            id: 2,
+            name: 'Recebimento de Dados da API Python',
+            passed: hasData,
+            details: hasData ? 'Dados de ocorrências recebidos com sucesso (' + window._cdc_debug_dashboard_data.occurrences_data.datasets.length + ' projetos)' : 'ERRO: Dados da API indisponíveis ou nulos'
+        });
+
+        // Hipótese 3: Renderização das Barras de Gráfico
+        var barElements = document.querySelectorAll('.chart-bar');
+        var visibleBars = 0;
+        var barHeights = [];
+        barElements.forEach(function(bar) {
+            var h = bar.offsetHeight || parseFloat(window.getComputedStyle(bar).height);
+            if (h > 0) {
+                visibleBars++;
+                barHeights.push(h + 'px');
+            }
+        });
+        report.hypotheses.push({
+            id: 3,
+            name: 'Renderização Física das Barras (Pixel Height)',
+            passed: visibleBars > 0,
+            details: visibleBars > 0 ? visibleBars + ' barras renderizadas com altura física em pixels (' + barHeights.slice(0, 5).join(', ') + '...)' : 'ALERTA: 0 barras visíveis na tela (Possível colapso de altura CSS)'
+        });
+
+        // Hipótese 4: Visibilidade e Ocultamento CSS (Display / Visibility)
+        var isVisible = true;
+        if (dash) {
+            var comp = window.getComputedStyle(dash);
+            if (comp.display === 'none' || comp.visibility === 'hidden' || comp.opacity === '0') {
+                isVisible = false;
+            }
+        }
+        report.hypotheses.push({
+            id: 4,
+            name: 'Visibilidade de Estilo CSS',
+            passed: isVisible,
+            details: isVisible ? 'Painel com display visível e opacidade total' : 'ERRO: Estilo CSS nativo ocultando o painel'
+        });
+
+        lastDiagnosticReport = report;
+        console.table(report.hypotheses);
+        return report;
+    };
 
     function isStockWorkspacePage() {
         var href = (window.location.href || '').toLowerCase();
@@ -378,7 +443,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (TODOS OS GRÁFICOS EM BARRAS POR PROGRAMA) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (CÁLCULO DE ALTURA DE BARRAS EM PIXELS EXPLÍCITOS) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -409,24 +474,25 @@
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            var heightPct = val > 0 ? Math.min(Math.max((val / maxValInProject) * 100, 18), 100) : 0;
+                            // CÁLCULO EXPLÍCITO EM PIXELS (GARANTE RENDERIZAÇÃO EM 100% DOS NAVEGADORES SEM DEPENDER DE PORCENTAGEM DO PAI)
+                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 110), 14) : 0;
                             var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
 
                             var barColor = d.color || '#2563eb';
                             var customBarStyle = '';
                             if (currentOccurrencesType === 'issue' && val > 0) {
-                                customBarStyle = 'background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 45%, #fca5a5 100%); border: 1px solid #f87171;';
+                                customBarStyle = 'background: linear-gradient(180deg, #dc2626 0%, #ef4444 60%, #fca5a5 100%); border: 1px solid #dc2626;';
                             } else if (val > 0) {
-                                customBarStyle = `background: linear-gradient(180deg, #ffffff 0%, #f8fafc 45%, ${barColor} 100%); border: 1px solid ${barColor};`;
+                                customBarStyle = `background: linear-gradient(180deg, ${barColor} 0%, ${barColor}cc 60%, #93c5fd 100%); border: 1px solid ${barColor};`;
                             } else {
                                 customBarStyle = 'background: #f1f5f9; border: 1px solid #e2e8f0;';
                             }
 
                             return `
                                 <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos">
-                                    <div class="bar-container">
+                                    <div class="bar-container" style="height: 135px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 100%;">
                                         ${valDisplay}
-                                        <div class="chart-bar" style="height: ${heightPct}%; ${customBarStyle}"></div>
+                                        <div class="chart-bar" style="height: ${barHeightPx}px !important; min-height: ${val > 0 ? '14px' : '0'}; ${customBarStyle}"></div>
                                     </div>
                                     <span class="week-label">${wLbl}</span>
                                 </div>
@@ -459,6 +525,19 @@
                     `;
                 }).join('');
 
+                // 7. INQUÉRITO E DIAGNÓSTICO EM TEMPO REAL NO TOPO DO CARD DE MONITORAMENTO
+                var diagnosticBarHeader = `
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #0f172a;">
+                            <span>🔍 Inquérito de Validação CDC:</span>
+                            <span style="color: #2563eb; font-weight: 700;">Status do Sistema Ativo</span>
+                        </div>
+                        <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 800; font-size: 11px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: #ffffff; padding: 4px 10px; cursor: pointer;">
+                            ⚡ Rodar Teste de Diagnóstico
+                        </button>
+                    </div>
+                `;
+
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
                         <!-- Cabeçalho com Título + Botões de Período e Tipo -->
@@ -481,7 +560,7 @@
                             </div>
                         </div>
 
-                        <!-- Gráficos de Barras de Todos os Programas -->
+                        ${diagnosticBarHeader}
                         ${projectsBarChartsHTML}
                     </div>
                 `;
@@ -496,6 +575,11 @@
                 `;
 
                 window._cdc_debug_dashboard_data = data;
+                
+                // Executar diagnóstico automático pós-renderização
+                setTimeout(function() {
+                    window._cdc_run_diagnostics();
+                }, 300);
             },
             error: function(err) {
                 isDashboardLoading = false;
@@ -511,6 +595,17 @@
             e.stopPropagation();
             currentSelectedUnit = $(this).val();
             renderStockDashboard();
+        });
+
+        $(document).off('click', '#cdc-btn-run-diag').on('click', '#cdc-btn-run-diag', function(e) {
+            e.preventDefault();
+            var report = window._cdc_run_diagnostics();
+            var statusMsg = report.hypotheses.map(function(h) { return 'H' + h.id + ' (' + h.name + '): ' + (h.passed ? '✅ OK' : '❌ ' + h.details); }).join('\n');
+            frappe.msgprint({
+                title: __('Inquérito de Diagnóstico CDC'),
+                indicator: 'blue',
+                message: '<pre style="font-size:11px; text-align:left;">' + statusMsg + '</pre>'
+            });
         });
 
         // HANDLERS DOS BOTÕES DE PERÍODO (Mês, Trimestre, Semestre, Ano)
