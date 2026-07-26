@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v2.5.0-20260726_1635-PROGRAMA-ACIMA-PERIODO';
+    var SYSTEM_ASSET_VERSION = 'v2.6.0-20260726_1645-SVG-LEGENDA-POR-MES';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
@@ -790,31 +790,67 @@
                         : occurrencesData.datasets.filter(function(ds) { return ds.project === currentSelectedProjectFilter; });
 
                     // 1. RENDERIZAÇÃO DO GRÁFICO SVG NATIVO PRINCIPAL (FRAPPE.CHART)
+                    // Legenda por MÊS: cada série = um mês (Maio, Junho, Julho)
+                    // Eixo X = semanas em sequência; cada mês só preenche as suas semanas (0 nas demais)
                     if (document.getElementById('cdc-main-svg-chart') && window.frappe && window.frappe.Chart) {
                         try {
                             var chartTitle = (currentSelectedProjectFilter === 'all') 
-                                ? 'Volume Consolidado de Lançamentos (6 Programas)' 
+                                ? 'Volume Consolidado de Lançamentos por Mês'
                                 : 'Volume de Lançamentos - ' + currentSelectedProjectFilter;
+
+                            var totalWeeks = ptBrLabels.length;
+                            var svgColors = isIssue ? ISSUE_COLORS : MONTH_COLORS;
+
+                            // Calcula os valores consolidados (soma dos projetos selecionados) por semana
+                            var consolidatedValues = [];
+                            for (var wi = 0; wi < totalWeeks; wi++) {
+                                var wSum = 0;
+                                filteredDatasets.forEach(function(ds) {
+                                    wSum += (ds.occurrences[wi] || 0);
+                                });
+                                consolidatedValues.push(wSum);
+                            }
+
+                            // Cria um dataset por mês, preenchendo apenas as semanas do próprio mês
+                            var monthBasedDatasets = [];
+                            var weekCursor = 0;
+                            groupedMonthsList.forEach(function(gm, mIdx) {
+                                var monthWeekCount = (gm.weeks || []).length;
+                                var values = new Array(totalWeeks).fill(0);
+                                for (var w = 0; w < monthWeekCount; w++) {
+                                    var idx = weekCursor + w;
+                                    if (idx < totalWeeks) {
+                                        values[idx] = consolidatedValues[idx];
+                                    }
+                                }
+                                monthBasedDatasets.push({
+                                    name: gm.month,
+                                    type: 'bar',
+                                    values: values
+                                });
+                                weekCursor += monthWeekCount;
+                            });
+
+                            // Rótulos simplificados (apenas Sx sem o nome do mês — o mês está na legenda)
+                            var simpleWeekLabels = [];
+                            groupedMonthsList.forEach(function(gm) {
+                                (gm.weeks || []).forEach(function(w) {
+                                    simpleWeekLabels.push(w);
+                                });
+                            });
+                            if (simpleWeekLabels.length === 0) simpleWeekLabels = ptBrLabels;
 
                             new frappe.Chart('#cdc-main-svg-chart', {
                                 title: chartTitle,
                                 data: {
-                                    labels: ptBrLabels,
-                                    datasets: (filteredDatasets || []).map(function(ds) {
-                                        return {
-                                            name: ds.project,
-                                            type: 'bar',
-                                            values: ds.occurrences
-                                        };
-                                    })
+                                    labels: simpleWeekLabels,
+                                    datasets: monthBasedDatasets
                                 },
                                 type: 'bar',
                                 height: 230,
-                                colors: (currentSelectedProjectFilter === 'all') 
-                                    ? ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
-                                    : [isIssue ? '#dc2626' : ((filteredDatasets[0] && filteredDatasets[0].color) || '#2563eb')],
+                                colors: svgColors,
                                 axisOptions: { xIsSeries: true },
-                                barOptions: { spaceRatio: 0.3 }
+                                barOptions: { spaceRatio: 0.2 }
                             });
 
                             annotateChartValuesOnTop('#cdc-main-svg-chart');
