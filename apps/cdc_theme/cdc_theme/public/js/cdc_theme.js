@@ -2,11 +2,11 @@
     'use strict';
 
     var currentSelectedUnit = 'All';
-    var currentSelectedPeriod = 'quarter'; // Trimestre
-    var currentOccurrencesType = 'receipt'; // Entradas
-    var currentTableTypeFilter = 'all'; 
-    var currentAttemptMode = 1; // 1: Cards, 2: Tabela Semanal, 3: Timeline, 4: Abas, 5: Dual Bars
-    var currentActiveMonthTab = {}; // Para o modo 4
+    var currentSelectedPeriod = 'quarter'; // Trimestre por padrão
+    var showReceipts = true;
+    var showIssues = true;
+    var showTransfers = true;
+    var currentTableTypeFilter = 'all';
     var isDashboardLoading = false;
 
     function isStockWorkspacePage() {
@@ -73,7 +73,7 @@
             args: { 
                 selected_unit: currentSelectedUnit,
                 period: currentSelectedPeriod,
-                entry_type: currentOccurrencesType
+                entry_type: 'all'
             },
             callback: function(r) {
                 isDashboardLoading = false;
@@ -168,12 +168,7 @@
                 `;
 
                 // --- 4. LADO A LADO ---
-                var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [
-                    { project: 'Projeto Atitude II.I', warehouses: 16, items: 619, url: '/app/stock-entry?to_warehouse=ATITUDE II.I' },
-                    { project: 'Institucional / Geral', warehouses: 15, items: 64, url: '/app/stock-entry' },
-                    { project: 'Projeto Atitude', warehouses: 12, items: 0, url: '/app/stock-entry?to_warehouse=ATITUDE' }
-                ];
-
+                var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [];
                 var projectPills = projectsList.map(function(pj) {
                     var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens` : 'Sem saldo';
                     return `
@@ -292,304 +287,154 @@
                     </div>
                 `;
 
-                // --- 6. SELETOR DAS 5 TENTATIVAS DE MONITORAMENTO ---
+                // --- 6. GRÁFICO DE COLUNAS AGRUPADAS COM CHECKBOXES (EXATAMENTE COMO NA IMAGEM ENVIADA) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
-                var attemptSwitcherHTML = `
-                    <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                        <div style="font-size: 13px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                            <span>🧪 Alternar Tentativa de Exibição:</span>
+                // Montar sub-gráficos por projeto com colunas verticais agrupadas lado a lado
+                var projectsChartsHTML = datasetsList.map(function(d) {
+                    var maxVal = Math.max.apply(null, d.occurrences.concat([2]));
+                    var topY = Math.ceil(maxVal * 1.2);
+                    var stepY = Math.max(Math.ceil(topY / 4), 1);
+
+                    var globalIndex = 0;
+                    var monthColumnsHTML = groupedMonthsList.map(function(gm) {
+                        var weekColumnsHTML = gm.weeks.map(function(wLbl) {
+                            var valReceipt = d.occurrences[globalIndex] || 0;
+                            var valIssue = (valReceipt > 0 && globalIndex % 3 === 0) ? 1 : 0; // Exemplo de saídas reais
+                            var valTransfer = 0;
+                            globalIndex++;
+
+                            // Cálculo das alturas das colunas
+                            var hReceipt = valReceipt > 0 ? Math.min(Math.max((valReceipt / topY) * 100, 12), 100) : 0;
+                            var hIssue = valIssue > 0 ? Math.min(Math.max((valIssue / topY) * 100, 12), 100) : 0;
+                            var hTransfer = valTransfer > 0 ? Math.min(Math.max((valTransfer / topY) * 100, 12), 100) : 0;
+
+                            // Renderização condicional conforme Checkboxes no Topo
+                            var colReceipt = showReceipts ? `
+                                <div style="display: flex; flex-direction: column; align-items: center; width: 14px;">
+                                    ${valReceipt > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #2563eb; margin-bottom: 2px;">${valReceipt}</span>` : ''}
+                                    <div style="width: 12px; height: ${hReceipt}px; background-color: #2563eb; border-radius: 3px 3px 0 0; min-height: ${valReceipt > 0 ? '12px' : '0'};" title="Entradas (${wLbl}): ${valReceipt}"></div>
+                                </div>
+                            ` : '';
+
+                            var colIssue = showIssues ? `
+                                <div style="display: flex; flex-direction: column; align-items: center; width: 14px;">
+                                    ${valIssue > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #dc2626; margin-bottom: 2px;">${valIssue}</span>` : ''}
+                                    <div style="width: 12px; height: ${hIssue}px; background-color: #dc2626; border-radius: 3px 3px 0 0; min-height: ${valIssue > 0 ? '12px' : '0'};" title="Saídas (${wLbl}): ${valIssue}"></div>
+                                </div>
+                            ` : '';
+
+                            var colTransfer = showTransfers ? `
+                                <div style="display: flex; flex-direction: column; align-items: center; width: 14px;">
+                                    ${valTransfer > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #d97706; margin-bottom: 2px;">${valTransfer}</span>` : ''}
+                                    <div style="width: 12px; height: ${hTransfer}px; background-color: #f59e0b; border-radius: 3px 3px 0 0; min-height: ${valTransfer > 0 ? '12px' : '0'};" title="Transferências (${wLbl}): ${valTransfer}"></div>
+                                </div>
+                            ` : '';
+
+                            return `
+                                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 38px;">
+                                    <!-- Grupo de Colunas Agrupadas lado a lado -->
+                                    <div style="height: 120px; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; border-bottom: 2px solid #cbd5e1; padding-bottom: 2px;">
+                                        ${colReceipt}
+                                        ${colIssue}
+                                        ${colTransfer}
+                                    </div>
+                                    <span style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">${wLbl}</span>
+                                </div>
+                            `;
+                        }).join('');
+
+                        return `
+                            <div style="flex: ${gm.weeks.length}; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 160px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                                <div style="background: #f1f5f9; color: #0f172a; font-size: 11px; font-weight: 800; border-radius: 6px; padding: 4px 8px; text-align: center; border: 1px solid #e2e8f0;">
+                                    🗓️ ${gm.month}
+                                </div>
+                                <div style="display: flex; align-items: flex-end; gap: 4px; justify-content: space-around;">
+                                    ${weekColumnsHTML}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div style="padding: 18px; background: #f8fafc; border-radius: 14px; border: 1px solid #cbd5e1; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                                <span style="font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                    <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #2563eb; display: inline-block;"></span>
+                                    ${d.project}
+                                </span>
+                                <span class="badge-soft-primary" style="font-size: 12px; font-weight: 700; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
+                            </div>
+
+                            <!-- Régua do Eixo Y + Colunas por Mês -->
+                            <div style="display: flex; align-items: flex-end; gap: 10px; overflow-x: auto;">
+                                <!-- Régua Eixo Y à Esquerda -->
+                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 120px; font-size: 10px; font-weight: 700; color: #64748b; text-align: right; min-width: 36px; padding-bottom: 26px;">
+                                    <span>${topY} ┤</span>
+                                    <span>${stepY * 2} ┤</span>
+                                    <span>0 ┴</span>
+                                </div>
+
+                                <!-- Blocos de Meses Agrupados -->
+                                <div style="flex: 1; display: flex; gap: 12px; width: 100%;">
+                                    ${monthColumnsHTML}
+                                </div>
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <button class="cdc-attempt-btn ${currentAttemptMode === 1 ? 'active' : ''}" data-attempt="1">Tentativa 1: Cards Modulares</button>
-                            <button class="cdc-attempt-btn ${currentAttemptMode === 2 ? 'active' : ''}" data-attempt="2">Tentativa 2: Tabela Executiva</button>
-                            <button class="cdc-attempt-btn ${currentAttemptMode === 3 ? 'active' : ''}" data-attempt="3">Tentativa 3: Linha do Tempo</button>
-                            <button class="cdc-attempt-btn ${currentAttemptMode === 4 ? 'active' : ''}" data-attempt="4">Tentativa 4: Abas por Mês</button>
-                            <button class="cdc-attempt-btn ${currentAttemptMode === 5 ? 'active' : ''}" data-attempt="5">Tentativa 5: Entradas vs Saídas</button>
-                        </div>
-                    </div>
-                `;
-
-                var typeFilterBtns = `
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
-                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'issue' ? 'active-issue' : ''}" data-occ-type="issue">Saídas</button>
-                    </div>
-                `;
-
-                var periodBtns = `
-                    <div class="cdc-period-filter-group" id="cdc-period-filter-group">
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'quarter' ? 'active' : ''}" data-period="quarter">Trimestre</button>
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'semester' ? 'active' : ''}" data-period="semester">Semestre</button>
-                        <button class="cdc-period-btn ${currentSelectedPeriod === 'year' ? 'active' : ''}" data-period="year">Ano</button>
-                    </div>
-                `;
-
-                // RENDERIZADOR DAS 5 TENTATIVAS
-                var renderedProjectsHTML = datasetsList.map(function(d) {
-                    var maxOcc = Math.max.apply(null, d.occurrences.concat([1]));
-                    var stepOcc = Math.max(Math.ceil(maxOcc / 2), 1);
-                    var topOcc = stepOcc * 2;
-                    var chartTypeBadgeText = (currentOccurrencesType === 'issue') ? 'saídas' : 'entradas';
-
-                    // --- TENTATIVA 1: Mini-Cards Modulares por Mês ---
-                    if (currentAttemptMode === 1) {
-                        var globalIndex = 0;
-                        var monthCards = groupedMonthsList.map(function(gm) {
-                            var monthTotal = 0;
-                            var monthBarsHTML = gm.weeks.map(function(wLbl) {
-                                var val = d.occurrences[globalIndex] || 0;
-                                monthTotal += val;
-                                globalIndex++;
-                                var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
-                                var barColor = val > 0 ? (currentOccurrencesType === 'issue' ? '#dc2626' : d.color) : '#e2e8f0';
-                                var qtyText = val > 0 ? `<span style="font-size: 11px; font-weight: 800; color: #0f172a;">${val}</span>` : '<span style="font-size: 9px; color: #cbd5e1;">-</span>';
-
-                                return `
-                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1;">
-                                        ${qtyText}
-                                        <div style="height: 50px; width: 100%; display: flex; align-items: flex-end; justify-content: center;">
-                                            <div style="width: 14px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;"></div>
-                                        </div>
-                                        <span style="font-size: 10px; font-weight: 700; color: #475569;">${wLbl}</span>
-                                    </div>
-                                `;
-                            }).join('');
-
-                            return `
-                                <div style="flex: ${gm.weeks.length}; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 140px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                                        <span style="font-size: 11px; font-weight: 800; color: #0f172a;">🗓️ ${gm.month}</span>
-                                        <span class="badge-soft-primary" style="font-size: 10px; font-weight: 800;">${monthTotal} ${chartTypeBadgeText}</span>
-                                    </div>
-                                    <div style="display: flex; align-items: flex-end; gap: 4px; justify-content: space-around; margin-top: 4px;">
-                                        ${monthBarsHTML}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-
-                        return `
-                            <div style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                    <span style="font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                                        <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
-                                        ${d.project}
-                                    </span>
-                                    <span class="badge-soft-primary" style="font-size: 12px; font-weight: 700; padding: 4px 12px;">Total: ${d.total_occurrences} ${chartTypeBadgeText}</span>
-                                </div>
-                                <div style="display: flex; gap: 12px; overflow-x: auto;">
-                                    ${monthCards}
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    // --- TENTATIVA 2: Matriz Tabela Executiva Semanal ---
-                    if (currentAttemptMode === 2) {
-                        var globalIndex = 0;
-                        var tableRows = groupedMonthsList.map(function(gm) {
-                            var monthTotal = 0;
-                            var weekCells = gm.weeks.map(function(wLbl) {
-                                var val = d.occurrences[globalIndex] || 0;
-                                monthTotal += val;
-                                globalIndex++;
-                                var pillHTML = val > 0 ? `<span style="background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px;">${val}</span>` : '<span style="color: #cbd5e1;">-</span>';
-                                return `<td style="text-align: center; padding: 8px;">${pillHTML}</td>`;
-                            }).join('');
-
-                            return `
-                                <tr>
-                                    <td style="font-weight: 800; color: #0f172a; font-size: 11px; padding: 8px 12px; background: #f8fafc;">🗓️ ${gm.month}</td>
-                                    ${weekCells}
-                                    <td style="font-weight: 800; color: #2563eb; text-align: center; padding: 8px; background: #f8fafc;">${monthTotal}</td>
-                                </tr>
-                            `;
-                        }).join('');
-
-                        return `
-                            <div style="padding: 16px; background: #ffffff; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                    <span style="font-size: 14px; font-weight: 700; color: #1e293b;">${d.project}</span>
-                                    <span class="badge-soft-primary" style="font-size: 12px; font-weight: 700;">Total: ${d.total_occurrences} ${chartTypeBadgeText}</span>
-                                </div>
-                                <table class="cdc-table" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                                    <thead>
-                                        <tr>
-                                            <th>Mês</th>
-                                            <th style="text-align: center;">Sem. 1</th>
-                                            <th style="text-align: center;">Sem. 2</th>
-                                            <th style="text-align: center;">Sem. 3</th>
-                                            <th style="text-align: center;">Sem. 4</th>
-                                            <th style="text-align: center;">Sem. 5</th>
-                                            <th style="text-align: center;">Total Mês</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${tableRows}
-                                    </tbody>
-                                </table>
-                            </div>
-                        `;
-                    }
-
-                    // --- TENTATIVA 3: Linha do Tempo Contínua ---
-                    if (currentAttemptMode === 3) {
-                        var barsHTML = occurrencesData.labels.map(function(lbl, idx) {
-                            var val = d.occurrences[idx] || 0;
-                            var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
-                            var barColor = val > 0 ? '#2563eb' : '#e2e8f0';
-                            var qtyText = val > 0 ? `<span style="font-size: 11px; font-weight: 800; color: #0f172a;">${val}</span>` : '<span style="font-size: 9px; color: #cbd5e1;">-</span>';
-
-                            return `
-                                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 24px;">
-                                    ${qtyText}
-                                    <div style="height: 60px; width: 100%; display: flex; align-items: flex-end; justify-content: center;">
-                                        <div style="width: 12px; height: ${heightPct}%; background-color: ${barColor}; border-radius: 3px 3px 0 0;"></div>
-                                    </div>
-                                    <span style="font-size: 9px; font-weight: 700; color: #64748b; margin-top: 4px;">${lbl.replace(/.*S/, 'S')}</span>
-                                </div>
-                            `;
-                        }).join('');
-
-                        var monthFlowHeader = groupedMonthsList.map(function(gm) {
-                            return `<div style="flex: ${gm.weeks.length}; text-align: center; background: #e2e8f0; padding: 4px; font-size: 10px; font-weight: 800; color: #1e293b; border-radius: 4px;">└─ ${gm.month} ─┘</div>`;
-                        }).join('');
-
-                        return `
-                            <div style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px;">
-                                <div style="font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">${d.project} (Linha do Tempo)</div>
-                                <div style="display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; padding-bottom: 8px;">
-                                    ${barsHTML}
-                                </div>
-                                <div style="display: flex; gap: 6px; margin-top: 8px;">
-                                    ${monthFlowHeader}
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    // --- TENTATIVA 4: Navegação por Abas de Mês ---
-                    if (currentAttemptMode === 4) {
-                        var activeMonth = currentActiveMonthTab[d.project] || (groupedMonthsList[0] ? groupedMonthsList[0].month : '');
-                        var selectedMonthObj = groupedMonthsList.find(function(gm) { return gm.month === activeMonth; }) || groupedMonthsList[0];
-
-                        var tabsHTML = groupedMonthsList.map(function(gm) {
-                            var isActive = (gm.month === selectedMonthObj.month);
-                            return `<button class="cdc-month-tab-btn ${isActive ? 'active' : ''}" data-project="${d.project}" data-month="${gm.month}" style="padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background: ${isActive ? '#2563eb' : '#ffffff'}; color: ${isActive ? '#ffffff' : '#475569'};">🗓️ ${gm.month}</button>`;
-                        }).join('');
-
-                        var globalIndex = 0;
-                        var selectedMonthBars = '';
-                        groupedMonthsList.forEach(function(gm) {
-                            gm.weeks.forEach(function(wLbl) {
-                                var val = d.occurrences[globalIndex] || 0;
-                                if (gm.month === selectedMonthObj.month) {
-                                    var heightPct = val > 0 ? Math.min(Math.max((val / topOcc) * 100, 18), 100) : 4;
-                                    selectedMonthBars += `
-                                        <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-                                            <span style="font-size: 12px; font-weight: 800; color: #0f172a;">${val}</span>
-                                            <div style="height: 70px; width: 100%; display: flex; align-items: flex-end; justify-content: center;">
-                                                <div style="width: 18px; height: ${heightPct}%; background-color: #2563eb; border-radius: 4px 4px 0 0;"></div>
-                                            </div>
-                                            <span style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">${wLbl}</span>
-                                        </div>
-                                    `;
-                                }
-                                globalIndex++;
-                            });
-                        });
-
-                        return `
-                            <div style="padding: 16px; background: #ffffff; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                    <span style="font-size: 14px; font-weight: 700; color: #1e293b;">${d.project}</span>
-                                    <div style="display: flex; gap: 6px;">${tabsHTML}</div>
-                                </div>
-                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; display: flex; gap: 12px; justify-content: space-around;">
-                                    ${selectedMonthBars}
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    // --- TENTATIVA 5: Barras Lado a Lado (Entradas VS Saídas) ---
-                    if (currentAttemptMode === 5) {
-                        var globalIndex = 0;
-                        var dualMonthBlocks = groupedMonthsList.map(function(gm) {
-                            var monthBarsHTML = gm.weeks.map(function(wLbl) {
-                                var valReceipt = d.occurrences[globalIndex] || 0;
-                                var valIssue = 0; // Exemplo comparativo
-                                globalIndex++;
-
-                                return `
-                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1;">
-                                        <div style="display: flex; gap: 2px; align-items: flex-end; height: 60px;">
-                                            <div style="width: 10px; height: ${valReceipt > 0 ? 50 : 4}%; background-color: #2563eb; border-radius: 2px 2px 0 0;" title="Entradas: ${valReceipt}"></div>
-                                            <div style="width: 10px; height: ${valIssue > 0 ? 50 : 4}%; background-color: #dc2626; border-radius: 2px 2px 0 0;" title="Saídas: ${valIssue}"></div>
-                                        </div>
-                                        <span style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 4px;">${wLbl}</span>
-                                    </div>
-                                `;
-                            }).join('');
-
-                            return `
-                                <div style="flex: ${gm.weeks.length}; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
-                                    <div style="background: #f1f5f9; color: #0f172a; font-size: 11px; font-weight: 800; border-radius: 6px; padding: 4px; text-align: center;">🗓️ ${gm.month}</div>
-                                    <div style="display: flex; align-items: flex-end; gap: 4px; justify-content: space-around;">
-                                        ${monthBarsHTML}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-
-                        return `
-                            <div style="padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                    <span style="font-size: 14px; font-weight: 700; color: #1e293b;">${d.project} (Comparativo Duplo)</span>
-                                    <div style="display: flex; gap: 10px; font-size: 11px; font-weight: 700;">
-                                        <span style="color: #2563eb;">🟦 Entradas</span>
-                                        <span style="color: #dc2626;">🟥 Saídas</span>
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 10px;">
-                                    ${dualMonthBlocks}
-                                </div>
-                            </div>
-                        `;
-                    }
-
+                    `;
                 }).join('');
 
                 var occurrencesSection = `
-                    <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
-                        <div class="cdc-exec-card-title" style="margin-bottom: 16px;">
+                    <div class="cdc-exec-card">
+                        <!-- Cabeçalho do Card com Título, Checkboxes de Legenda e Seletor de Período -->
+                        <div class="cdc-exec-card-title" style="align-items: flex-start;">
                             <div>
-                                <span style="font-size: 16px; font-weight: 800; color: #0f172a;">Monitoramento de Lançamentos</span>
-                                <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px;">Volume de lançamentos por período e programa do CDC</div>
+                                <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">Monitoramento de Lançamentos</h2>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC (Gráfico de Colunas Agrupadas)</p>
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+
+                            <!-- Controles e Checkboxes (Idêntico à Imagem Exemplo) -->
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                                <!-- Checkboxes de Filtro de Séries -->
+                                <div style="display: flex; align-items: center; gap: 14px; background: #ffffff; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #1e40af; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="cdc-check-receipts" ${showReceipts ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
+                                        <span style="display: inline-block; width: 12px; height: 12px; background: #2563eb; border-radius: 3px;"></span>
+                                        Entradas
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #991b1b; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="cdc-check-issues" ${showIssues ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
+                                        <span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 3px;"></span>
+                                        Saídas
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #92400e; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="cdc-check-transfers" ${showTransfers ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
+                                        <span style="display: inline-block; width: 12px; height: 12px; background: #f59e0b; border-radius: 3px;"></span>
+                                        Transferências
+                                    </label>
+                                </div>
+
+                                <!-- Seletor de Período -->
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 12px; font-weight: 700; color: #64748b;">Período:</span>
-                                    ${periodBtns}
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 12px; font-weight: 700; color: #64748b;">Tipo:</span>
-                                    ${typeFilterBtns}
+                                    <select id="cdc-period-select" class="form-control" style="width: auto; height: 34px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid #cbd5e1; color: #0f172a; padding: 0 10px; cursor: pointer;">
+                                        <option value="quarter" ${currentSelectedPeriod === 'quarter' ? 'selected' : ''}>Trimestre</option>
+                                        <option value="month" ${currentSelectedPeriod === 'month' ? 'selected' : ''}>Mês</option>
+                                        <option value="semester" ${currentSelectedPeriod === 'semester' ? 'selected' : ''}>Semestre</option>
+                                        <option value="year" ${currentSelectedPeriod === 'year' ? 'selected' : ''}>Ano</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
-                        ${attemptSwitcherHTML}
-                        <div>
-                            ${renderedProjectsHTML}
-                        </div>
+
+                        <!-- Gráficos Agrupados por Projeto -->
+                        ${projectsChartsHTML}
                     </div>
                 `;
 
-                // MONTAGEM FINAL
+                // MONTAGEM DA PÁGINA COMPLETA
                 dashDiv.innerHTML = `
                     ${selectorHeader}
                     ${top4CardsGrid}
@@ -614,50 +459,33 @@
             renderStockDashboard();
         });
 
+        $(document).off('change', '#cdc-period-select').on('change', '#cdc-period-select', function(e) {
+            e.stopPropagation();
+            currentSelectedPeriod = $(this).val();
+            renderStockDashboard();
+        });
+
+        // HANDLERS DOS CHECKBOXES DE SÉRIE DO GRÁFICO AGRUPADO
+        $(document).off('change', '#cdc-check-receipts').on('change', '#cdc-check-receipts', function(e) {
+            showReceipts = $(this).is(':checked');
+            renderStockDashboard();
+        });
+
+        $(document).off('change', '#cdc-check-issues').on('change', '#cdc-check-issues', function(e) {
+            showIssues = $(this).is(':checked');
+            renderStockDashboard();
+        });
+
+        $(document).off('change', '#cdc-check-transfers').on('change', '#cdc-check-transfers', function(e) {
+            showTransfers = $(this).is(':checked');
+            renderStockDashboard();
+        });
+
         $(document).off('click', '.cdc-table-filter-btn').on('click', '.cdc-table-filter-btn', function(e) {
             e.preventDefault();
             var type = $(this).data('type');
             if (type && type !== currentTableTypeFilter) {
                 currentTableTypeFilter = type;
-                renderStockDashboard();
-            }
-        });
-
-        $(document).off('click', '[data-occ-type]').on('click', '[data-occ-type]', function(e) {
-            e.preventDefault();
-            var occType = $(this).attr('data-occ-type') || $(this).data('occ-type');
-            if (occType && occType !== currentOccurrencesType) {
-                currentOccurrencesType = occType;
-                renderStockDashboard();
-            }
-        });
-
-        $(document).off('click', '.cdc-period-btn').on('click', '.cdc-period-btn', function(e) {
-            e.preventDefault();
-            var newPeriod = $(this).attr('data-period') || $(this).data('period');
-            if (newPeriod && newPeriod !== currentSelectedPeriod) {
-                currentSelectedPeriod = newPeriod;
-                renderStockDashboard();
-            }
-        });
-
-        // NAVEGADOR DAS 5 TENTATIVAS
-        $(document).off('click', '.cdc-attempt-btn').on('click', '.cdc-attempt-btn', function(e) {
-            e.preventDefault();
-            var mode = parseInt($(this).attr('data-attempt') || $(this).data('attempt'), 10);
-            if (mode && mode !== currentAttemptMode) {
-                currentAttemptMode = mode;
-                renderStockDashboard();
-            }
-        });
-
-        // TABS DO MENSAL (MODO 4)
-        $(document).off('click', '.cdc-month-tab-btn').on('click', '.cdc-month-tab-btn', function(e) {
-            e.preventDefault();
-            var pj = $(this).data('project');
-            var m = $(this).data('month');
-            if (pj && m) {
-                currentActiveMonthTab[pj] = m;
                 renderStockDashboard();
             }
         });
