@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.2.0-20260725_2300-PHOTO-RESTORED';
+    var SYSTEM_ASSET_VERSION = 'v1.3.0-20260725_2305-FRAPPE-CHART';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -12,7 +12,7 @@
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
 
-    // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC (H1 A H10) ---
+    // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC ---
     window._cdc_run_diagnostics = function() {
         var now = new Date();
         var dateFormatted = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
@@ -46,27 +46,15 @@
             details: (hasData && datasetsCount > 0) ? 'Payload recebido com sucesso (' + datasetsCount + ' programas de projetos)' : '❌ ERRO: Payload da API indisponível ou sem programas'
         });
 
-        // H3: Renderização Física de Pixels das Barras (.chart-bar-pill)
-        var barElements = document.querySelectorAll('.chart-bar-pill');
-        var totalBarsCount = barElements.length;
-        var visibleBarsCount = 0;
-        var sampleHeights = [];
-
-        barElements.forEach(function(bar) {
-            var h = bar.offsetHeight || parseFloat(window.getComputedStyle(bar).height);
-            if (h > 0) {
-                visibleBarsCount++;
-                if (sampleHeights.length < 5) sampleHeights.push(Math.round(h) + 'px');
-            }
-        });
-
-        var h3Passed = visibleBarsCount > 0;
-        if (!h3Passed) report.all_passed = false;
+        // H3: Gráfico Nativo Frappe.Chart no DOM
+        var nativeChartEl = document.getElementById('cdc-native-frappe-chart');
+        var hasNativeChartSVG = !!(nativeChartEl && nativeChartEl.querySelector('svg'));
+        if (!hasNativeChartSVG) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
-            name: 'Renderização Física das Barras Pílula (.chart-bar-pill)',
-            passed: h3Passed,
-            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas na tela (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: 0 barras visíveis na tela'
+            name: 'Renderização do Gráfico Nativo (frappe.Chart)',
+            passed: hasNativeChartSVG,
+            details: hasNativeChartSVG ? 'Gráfico nativo frappe.Chart renderizado com SVG interativo no DOM' : '❌ ALERTA: Gráfico nativo ainda não inicializado'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -534,7 +522,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (RESTAURAÇÃO FIEL DO DESIGN DA FOTO ENVIADA) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (INCORPORANDO FRAPPE.CHART NATIVO + CARDS DE FOTO RESTAURADOS) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -567,13 +555,11 @@
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            // ALTURA EM PIXELS DENTRO DA CAIXA QUADRADA BRANCA (#f8fafc)
                             var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 85), 14) : 4;
                             var barColor = (currentOccurrencesType === 'issue' && val > 0) ? '#dc2626' : (val > 0 ? (d.color || '#2563eb') : '#e2e8f0');
 
                             return `
                                 <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 36px;" class="week-block-item">
-                                    <!-- Caixa Quadrada com Fundo #f8fafc e Borda #e2e8f0 -->
                                     <div class="week-box" style="width: 100%; height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 4px; position: relative;">
                                         ${val > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #0f172a; position: absolute; top: 4px;">${val}</span>` : ''}
                                         <div class="chart-bar-pill" style="width: 16px; height: ${barHeightPx}px; background-color: ${barColor}; border-radius: 4px; transition: height 0.3s ease;"></div>
@@ -598,7 +584,6 @@
                     return `
                         <!-- CARD DO PROJETO COM DESIGN EXATO DA FOTO -->
                         <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                            <!-- Cabeçalho do Projeto -->
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
@@ -609,16 +594,13 @@
                                 </span>
                             </div>
 
-                            <!-- Área do Gráfico com Eixo Y Lateral -->
                             <div style="display: flex; align-items: flex-end; gap: 12px; overflow-x: auto; padding: 4px 0;">
-                                <!-- Eixo Y com Régua Lateral Exata da Foto -->
                                 <div class="cdc-y-axis" style="display: flex; flex-direction: column; justify-content: space-between; height: 110px; font-size: 10px; font-weight: 700; color: #64748b; padding-right: 6px; border-right: 2px solid #e2e8f0; text-align: right; min-width: 28px; flex-shrink: 0; margin-bottom: 22px;">
                                     <span>${maxValInProject}</span>
                                     <span>${Math.round(maxValInProject / 2)}</span>
                                     <span>0 ┴</span>
                                 </div>
 
-                                <!-- Blocos dos Meses -->
                                 <div style="display: flex; gap: 12px; flex: 1; align-items: flex-end;">
                                     ${monthBlocksHTML}
                                 </div>
@@ -634,9 +616,19 @@
                     </button>
                 `;
 
+                // RECEPTÁCULO DO GRÁFICO NATIVO DO FRAPPE
+                var nativeFrappeChartCard = `
+                    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                        <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>📊 Visão Consolidada em Gráfico Nativo (Frappe.Chart)</span>
+                            <span style="font-size: 11px; font-weight: 700; color: #2563eb;">Interativo & Exportável</span>
+                        </div>
+                        <div id="cdc-native-frappe-chart" style="width: 100%; min-height: 250px;"></div>
+                    </div>
+                `;
+
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
-                        <!-- Cabeçalho com Título no Canto Esquerdo e Filtros (Período & Tipo) Alinhados no Canto Superior Direito -->
                         <div class="cdc-exec-card-title" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px;">
                             <div>
                                 <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center;">
@@ -646,7 +638,6 @@
                                 <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC</p>
                             </div>
 
-                            <!-- Filtros Alinhados no Canto Superior Direito -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #64748b;">Período:</span>
@@ -659,6 +650,7 @@
                             </div>
                         </div>
 
+                        ${nativeFrappeChartCard}
                         ${projectsBarChartsHTML}
                     </div>
                 `;
@@ -674,7 +666,37 @@
 
                 window._cdc_debug_dashboard_data = data;
 
+                // INITIALIZE NATIVE FRAPPE CHART
                 setTimeout(function() {
+                    if (window.frappe && window.frappe.Chart && document.getElementById('cdc-native-frappe-chart')) {
+                        try {
+                            new frappe.Chart('#cdc-native-frappe-chart', {
+                                title: 'Volume de Lançamentos por Programa',
+                                data: {
+                                    labels: occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"],
+                                    datasets: (occurrencesData.datasets || []).map(function(ds) {
+                                        return {
+                                            name: ds.project,
+                                            type: 'bar',
+                                            values: ds.occurrences
+                                        };
+                                    })
+                                },
+                                type: 'bar',
+                                height: 260,
+                                colors: ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'],
+                                axisOptions: {
+                                    xIsSeries: true
+                                },
+                                barOptions: {
+                                    spaceRatio: 0.3
+                                }
+                            });
+                        } catch (e) {
+                            console.error('Erro ao renderizar frappe.Chart nativo:', e);
+                        }
+                    }
+
                     window._cdc_run_diagnostics();
                 }, 300);
             },
