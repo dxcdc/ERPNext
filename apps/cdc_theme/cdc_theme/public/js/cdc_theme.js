@@ -13,12 +13,10 @@
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var routeStr = route.join('/').toLowerCase();
 
-        // 1. Verificação por URL ou Rota Frappe
         if (href.includes('/app/stock') || href.includes('workspace/stock') || href.includes('workspaces/stock') || routeStr.includes('stock')) {
             return true;
         }
 
-        // 2. Verificação por Elementos da Interface (Título da Página / Item do Menu Lateral)
         var pageTitle = ($('.page-title').text() || $('h1').text() || $('.title-text').text() || '').toLowerCase();
         var activeSidebar = ($('.sidebar-item.selected').text() || $('.desk-sidebar .selected').text() || '').toLowerCase();
 
@@ -32,14 +30,12 @@
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) return;
 
-        // Destravar travamentos de carregamento antigos após 6 segundos
         if (isDashboardLoading && (Date.now() - lastFetchTime > 6000)) {
             isDashboardLoading = false;
         }
 
         if (isDashboardLoading) return;
 
-        // Localizar o contêiner principal da página no Frappe
         var workspaceBody = document.querySelector('.workspace-page-content') ||
                             document.querySelector('.workspace-body') || 
                             document.querySelector('.layout-main-section') || 
@@ -49,7 +45,6 @@
                             document.querySelector('#body');
         if (!workspaceBody) return;
 
-        // Remover duplicados se existirem
         var existingDashboards = document.querySelectorAll('#cdc-stock-exec-dashboard');
         if (existingDashboards.length > 1) {
             for (var i = 1; i < existingDashboards.length; i++) {
@@ -64,7 +59,6 @@
             dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px;';
         }
 
-        // Inserir no topo absoluto
         if (workspaceBody.firstChild !== dashDiv) {
             workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
         }
@@ -291,30 +285,38 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (ARQUITETURA EXACTA DO USUÁRIO) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (CÁLCULO PROPORCIONAL DE ALTURA) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
                 var projectsChartsHTML = datasetsList.map(function(d) {
+                    var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
                     var globalIndex = 0;
+
                     var monthBlocksHTML = groupedMonthsList.map(function(gm) {
                         var weekItemsHTML = gm.weeks.map(function(wLbl) {
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
+                            // Cálculo da porcentagem de altura proporcional entre 0% e 100%
+                            var heightPct = val > 0 ? Math.min(Math.max((val / maxValInProject) * 100, 18), 100) : 0;
                             var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
 
                             var customBarStyle = '';
                             if (currentOccurrencesType === 'issue' && val > 0) {
-                                customBarStyle = 'background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 45%, #fca5a5 100%); border-color: #f87171;';
+                                customBarStyle = 'background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 45%, #fca5a5 100%); border: 1px solid #f87171;';
+                            } else if (val > 0) {
+                                customBarStyle = 'background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 45%, #93c5fd 100%); border: 1px solid #2563eb;';
+                            } else {
+                                customBarStyle = 'background: #f1f5f9; border: 1px solid #e2e8f0;';
                             }
 
                             return `
                                 <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos">
                                     <div class="bar-container">
                                         ${valDisplay}
-                                        <div class="chart-bar" style="--value: ${val}; ${customBarStyle}"></div>
+                                        <div class="chart-bar" style="height: ${heightPct}%; ${customBarStyle}"></div>
                                     </div>
                                     <span class="week-label">${wLbl}</span>
                                 </div>
@@ -332,10 +334,10 @@
                     }).join('');
 
                     return `
-                        <div style="margin-bottom: 20px;">
-                            <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                        <div style="margin-bottom: 22px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+                            <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                                 <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
-                                <span>${d.project}</span>
+                                <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
                                 <span class="badge-soft-primary" style="font-size: 11px; font-weight: 700; margin-left: 6px;">${d.total_occurrences} lançamentos</span>
                             </div>
                             <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}">

@@ -19,125 +19,225 @@
   --cdc-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-/* Botões de Alternância das 5 Tentativas de Exibição */
-.cdc-attempt-btn {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
-  padding: 5px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+/* Evita que padding e borda aumentem a largura dos componentes */
+.cdc-exec-card,
+.cdc-exec-card * {
+    box-sizing: border-box;
 }
 
-.cdc-attempt-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+/* Card principal */
+.cdc-exec-card {
+    width: 100%;
+    overflow: hidden;
+    padding: 20px;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    margin-bottom: 20px;
 }
 
-.cdc-attempt-btn.active {
-  background: #2563eb !important;
-  color: #ffffff !important;
-  border-color: #2563eb !important;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+/* Cabeçalho */
+.cdc-exec-card-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 20px;
 }
 
-header.navbar .navbar-nav .cdc-topbar-item {
-  display: inline-flex !important;
-  align-items: center !important;
-  margin-left: 2px !important;
-  margin-right: 2px !important;
-  padding: 0 !important;
+/* Título */
+.cdc-exec-title-content h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.4;
 }
 
-header.navbar .cdc-topbar-btn {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 50% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background-color: transparent !important;
-  color: var(--cdc-text-dark) !important;
-  transition: background-color 0.15s ease, transform 0.15s ease !important;
-  border: none !important;
-  padding: 0 !important;
-  font-size: 14px !important;
+/* Subtítulo */
+.cdc-exec-title-content p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.5;
 }
 
-header.navbar .cdc-topbar-btn:hover {
-  background-color: rgba(36, 144, 239, 0.12) !important;
+/* Área dos filtros */
+.cdc-exec-filters {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
 }
 
-.cdc-topbar-menu {
-  border-radius: 12px !important;
-  border: 1px solid #cbd5e1 !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
-  padding: 8px 0 !important;
-  min-width: 210px !important;
+/* Cada filtro */
+.cdc-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
-.cdc-dropdown-header {
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  color: #64748b !important;
-  padding: 6px 16px !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.5px !important;
+.cdc-filter > span {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
 }
 
-.cdc-menu-opt, .cdc-font-opt {
-  font-size: 13px !important;
-  padding: 8px 16px !important;
-  color: #334155 !important;
-  display: flex !important;
-  align-items: center !important;
-  font-weight: 500 !important;
+/* Select */
+.cdc-filter select {
+    min-width: 115px;
+    height: 36px;
+    padding: 0 32px 0 10px;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    color: #334155;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
 }
 
-.cdc-menu-opt:hover, .cdc-font-opt:hover {
-  background-color: #f1f5f9 !important;
-  color: #1e293b !important;
+.cdc-filter select:hover {
+    border-color: #94a3b8;
 }
 
-html[data-cdc-layout="lahomes"] body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  background-color: var(--cdc-bg-light) !important;
+.cdc-filter select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-html[data-cdc-layout="lahomes"] .frappe-card,
-html[data-cdc-layout="lahomes"] .workspace-page .widget {
-  border: 1px solid var(--cdc-border-color) !important;
-  border-radius: var(--cdc-radius-md) !important;
-  box-shadow: var(--cdc-shadow-subtle) !important;
+/* Área completa do gráfico */
+.project-chart-box {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    min-height: 220px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 29px,
+        #f1f5f9 30px
+    );
+
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.project-chart-box::-webkit-scrollbar {
+    height: 7px;
+}
+
+.project-chart-box::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.project-chart-box::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 10px;
+}
+
+/* Bloco de cada mês */
+.month-block {
+    display: flex;
+    flex: 1 0 250px;
+    flex-direction: column;
+    min-width: 250px;
+    margin: 0;
+    padding: 0 12px;
+}
+
+/* Linha divisória entre os meses */
+.month-block + .month-block {
+    border-left: 1px solid #e2e8f0;
+}
+
+/* Linha que contém as semanas */
+.weeks-row {
+    display: flex;
+    flex: 1;
+    align-items: flex-end;
+    justify-content: space-around;
+    gap: 7px;
+    min-height: 170px;
+    padding-top: 10px;
+}
+
+/* Uma semana */
+.week-item {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 35px;
+}
+
+/* Área reservada para número e barra */
+.bar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    height: 135px;
+}
+
+/* Número acima da barra */
+.bar-value {
+    margin-bottom: 5px;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* Barra do gráfico */
+.chart-bar {
+    width: clamp(20px, 55%, 36px);
+    border-radius: 6px 6px 2px 2px;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
+    transform-origin: bottom;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Efeito ao passar o mouse */
+.week-item:hover .chart-bar {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
+}
+
+/* Nome da semana */
+.week-label {
+    margin-top: 8px;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* Nome do mês */
+.month-label {
+    min-height: 36px;
+    margin: 0;
+    padding: 12px 0 6px;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
 }
 
 .badge-soft-primary {
   color: #2490ef !important;
   background-color: rgba(36, 144, 239, 0.12) !important;
-}
-
-.badge-soft-success {
-  color: #10b981 !important;
-  background-color: rgba(16, 185, 129, 0.12) !important;
-}
-
-.badge-soft-warning {
-  color: #f59e0b !important;
-  background-color: rgba(245, 158, 11, 0.12) !important;
-}
-
-.badge-soft-danger {
-  background-color: rgba(225, 29, 72, 0.1);
-  color: #e11d48;
-}
-
-.cdc-table-container {
-  width: 100%;
-  overflow-x: auto;
-  margin-top: 8px;
 }
 
 .cdc-table {
@@ -203,27 +303,6 @@ html[data-cdc-layout="lahomes"] .workspace-page .widget {
   color: #ffffff !important;
 }
 
-.cdc-occ-type-btn {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #475569;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.cdc-occ-type-btn[data-occ-type="receipt"].active-receipt {
-  background: #2563eb !important;
-  color: #ffffff !important;
-}
-
-.cdc-occ-type-btn[data-occ-type="issue"].active-issue {
-  background: #dc2626 !important;
-  color: #ffffff !important;
-}
-
 #cdc-stock-exec-dashboard {
   width: 100% !important;
   max-width: 100% !important;
@@ -240,27 +319,6 @@ html[data-cdc-layout="lahomes"] .workspace-page .widget {
   display: none !important;
 }
 
-.cdc-exec-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-  min-width: 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.cdc-exec-card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #475569;
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .cdc-stacked-bar {
   display: flex;
   height: 10px;
@@ -272,26 +330,4 @@ html[data-cdc-layout="lahomes"] .workspace-page .widget {
 
 .cdc-stacked-bar-segment {
   height: 100%;
-}
-
-.cdc-period-filter-group {
-  display: flex;
-  gap: 4px;
-}
-
-.cdc-period-btn {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.cdc-period-btn.active {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
 }
