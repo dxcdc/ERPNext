@@ -4,7 +4,6 @@
    ========================================================================== */
 
 :root {
-  /* Color Palette - HSL Tailored System */
   --cdc-primary: #1e293b;
   --cdc-primary-hover: #0f172a;
   --cdc-accent: #2490ef;
@@ -14,18 +13,37 @@
   --cdc-border-color: #e2e8f0;
   --cdc-text-dark: #0f172a;
   --cdc-text-muted: #64748b;
-
-  /* Layout & Geometry */
   --cdc-radius-sm: 6px;
   --cdc-radius-md: 10px;
   --cdc-radius-lg: 16px;
   --cdc-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
-  --cdc-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.09);
 }
 
-/* ==========================================================================
-   1. TOPBAR ICON BUTTONS (Sol/Lua + Fontes A+/A- - Compact Layout)
-   ========================================================================== */
+/* Botões de Alternância das 5 Tentativas de Exibição */
+.cdc-attempt-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cdc-attempt-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.cdc-attempt-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
 header.navbar .navbar-nav .cdc-topbar-item {
   display: inline-flex !important;
   align-items: center !important;
@@ -84,9 +102,6 @@ header.navbar .cdc-topbar-btn:hover {
   color: #1e293b !important;
 }
 
-/* ==========================================================================
-   2. LAHOMES EXECUTIVE THEME OVERRIDES
-   ========================================================================== */
 html[data-cdc-layout="lahomes"] body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   background-color: var(--cdc-bg-light) !important;
@@ -97,24 +112,8 @@ html[data-cdc-layout="lahomes"] .workspace-page .widget {
   border: 1px solid var(--cdc-border-color) !important;
   border-radius: var(--cdc-radius-md) !important;
   box-shadow: var(--cdc-shadow-subtle) !important;
-  transition: box-shadow 0.2s ease !important;
 }
 
-html[data-cdc-layout="lahomes"] .frappe-card:hover {
-  transform: none !important;
-  box-shadow: var(--cdc-shadow-subtle) !important;
-}
-
-/* Soft Buttons */
-html[data-cdc-layout="lahomes"] .btn-primary {
-  background-color: var(--cdc-accent) !important;
-  border-color: var(--cdc-accent) !important;
-  border-radius: var(--cdc-radius-sm) !important;
-  font-weight: 600 !important;
-  box-shadow: 0 4px 10px rgba(36, 144, 239, 0.25) !important;
-}
-
-/* Soft Badges */
 .badge-soft-primary {
   color: #2490ef !important;
   background-color: rgba(36, 144, 239, 0.12) !important;
@@ -178,11 +177,6 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   text-decoration: none;
 }
 
-.cdc-doc-link:hover {
-  text-decoration: underline;
-}
-
-/* Table Type Filter Buttons (Todos | Entradas em Azul | Saídas em Vermelho) */
 .cdc-table-filter-btn {
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
@@ -192,38 +186,23 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   font-weight: 700;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.cdc-table-filter-btn[data-type="receipt"] {
-  color: #2563eb !important;
-  border-color: rgba(37, 99, 235, 0.4) !important;
 }
 
 .cdc-table-filter-btn[data-type="receipt"].active {
   background: #2563eb !important;
-  border-color: #2563eb !important;
   color: #ffffff !important;
-}
-
-.cdc-table-filter-btn[data-type="issue"] {
-  color: #dc2626 !important;
-  border-color: rgba(220, 38, 38, 0.4) !important;
 }
 
 .cdc-table-filter-btn[data-type="issue"].active {
   background: #dc2626 !important;
-  border-color: #dc2626 !important;
   color: #ffffff !important;
 }
 
 .cdc-table-filter-btn[data-type="all"].active {
   background: #0f172a !important;
-  border-color: #0f172a !important;
   color: #ffffff !important;
 }
 
-/* Botões do Filtro de Tipo do Gráfico (Entradas em Azul | Saídas em Vermelho) */
 .cdc-occ-type-btn {
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
@@ -233,32 +212,18 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   font-weight: 700;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.cdc-occ-type-btn[data-occ-type="receipt"] {
-  color: #2563eb;
-  border-color: rgba(37, 99, 235, 0.4);
 }
 
 .cdc-occ-type-btn[data-occ-type="receipt"].active-receipt {
   background: #2563eb !important;
-  border-color: #2563eb !important;
   color: #ffffff !important;
-}
-
-.cdc-occ-type-btn[data-occ-type="issue"] {
-  color: #dc2626;
-  border-color: rgba(220, 38, 38, 0.4);
 }
 
 .cdc-occ-type-btn[data-occ-type="issue"].active-issue {
   background: #dc2626 !important;
-  border-color: #dc2626 !important;
   color: #ffffff !important;
 }
 
-/* Dashboard Cards (Estáticos) */
 #cdc-stock-exec-dashboard {
   width: 100% !important;
   max-width: 100% !important;
@@ -267,7 +232,6 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   margin-bottom: 24px;
 }
 
-/* Ocultar blocos nativos duplicados do workspace que fiquem abaixo ou ao lado do dashboard customizado */
 #cdc-stock-exec-dashboard ~ .ce-block,
 #cdc-stock-exec-dashboard ~ .widget,
 #cdc-stock-exec-dashboard ~ .widget-group,
@@ -277,19 +241,14 @@ html[data-cdc-layout="lahomes"] .btn-primary {
 }
 
 .cdc-exec-card {
-  background: var(--cdc-bg-card, #ffffff);
-  border: 1px solid var(--cdc-border-card, #e2e8f0);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-}
-
-.cdc-exec-card:hover {
-  transform: none !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .cdc-exec-card-title {
@@ -300,17 +259,6 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-}
-
-.cdc-exec-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .cdc-stacked-bar {
@@ -324,7 +272,6 @@ html[data-cdc-layout="lahomes"] .btn-primary {
 
 .cdc-stacked-bar-segment {
   height: 100%;
-  transition: width 0.4s ease;
 }
 
 .cdc-period-filter-group {
@@ -341,31 +288,10 @@ html[data-cdc-layout="lahomes"] .btn-primary {
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.cdc-period-btn:hover {
-  background: #e2e8f0;
-  color: #1e293b;
 }
 
 .cdc-period-btn.active {
   background: #2563eb;
   color: #ffffff;
   border-color: #2563eb;
-}
-
-/* Faixas de Agrupamento por Mês na Base do Gráfico */
-.cdc-month-group-banner {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #e2e8f0;
-  color: #334155;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 4px;
-  padding: 2px 6px;
-  margin-top: 4px;
-  letter-spacing: 0.5px;
 }
