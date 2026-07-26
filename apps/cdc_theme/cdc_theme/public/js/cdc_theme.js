@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v2.4.0-20260726_1345-SINGLE-MAIN-CHART-ONLY';
+    var SYSTEM_ASSET_VERSION = 'v2.5.0-20260726_1635-PROGRAMA-ACIMA-PERIODO';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
