@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v2.6.0-20260726_1645-SVG-LEGENDA-POR-MES';
+    var SYSTEM_ASSET_VERSION = 'v2.7.0-20260726_1652-GROUPED-MONTHS-CLIENT-BUILD';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
@@ -223,15 +223,20 @@
             details: (hasData && datasetsCount > 0) ? 'Payload recebido com sucesso (' + datasetsCount + ' programas de projetos)' : '❌ ERRO: Payload da API indisponível ou sem programas'
         });
 
-        // H3: Gráfico Principal no DOM
-        var nativeChartEl = document.getElementById('cdc-native-frappe-chart');
-        var hasMainChart = !!(nativeChartEl && (nativeChartEl.querySelector('svg') || nativeChartEl.querySelector('.month-group-card')));
+        // H3: Gráfico Principal no DOM (SVG no #cdc-main-svg-chart + estrutura customizada em #cdc-native-frappe-chart)
+        var mainSvgEl = document.getElementById('cdc-main-svg-chart');
+        var customChartEl = document.getElementById('cdc-native-frappe-chart');
+        var hasSvgChart = !!(mainSvgEl && mainSvgEl.querySelector('svg'));
+        var hasCustomChart = !!(customChartEl && customChartEl.querySelector('.month-group-card'));
+        var hasMainChart = hasSvgChart || hasCustomChart;
         if (!hasMainChart) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
-            name: 'Gráfico Principal (Frappe SVG + Estrutura por Mês)',
+            name: 'Gráfico Principal (SVG interativo + Estrutura por Mês)',
             passed: hasMainChart,
-            details: hasMainChart ? 'Gráfico Principal ativo no DOM com visualização interativa e barras coloridas por mês' : '❌ ALERTA: Gráfico principal não inicializado'
+            details: hasMainChart
+                ? 'SVG: ' + (hasSvgChart ? '✅' : '❌') + '  |  Estrutura por Mês (S1 S2...): ' + (hasCustomChart ? '✅' : '❌')
+                : '❌ ALERTA: Nenhum gráfico renderizado no DOM'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -688,6 +693,40 @@
                 var ptBrLabels = (occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"]).map(function(lbl) {
                     return lbl.replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
                 });
+
+                // SE A API NÃO RETORNAR grouped_months, CONSTRÓI CLIENT-SIDE A PARTIR DOS LABELS
+                // Formato esperado dos labels: "Maio S1", "Maio S2", "Junho S1", etc. (mês + semana)
+                if (!groupedMonthsList || groupedMonthsList.length === 0) {
+                    var MONTH_NAME_LIST = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+                    var builtMonthMap = {};
+                    var builtMonthOrder = [];
+                    ptBrLabels.forEach(function(lbl) {
+                        var parts = lbl.trim().split(/\s+/);
+                        var monthName = null;
+                        var weekName = null;
+                        parts.forEach(function(p) {
+                            var normalized = p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+                            if (MONTH_NAME_LIST.indexOf(normalized) !== -1) {
+                                monthName = normalized;
+                            } else if (/^S\d+$/i.test(p)) {
+                                weekName = p.toUpperCase();
+                            }
+                        });
+                        if (!monthName && parts.length >= 1) monthName = parts[0];
+                        if (!weekName && parts.length >= 2) weekName = parts[1];
+                        if (!weekName) weekName = 'S1';
+                        if (monthName) {
+                            if (!builtMonthMap[monthName]) {
+                                builtMonthMap[monthName] = [];
+                                builtMonthOrder.push(monthName);
+                            }
+                            builtMonthMap[monthName].push(weekName);
+                        }
+                    });
+                    groupedMonthsList = builtMonthOrder.map(function(m) {
+                        return { month: m, weeks: builtMonthMap[m] };
+                    });
+                }
 
                 var projectSelectOptions = `<option value="all" ${currentSelectedProjectFilter === 'all' ? 'selected' : ''}>🌐 Todos os Programas (Consolidado - 6 Projetos)</option>`;
                 datasetsList.forEach(function(ds) {
