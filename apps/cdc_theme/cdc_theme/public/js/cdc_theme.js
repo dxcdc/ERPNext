@@ -6,6 +6,7 @@
     var currentOccurrencesType = 'all'; // Todos
     var currentTableTypeFilter = 'all';
     var activeCategoriesMap = {}; // Controle de categorias ativas (checkboxes)
+    var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
     var lastFetchTime = 0;
 
@@ -247,7 +248,7 @@
                     </div>
                 `;
 
-                // --- 5. COMPOSIÇÃO POR CATEGORIA (GRÁFICO ROSCA COM PORCENTAGENS + BARRAS AO LADO + LEGENDAS NO TOPO) ---
+                // --- 5. COMPOSIÇÃO POR CATEGORIA (DUAL ROSCA + BARRAS COM MENU SUSPENSO DROPDOWN DE CATEGORIAS) ---
                 var rawCategoriesList = (data.categories && data.categories.length > 0) ? data.categories : [];
                 
                 rawCategoriesList.forEach(function(c) {
@@ -263,24 +264,39 @@
                 var activeCategoriesTotal = activeCategories.reduce(function(sum, c) { return sum + c.count; }, 0);
                 var maxCategoryCount = Math.max.apply(null, activeCategories.map(function(c) { return c.count; }).concat([1]));
 
-                // 1. LEGENDAS COM CHECKBOXES QUE SUBIRAM PARA O TOPO
-                var topCheckboxPills = rawCategoriesList.map(function(c) {
+                // 1. MENU SUSPENSO DROPDOWN COM CHECKBOXES (ECONOMIA MÁXIMA DE ESPAÇO)
+                var dropdownCheckboxItems = rawCategoriesList.map(function(c) {
                     var isChecked = activeCategoriesMap[c.label] !== false;
                     var displayPercent = activeCategoriesTotal > 0 && isChecked ? ((c.count / activeCategoriesTotal) * 100).toFixed(1) : c.percent;
 
                     return `
-                        <label style="padding: 6px 12px; background: ${isChecked ? '#ffffff' : '#f1f5f9'}; border-radius: 8px; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; opacity: ${isChecked ? '1' : '0.55'}; transition: all 0.15s ease;">
-                            <input type="checkbox" class="cdc-cat-checkbox" data-label="${c.label}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; cursor: pointer;">
-                            <span style="background-color: ${c.color}; width: 10px; height: 10px; border-radius: 3px; display: inline-block;"></span>
-                            <span style="font-weight: 700; color: #1e293b; font-size: 11px;">${c.label}</span>
-                            <span style="font-weight: 800; color: #2563eb; font-size: 11px; margin-left: 2px;">${c.count} (${displayPercent}%)</span>
+                        <label style="padding: 8px 10px; background: ${isChecked ? '#ffffff' : '#f8fafc'}; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; opacity: ${isChecked ? '1' : '0.5'}; margin-bottom: 4px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" class="cdc-cat-checkbox" data-label="${c.label}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; cursor: pointer;">
+                                <span style="background-color: ${c.color}; width: 10px; height: 10px; border-radius: 3px; display: inline-block;"></span>
+                                <span style="font-weight: 700; color: #1e293b; font-size: 11.5px;">${c.label}</span>
+                            </div>
+                            <span style="font-weight: 800; color: #2563eb; font-size: 11px;">${c.count} (${displayPercent}%)</span>
                         </label>
                     `;
                 }).join('');
 
-                var topLegendsHeader = `
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 10px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #cbd5e1;">
-                        ${topCheckboxPills}
+                var dropdownMenuHTML = `
+                    <div style="position: relative;" class="cdc-cat-dropdown-wrapper">
+                        <button id="cdc-cat-dropdown-btn" class="btn btn-default btn-sm" style="font-weight: 700; font-size: 12px; border-radius: 8px; border: 1px solid #2563eb; background: #f8fafc; color: #0f172a; display: flex; align-items: center; gap: 8px; padding: 6px 14px; cursor: pointer;">
+                            <span>🏷️ Filtrar Categorias (${activeCategories.length}/${rawCategoriesList.length})</span>
+                            <span style="font-size: 10px; color: #2563eb;">▼</span>
+                        </button>
+
+                        <div id="cdc-cat-dropdown-menu" style="display: ${isCategoryDropdownOpen ? 'block' : 'none'}; position: absolute; right: 0; top: 100%; margin-top: 6px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); padding: 12px; min-width: 320px; z-index: 1000;">
+                            <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Categorias Visíveis</span>
+                                <span style="font-size: 10px; color: #2563eb; cursor: pointer;" id="cdc-cat-select-all">Marcar Todos</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; max-height: 260px; overflow-y: auto;">
+                                ${dropdownCheckboxItems}
+                            </div>
+                        </div>
                     </div>
                 `;
 
@@ -348,19 +364,20 @@
 
                 var categoryFullWidthCard = `
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
-                        <div class="cdc-exec-card-title" style="margin-bottom: 4px;">
-                            <span>Composição por Categoria (Visão Dual: Rosca com % + Barras)</span>
-                            <span style="font-size: 12px; font-weight: 700; color: #2563eb;">Total Geral: ${totalItemsCount} Itens</span>
-                        </div>
-                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 14px;">
-                            📍 Unidade Filtrada: <span style="color: #0f172a; font-weight: 700;">${unitDisplay}</span>
+                        <div class="cdc-exec-card-title" style="margin-bottom: 12px; align-items: center;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">Composição por Categoria</h2>
+                                <div style="font-size: 12px; color: #475569; font-weight: 600; margin-top: 2px;">
+                                    📍 Unidade Filtrada: <span style="color: #0f172a; font-weight: 700;">${unitDisplay}</span> (Total Geral: ${totalItemsCount} Itens)
+                                </div>
+                            </div>
+                            
+                            <!-- MENU SUSPENSO DE CATEGORIAS NO CANTO SUPERIOR DIREITO -->
+                            ${dropdownMenuHTML}
                         </div>
 
-                        <!-- 1. LEGENDAS COM CHECKBOXES NO TOPO -->
-                        ${topLegendsHeader}
-
-                        <!-- 2. LADO A LADO: GRÁFICO ROSCA (ESQUERDA) + BARRAS (DIREITA) -->
-                        <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                        <!-- LADO A LADO: GRÁFICO ROSCA (ESQUERDA) + BARRAS (DIREITA) -->
+                        <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-top: 8px;">
                             ${donutSVGChart}
                             ${horizontalBarChartSection}
                         </div>
@@ -501,12 +518,39 @@
             renderStockDashboard();
         });
 
+        // MENU SUSPENSO DROPDOWN DE CATEGORIAS
+        $(document).off('click', '#cdc-cat-dropdown-btn').on('click', '#cdc-cat-dropdown-btn', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            isCategoryDropdownOpen = !isCategoryDropdownOpen;
+            $('#cdc-cat-dropdown-menu').toggle(isCategoryDropdownOpen);
+        });
+
+        $(document).off('click', '#cdc-cat-select-all').on('click', '#cdc-cat-select-all', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            for (var k in activeCategoriesMap) {
+                activeCategoriesMap[k] = true;
+            }
+            renderStockDashboard();
+        });
+
         $(document).off('change', '.cdc-cat-checkbox').on('change', '.cdc-cat-checkbox', function(e) {
             e.stopPropagation();
             var lbl = $(this).data('label');
             if (lbl) {
                 activeCategoriesMap[lbl] = $(this).is(':checked');
                 renderStockDashboard();
+            }
+        });
+
+        // FECHAR DROPDOWN AO CLICAR FORA
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.cdc-cat-dropdown-wrapper').length) {
+                if (isCategoryDropdownOpen) {
+                    isCategoryDropdownOpen = false;
+                    $('#cdc-cat-dropdown-menu').hide();
+                }
             }
         });
 
