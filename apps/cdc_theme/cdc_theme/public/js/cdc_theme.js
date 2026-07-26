@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.1.0-20260725_2305-NAMESPACE-FIX';
+    var SYSTEM_ASSET_VERSION = 'v1.2.0-20260725_2300-PHOTO-RESTORED';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -11,7 +11,6 @@
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
-    var lastRenderedHTMLStringLength = 0;
 
     // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC (H1 A H10) ---
     window._cdc_run_diagnostics = function() {
@@ -47,27 +46,27 @@
             details: (hasData && datasetsCount > 0) ? 'Payload recebido com sucesso (' + datasetsCount + ' programas de projetos)' : '❌ ERRO: Payload da API indisponível ou sem programas'
         });
 
-        // H3: Renderização Física das Barras SVG (Pixel Height)
-        var svgRects = document.querySelectorAll('.chart-bar-rect');
-        var totalRectsCount = svgRects.length;
-        var visibleRectsCount = 0;
+        // H3: Renderização Física de Pixels das Barras (.chart-bar-pill)
+        var barElements = document.querySelectorAll('.chart-bar-pill');
+        var totalBarsCount = barElements.length;
+        var visibleBarsCount = 0;
         var sampleHeights = [];
 
-        svgRects.forEach(function(rect) {
-            var h = parseFloat(rect.getAttribute('height') || '0');
+        barElements.forEach(function(bar) {
+            var h = bar.offsetHeight || parseFloat(window.getComputedStyle(bar).height);
             if (h > 0) {
-                visibleRectsCount++;
+                visibleBarsCount++;
                 if (sampleHeights.length < 5) sampleHeights.push(Math.round(h) + 'px');
             }
         });
 
-        var h3Passed = visibleRectsCount > 0;
+        var h3Passed = visibleBarsCount > 0;
         if (!h3Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
-            name: 'Renderização Física das Barras SVG (Pixel Height)',
+            name: 'Renderização Física das Barras Pílula (.chart-bar-pill)',
             passed: h3Passed,
-            details: h3Passed ? visibleRectsCount + '/' + totalRectsCount + ' retângulos SVG renderizados fisicamente (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: 0 barras SVG visíveis (' + totalRectsCount + ' no DOM)'
+            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas na tela (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: 0 barras visíveis na tela'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -105,46 +104,46 @@
             details: 'Versão em execução: ' + SYSTEM_ASSET_VERSION
         });
 
-        // H7: Inspeção do Tamanho da String HTML de Saída
-        var h7Passed = lastRenderedHTMLStringLength > 500;
+        // H7: Inspeção dos Cards de Projeto Restaurados (.cdc-project-card)
+        var projectCards = document.querySelectorAll('.cdc-project-card');
+        var h7Passed = projectCards.length > 0;
         if (!h7Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 7,
-            name: 'Tamanho da String HTML Gerada',
+            name: 'Cards Individuais de Projeto (.cdc-project-card)',
             passed: h7Passed,
-            details: h7Passed ? 'HTML gerado com ' + lastRenderedHTMLStringLength + ' caracteres' : '❌ ERRO: String HTML vazia'
+            details: h7Passed ? projectCards.length + ' cards de projeto ativos e renderizados no DOM' : '❌ ALERTA: 0 cards de projeto no DOM'
         });
 
-        // H8: Inspeção de Contêineres CDC (.cdc-project-chart-container)
-        var chartBoxes = document.querySelectorAll('.cdc-project-chart-container');
-        var h8Passed = chartBoxes.length > 0;
+        // H8: Inspeção dos Quadros Brancos por Semana (.week-box)
+        var weekBoxes = document.querySelectorAll('.week-box');
+        var h8Passed = weekBoxes.length > 0;
         if (!h8Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 8,
-            name: 'Contêineres de Gráfico Nativos CDC (.cdc-project-chart-container)',
+            name: 'Quadros Individuais por Semana (.week-box)',
             passed: h8Passed,
-            details: h8Passed ? chartBoxes.length + ' contêineres CDC ativos no DOM' : '❌ ALERTA: 0 contêineres CDC encontrados no DOM'
+            details: h8Passed ? weekBoxes.length + ' quadros de semana com fundo #f8fafc no DOM' : '❌ ALERTA: 0 quadros no DOM'
         });
 
-        // H9: Inspeção dos Gráficos SVG Renderizados (.cdc-svg-chart)
-        var svgCharts = document.querySelectorAll('.cdc-svg-chart');
-        var h9Passed = svgCharts.length > 0;
+        // H9: Inspeção do Eixo Y Lateral
+        var yAxes = document.querySelectorAll('.cdc-y-axis');
+        var h9Passed = yAxes.length > 0;
         if (!h9Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 9,
-            name: 'Gráficos Vetoriais SVG no DOM (.cdc-svg-chart)',
+            name: 'Eixo Y Lateral de Valores (.cdc-y-axis)',
             passed: h9Passed,
-            details: h9Passed ? svgCharts.length + ' gráficos SVG ativos com ' + totalRectsCount + ' retângulos de barra' : '❌ ALERTA: 0 gráficos SVG no DOM'
+            details: h9Passed ? yAxes.length + ' réguas de eixo Y ativas' : '❌ ALERTA: 0 réguas de eixo Y'
         });
 
-        // H10: Inspeção de Snippet DOM e Interceptação Nítida
-        var firstRect = document.querySelector('.chart-bar-rect');
-        var domSnippet = dash ? (dash.innerHTML || '').slice(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'DOM vazio';
+        // H10: Diagnóstico da Primeira Barra Pílula
+        var firstBar = document.querySelector('.chart-bar-pill');
         report.hypotheses.push({
             id: 10,
-            name: 'Inspeção de Snippet DOM e Atributos SVG',
-            passed: !!firstRect,
-            details: firstRect ? 'Barra SVG: height=' + firstRect.getAttribute('height') + 'px, y=' + firstRect.getAttribute('y') + 'px' : '❌ ALERTA: Snippet DOM atual -> [' + domSnippet + '...]'
+            name: 'Estilo Computado da Primeira Barra Pílula',
+            passed: !!firstBar,
+            details: firstBar ? 'Barra Pílula: height=' + window.getComputedStyle(firstBar).height + ', bg=' + window.getComputedStyle(firstBar).backgroundColor : '❌ ALERTA: Nenhuma barra encontrada no DOM'
         });
 
         // Montagem do Texto Puro para Cópia
@@ -535,7 +534,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (USANDO CLASSE DE NAMESPACE CDC `.cdc-project-chart-container` ISOLADA) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (RESTAURAÇÃO FIEL DO DESIGN DA FOTO ENVIADA) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -557,68 +556,77 @@
                     </div>
                 `;
 
+                // RENDERIZAÇÃO DOS CARDS EXATAMENTE IGUAIS À FOTO
                 var projectsBarChartsHTML = datasetsList.map(function(d) {
                     var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
                     var globalIndex = 0;
 
                     var monthBlocksHTML = groupedMonthsList.map(function(gm) {
                         var weeksArr = gm.weeks || ['S1', 'S2', 'S3', 'S4'];
-                        var totalWeeks = weeksArr.length;
-                        var svgWidth = totalWeeks * 48;
-
-                        var svgRectsHTML = '';
-                        weeksArr.forEach(function(wLbl, idx) {
+                        var weekItemsHTML = weeksArr.map(function(wLbl) {
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            var hPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 95), 16) : 6;
-                            var yPos = 120 - hPx;
-                            var xPos = idx * 48 + 12;
+                            // ALTURA EM PIXELS DENTRO DA CAIXA QUADRADA BRANCA (#f8fafc)
+                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 85), 14) : 4;
+                            var barColor = (currentOccurrencesType === 'issue' && val > 0) ? '#dc2626' : (val > 0 ? (d.color || '#2563eb') : '#e2e8f0');
 
-                            var barColor = d.color || '#2563eb';
-                            var fillColor = (currentOccurrencesType === 'issue' && val > 0) ? '#dc2626' : (val > 0 ? barColor : '#cbd5e1');
-                            var valTextColor = val > 0 ? '#0f172a' : '#cbd5e1';
-                            var valText = val > 0 ? val : '-';
-
-                            svgRectsHTML += `
-                                <g class="svg-bar-group">
-                                    <text x="${xPos + 11}" y="${yPos - 5}" text-anchor="middle" font-size="11" font-weight="bold" fill="${valTextColor}">${valText}</text>
-                                    <rect x="${xPos}" y="${yPos}" width="22" height="${hPx}" fill="${fillColor}" rx="4" class="chart-bar-rect"><title>${gm.month}, ${wLbl}: ${val} lançamentos</title></rect>
-                                    <text x="${xPos + 11}" y="140" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">${wLbl}</text>
-                                </g>
+                            return `
+                                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 36px;" class="week-block-item">
+                                    <!-- Caixa Quadrada com Fundo #f8fafc e Borda #e2e8f0 -->
+                                    <div class="week-box" style="width: 100%; height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 4px; position: relative;">
+                                        ${val > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #0f172a; position: absolute; top: 4px;">${val}</span>` : ''}
+                                        <div class="chart-bar-pill" style="width: 16px; height: ${barHeightPx}px; background-color: ${barColor}; border-radius: 4px; transition: height 0.3s ease;"></div>
+                                    </div>
+                                    <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 6px;">${wLbl}</span>
+                                </div>
                             `;
-                        });
+                        }).join('');
 
                         return `
-                            <div class="month-block" style="display: flex; flex-direction: column; align-items: center; padding: 0 8px; border-right: 1px dashed #e2e8f0;">
-                                <svg class="cdc-svg-chart" width="${svgWidth}" height="152" viewBox="0 0 ${svgWidth} 152" style="overflow: visible;">
-                                    <line x1="0" y1="120" x2="${svgWidth}" y2="120" stroke="#e2e8f0" stroke-width="1.5" />
-                                    ${svgRectsHTML}
-                                </svg>
-                                <div class="month-label" style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; padding: 6px 0 2px; margin: 0;">${gm.month}</div>
+                            <div class="month-group-container" style="display: flex; flex-direction: column; align-items: center; flex: 1; padding: 0 6px;">
+                                <div style="display: flex; gap: 6px; width: 100%;">
+                                    ${weekItemsHTML}
+                                </div>
+                                <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; margin-top: 6px;">${gm.month}</div>
                             </div>
                         `;
                     }).join('');
 
+                    var typeBadgeLabel = (currentOccurrencesType === 'receipt') ? 'lançamentos de entrada' : ((currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos totais');
+
                     return `
-                        <div style="margin-bottom: 22px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
-                            <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                        <!-- CARD DO PROJETO COM DESIGN EXATO DA FOTO -->
+                        <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <!-- Cabeçalho do Projeto -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
                                     <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
                                 </div>
-                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
+                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px; background: #eff6ff; color: #2563eb; border-radius: 6px;">
+                                    ${d.total_occurrences} ${typeBadgeLabel}
+                                </span>
                             </div>
-                            <div class="cdc-project-chart-container" role="group" aria-label="Volume semanal de lançamentos do ${d.project}" style="display: flex; align-items: stretch; width: 100%; min-height: 180px; overflow-x: auto; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding-top: 10px;">
-                                ${monthBlocksHTML}
+
+                            <!-- Área do Gráfico com Eixo Y Lateral -->
+                            <div style="display: flex; align-items: flex-end; gap: 12px; overflow-x: auto; padding: 4px 0;">
+                                <!-- Eixo Y com Régua Lateral Exata da Foto -->
+                                <div class="cdc-y-axis" style="display: flex; flex-direction: column; justify-content: space-between; height: 110px; font-size: 10px; font-weight: 700; color: #64748b; padding-right: 6px; border-right: 2px solid #e2e8f0; text-align: right; min-width: 28px; flex-shrink: 0; margin-bottom: 22px;">
+                                    <span>${maxValInProject}</span>
+                                    <span>${Math.round(maxValInProject / 2)}</span>
+                                    <span>0 ┴</span>
+                                </div>
+
+                                <!-- Blocos dos Meses -->
+                                <div style="display: flex; gap: 12px; flex: 1; align-items: flex-end;">
+                                    ${monthBlocksHTML}
+                                </div>
                             </div>
                         </div>
                     `;
                 }).join('');
 
-                lastRenderedHTMLStringLength = projectsBarChartsHTML.length;
-
-                // BOTÃO DE DIAGNÓSTICO DISCRETO NO CANTO ESQUERDO AO LADO DO TÍTULO
                 var discreteDiagBtn = `
                     <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 700; font-size: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 2px 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;" title="Rodar Inquérito de Diagnóstico CDC">
                         <span>🔍 Diag</span>
@@ -628,14 +636,14 @@
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
-                        <!-- Cabeçalho do Card com Título no Canto Esquerdo e Filtros (Período & Tipo) Alinhados no Canto Superior Direito -->
+                        <!-- Cabeçalho com Título no Canto Esquerdo e Filtros (Período & Tipo) Alinhados no Canto Superior Direito -->
                         <div class="cdc-exec-card-title" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px;">
                             <div>
                                 <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center;">
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa em Gráficos de Barra Vetoriais SVG</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC</p>
                             </div>
 
                             <!-- Filtros Alinhados no Canto Superior Direito -->
