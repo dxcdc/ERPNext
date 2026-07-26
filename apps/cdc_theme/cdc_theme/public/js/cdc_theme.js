@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.9.0-20260725_2330-SCROLL-STATE-PRESERVATION';
+    var SYSTEM_ASSET_VERSION = 'v2.0.0-20260725_2330-MONTHLY-GROUPED-BARS';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
@@ -16,33 +16,37 @@
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
 
-    // REGISTRO DO EVENTO DE SCROLL E DESLIGAMENTO DA PÁGINA (SALVAR POSIÇÃO EM F5)
-    window.addEventListener('beforeunload', function() {
-        if (isStockWorkspacePage()) {
-            var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-            sessionStorage.setItem('cdc_scroll_y', scrollY);
-        }
-    });
+    // CAPTURA DA POSIÇÃO EXATA DE SCROLL TANTO DA JANELA QUANTO DOS CONTEÎNERES INTERNOS DO FRAPPE
+    function getActualScrollTop() {
+        var mainEl = document.querySelector('.page-container') || document.querySelector('.layout-main-section') || document.querySelector('#body');
+        var winScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+        var elScroll = mainEl ? mainEl.scrollTop : 0;
+        return Math.max(winScroll, elScroll);
+    }
 
-    $(window).on('scroll', function() {
+    function saveCurrentScrollState() {
         if (isStockWorkspacePage()) {
-            var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-            if (scrollY > 50) {
-                sessionStorage.setItem('cdc_scroll_y', scrollY);
+            var y = getActualScrollTop();
+            if (y > 0) {
+                sessionStorage.setItem('cdc_scroll_y', y);
             }
         }
-    });
+    }
+
+    window.addEventListener('beforeunload', saveCurrentScrollState);
+    $(window).on('scroll', saveCurrentScrollState);
+    $(document).on('scroll', '.page-container, .layout-main-section, #body', saveCurrentScrollState);
 
     function restoreScrollPosition() {
         var savedScrollY = sessionStorage.getItem('cdc_scroll_y');
         if (savedScrollY && parseFloat(savedScrollY) > 0) {
             var targetY = parseFloat(savedScrollY);
             setTimeout(function() {
-                window.scrollTo({
-                    top: targetY,
-                    behavior: 'smooth'
-                });
-            }, 400);
+                window.scrollTo(0, targetY);
+                document.documentElement.scrollTop = targetY;
+                var mainEl = document.querySelector('.page-container') || document.querySelector('.layout-main-section') || document.querySelector('#body');
+                if (mainEl) mainEl.scrollTop = targetY;
+            }, 350);
         }
     }
 
@@ -148,15 +152,15 @@
             details: (hasData && datasetsCount > 0) ? 'Payload recebido com sucesso (' + datasetsCount + ' programas de projetos)' : '❌ ERRO: Payload da API indisponível ou sem programas'
         });
 
-        // H3: Gráfico Nativo Frappe.Chart no DOM
+        // H3: Gráfico Nativo Frappe.Chart Agrupado por Mês no DOM
         var nativeChartEl = document.getElementById('cdc-native-frappe-chart');
         var hasNativeChartSVG = !!(nativeChartEl && nativeChartEl.querySelector('svg'));
         if (!hasNativeChartSVG) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
-            name: 'Renderização do Gráfico Nativo Consolidado (frappe.Chart)',
+            name: 'Primeiro Gráfico: Barras Agrupadas por Mês (MAIO, JUNHO, JULHO)',
             passed: hasNativeChartSVG,
-            details: hasNativeChartSVG ? 'Gráfico nativo frappe.Chart renderizado com SVG interativo no DOM' : '❌ ALERTA: Gráfico nativo ainda não inicializado'
+            details: hasNativeChartSVG ? 'Primeiro gráfico renderizado com sucesso com barras agrupadas por Mês' : '❌ ALERTA: Gráfico nativo não inicializado'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -607,7 +611,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (PRESERVAÇÃO DE SCROLL E FILTROS EM F5) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (PRIMEIRO GRÁFICO: BARRAS AGRUPADAS POR MÊS - MAIO, JUNHO, JULHO) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -725,10 +729,10 @@
                     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                         <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <span>📊 Gráfico Principal de Lançamentos (frappe.Chart)</span>
+                                <span>📊 Gráfico Principal: Barras Agrupadas por Mês</span>
                                 ${singleProjectFilterDropdown}
                             </div>
-                            <span style="font-size: 11px; font-weight: 700; color: #2563eb;">Quantidades Exibidas no Topo das Barras</span>
+                            <span style="font-size: 11px; font-weight: 700; color: #2563eb;">Valores Totais do Mês no Topo</span>
                         </div>
                         <div id="cdc-native-frappe-chart" style="width: 100%; min-height: 250px;"></div>
                     </div>
@@ -742,7 +746,7 @@
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos agrupados por mês e por semana por programa do CDC</p>
                             </div>
 
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
@@ -775,28 +779,44 @@
 
                 setTimeout(function() {
                     if (window.frappe && window.frappe.Chart) {
-                        // 1. Gráfico Consolidado ou de Projeto Único Selecionado no Primeiro Card
+                        // 1. PRIMEIRO GRÁFICO: BARRAS AGRUPADAS POR MÊS (MAIO, JUNHO, JULHO)
                         if (document.getElementById('cdc-native-frappe-chart')) {
                             try {
                                 var filteredDatasets = (currentSelectedProjectFilter === 'all')
                                     ? occurrencesData.datasets
                                     : occurrencesData.datasets.filter(function(ds) { return ds.project === currentSelectedProjectFilter; });
 
+                                // CÁLCULO DOS TOTAIS MENSAIS AGRUPADOS POR MÊS (MAIO, JUNHO, JULHO)
+                                var monthlyLabels = groupedMonthsList.map(function(gm) { return gm.month; });
+                                var monthlyDatasets = (filteredDatasets || []).map(function(ds) {
+                                    var monthValues = [];
+                                    var idx = 0;
+                                    groupedMonthsList.forEach(function(gm) {
+                                        var wCount = (gm.weeks || ['S1', 'S2', 'S3', 'S4']).length;
+                                        var sum = 0;
+                                        for (var k = 0; k < wCount; k++) {
+                                            sum += (ds.occurrences[idx] || 0);
+                                            idx++;
+                                        }
+                                        monthValues.push(sum);
+                                    });
+
+                                    return {
+                                        name: ds.project,
+                                        type: 'bar',
+                                        values: monthValues
+                                    };
+                                });
+
                                 var chartTitle = (currentSelectedProjectFilter === 'all') 
-                                    ? 'Volume Consolidado de Lançamentos (6 Programas)' 
-                                    : 'Volume de Lançamentos - ' + currentSelectedProjectFilter;
+                                    ? 'Volume Consolidado Agrupado por Mês (6 Programas)' 
+                                    : 'Volume Mensal Agrupado - ' + currentSelectedProjectFilter;
 
                                 new frappe.Chart('#cdc-native-frappe-chart', {
                                     title: chartTitle,
                                     data: {
-                                        labels: ptBrLabels,
-                                        datasets: (filteredDatasets || []).map(function(ds) {
-                                            return {
-                                                name: ds.project,
-                                                type: 'bar',
-                                                values: ds.occurrences
-                                            };
-                                        })
+                                        labels: monthlyLabels,
+                                        datasets: monthlyDatasets
                                     },
                                     type: 'bar',
                                     height: 260,
@@ -809,17 +829,17 @@
 
                                 annotateChartValuesOnTop('#cdc-native-frappe-chart');
                             } catch (e) {
-                                console.error('Erro no gráfico consolidado:', e);
+                                console.error('Erro no primeiro gráfico agrupado por mês:', e);
                             }
                         }
 
-                        // 2. Gráficos Individuais por Programa
+                        // 2. Gráficos Individuais por Programa (Semanas)
                         datasetsList.forEach(function(ds, pIdx) {
                             var containerId = '#cdc-project-native-chart-' + pIdx;
                             if (document.querySelector(containerId)) {
                                 try {
                                     new frappe.Chart(containerId, {
-                                        title: ds.project,
+                                        title: ds.project + ' (Semanas)',
                                         data: {
                                             labels: ptBrLabels,
                                             datasets: [{
