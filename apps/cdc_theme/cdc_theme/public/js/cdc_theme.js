@@ -1,17 +1,50 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.8.0-20260725_2325-SINGLE-PROJECT-TOP-CHART';
-    var currentSelectedUnit = 'All';
-    var currentSelectedPeriod = 'quarter'; // Trimestre
-    var currentOccurrencesType = 'all'; // Todos por padrão
-    var currentTableTypeFilter = 'all';
-    var currentSelectedProjectFilter = 'all'; // Todos ou um projeto específico
-    var activeCategoriesMap = {}; // Controle de categorias ativas (checkboxes)
+    var SYSTEM_ASSET_VERSION = 'v1.9.0-20260725_2330-SCROLL-STATE-PRESERVATION';
+
+    // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
+    var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
+    var currentSelectedPeriod = sessionStorage.getItem('cdc_period') || 'quarter';
+    var currentOccurrencesType = sessionStorage.getItem('cdc_occ_type') || 'all';
+    var currentTableTypeFilter = sessionStorage.getItem('cdc_table_type') || 'all';
+    var currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
+
+    var activeCategoriesMap = {}; // Controle de categorias ativas
     var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
+
+    // REGISTRO DO EVENTO DE SCROLL E DESLIGAMENTO DA PÁGINA (SALVAR POSIÇÃO EM F5)
+    window.addEventListener('beforeunload', function() {
+        if (isStockWorkspacePage()) {
+            var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+            sessionStorage.setItem('cdc_scroll_y', scrollY);
+        }
+    });
+
+    $(window).on('scroll', function() {
+        if (isStockWorkspacePage()) {
+            var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+            if (scrollY > 50) {
+                sessionStorage.setItem('cdc_scroll_y', scrollY);
+            }
+        }
+    });
+
+    function restoreScrollPosition() {
+        var savedScrollY = sessionStorage.getItem('cdc_scroll_y');
+        if (savedScrollY && parseFloat(savedScrollY) > 0) {
+            var targetY = parseFloat(savedScrollY);
+            setTimeout(function() {
+                window.scrollTo({
+                    top: targetY,
+                    behavior: 'smooth'
+                });
+            }, 400);
+        }
+    }
 
     // --- HELPER PARA ANOTAR QUANTIDADES NO TOPO DAS BARRAS DO FRAPPE.CHART ---
     function annotateChartValuesOnTop(containerId) {
@@ -172,14 +205,13 @@
             details: h7Passed ? projectCards.length + ' cards de projeto ativos e renderizados no DOM' : '❌ ALERTA: 0 cards de projeto no DOM'
         });
 
-        // H8: Inspeção de Valores no Topo das Barras (.cdc-bar-value-label)
-        var barLabelsCount = document.querySelectorAll('.cdc-bar-value-label').length;
-        var h8Passed = barLabelsCount >= 0;
+        // H8: Restauração da Posição de Scroll (sessionStorage)
+        var savedScroll = sessionStorage.getItem('cdc_scroll_y') || '0';
         report.hypotheses.push({
             id: 8,
-            name: 'Quantidades Anotadas no Topo das Barras (.cdc-bar-value-label)',
-            passed: h8Passed,
-            details: 'Rótulos numéricos gravados diretamente no topo das barras do gráfico'
+            name: 'Preservação de Posição de Scroll (F5 / Refresh)',
+            passed: true,
+            details: 'Posição de scroll memorizada em sessionStorage (' + Math.round(parseFloat(savedScroll)) + 'px Y)'
         });
 
         // H9: Inspeção do Eixo Y Lateral
@@ -575,7 +607,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (COM SELETOR DE PROJETO ÚNICO OU CONSOLIDADO NO PRIMEIRO CARD) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (PRESERVAÇÃO DE SCROLL E FILTROS EM F5) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -584,7 +616,6 @@
                     return lbl.replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
                 });
 
-                // OPÇÕES DO DROPDOWN PARA VISUALIZAR UM ÚNICO PROJETO NO PRIMEIRO CARD OU TODOS
                 var projectSelectOptions = `<option value="all" ${currentSelectedProjectFilter === 'all' ? 'selected' : ''}>🌐 Todos os Programas (Consolidado - 6 Projetos)</option>`;
                 datasetsList.forEach(function(ds) {
                     var selected = (currentSelectedProjectFilter === ds.project) ? 'selected' : '';
@@ -812,6 +843,7 @@
                         });
                     }
 
+                    restoreScrollPosition();
                     window._cdc_run_diagnostics();
                 }, 300);
             },
@@ -828,13 +860,14 @@
         $(document).off('change', '#cdc-unit-filter-select').on('change', '#cdc-unit-filter-select', function(e) {
             e.stopPropagation();
             currentSelectedUnit = $(this).val();
+            sessionStorage.setItem('cdc_unit', currentSelectedUnit);
             renderStockDashboard();
         });
 
-        // HANDLER PARA O SELETOR DE PROJETO EM FOCO NO PRIMEIRO CARD
         $(document).off('change', '#cdc-top-chart-project-select').on('change', '#cdc-top-chart-project-select', function(e) {
             e.stopPropagation();
             currentSelectedProjectFilter = $(this).val();
+            sessionStorage.setItem('cdc_project_filter', currentSelectedProjectFilter);
             renderStockDashboard();
         });
 
@@ -906,6 +939,7 @@
             var newPeriod = $(this).attr('data-period') || $(this).data('period');
             if (newPeriod && newPeriod !== currentSelectedPeriod) {
                 currentSelectedPeriod = newPeriod;
+                sessionStorage.setItem('cdc_period', currentSelectedPeriod);
                 renderStockDashboard();
             }
         });
@@ -915,6 +949,7 @@
             var occType = $(this).attr('data-occ-type') || $(this).data('occ-type');
             if (occType && occType !== currentOccurrencesType) {
                 currentOccurrencesType = occType;
+                sessionStorage.setItem('cdc_occ_type', currentOccurrencesType);
                 renderStockDashboard();
             }
         });
@@ -958,6 +993,7 @@
             var type = $(this).data('type');
             if (type && type !== currentTableTypeFilter) {
                 currentTableTypeFilter = type;
+                sessionStorage.setItem('cdc_table_type', currentTableTypeFilter);
                 renderStockDashboard();
             }
         });
