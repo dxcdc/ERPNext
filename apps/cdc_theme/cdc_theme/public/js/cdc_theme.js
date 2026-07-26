@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.0.5-20260725_2240';
+    var SYSTEM_ASSET_VERSION = 'v1.0.6-20260725_2245';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -10,7 +10,7 @@
     var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
     var lastFetchTime = 0;
-    var lastDiagnosticReport = null;
+    var lastDiagnosticReportText = '';
 
     // --- SUÍTE DE INQUÉRITO DE DIAGNÓSTICO EM TEMPO REAL ---
     window._cdc_run_diagnostics = function() {
@@ -30,7 +30,7 @@
             id: 1,
             name: 'Presença do Painel no DOM',
             passed: isAttached,
-            details: isAttached ? 'Contêiner pai encontrado em <' + (dash.parentNode ? dash.parentNode.className : 'DOM') + '>' : '❌ ERRO: Contêiner pai não encontrado'
+            details: isAttached ? 'Contêiner pai encontrado em <' + (dash.parentNode ? (dash.parentNode.className || dash.parentNode.tagName) : 'DOM') + '>' : '❌ ERRO: Contêiner pai não encontrado'
         });
 
         // H2: Recebimento de Payload de Dados da API Python Backend
@@ -62,7 +62,7 @@
             id: 3,
             name: 'Renderização Física das Barras (Pixel Height)',
             passed: h3Passed,
-            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas na tela (Exemplos: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalBarsCount + ' elementos no DOM com 0px de altura física'
+            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas na tela (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalBarsCount + ' barras encontradas no DOM, porém com 0px de altura física'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -90,7 +90,7 @@
             details: isStockRoute ? 'Rota ativa aceita: /' + currentRoute : '❌ ALERTA: Rota fora do escopo de Estoque'
         });
 
-        // H6: Validação de Asset Versioning e Cache Busting
+        // H6: Versão do Script JS e Cache Busting
         report.hypotheses.push({
             id: 6,
             name: 'Versão do Script JS do CDC',
@@ -98,10 +98,19 @@
             details: 'Versão em execução: ' + SYSTEM_ASSET_VERSION
         });
 
-        lastDiagnosticReport = report;
+        // Montagem do Texto Puro para Cópia
+        var textLines = [];
+        textLines.push('📅 DATA / HORA: ' + report.timestamp);
+        textLines.push('⚙️ ASSET VERSION: ' + report.asset_version);
+        report.hypotheses.forEach(function(h) {
+            textLines.push('\nH' + h.id + ' (' + h.name + '):');
+            textLines.push('  ' + (h.passed ? '✅ OK -> ' : '❌ ALERTA -> ') + h.details);
+        });
+
+        lastDiagnosticReportText = textLines.join('\n');
+
         console.group('🔍 INQUÉRITO DE DIAGNÓSTICO CDC - ' + dateFormatted);
-        console.log('Versão do Asset:', SYSTEM_ASSET_VERSION);
-        console.table(report.hypotheses);
+        console.log(lastDiagnosticReportText);
         console.groupEnd();
 
         return report;
@@ -135,10 +144,11 @@
 
         if (isDashboardLoading) return;
 
-        var workspaceBody = document.querySelector('.workspace-page-content') ||
-                            document.querySelector('.workspace-body') || 
-                            document.querySelector('.layout-main-section') || 
+        // SELETOR HIERÁRQUICO PROTEGIDO CONTRA LIMPEZA DO LOADER DE WORKSPACE DO FRAPPE
+        var workspaceBody = document.querySelector('.layout-main-section') || 
                             document.querySelector('.page-body') ||
+                            document.querySelector('.workspace-page-content') ||
+                            document.querySelector('.workspace-body') || 
                             document.querySelector('.page-container') ||
                             document.querySelector('.workspace-page') ||
                             document.querySelector('#body');
@@ -155,7 +165,7 @@
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
-            dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px;';
+            dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
         }
 
         if (workspaceBody.firstChild !== dashDiv) {
@@ -625,6 +635,7 @@
             renderStockDashboard();
         });
 
+        // BOTÃO RODAR TESTE DE DIAGNÓSTICO COM BOTÃO DE CÓPIA DE CLIPBOARD
         $(document).off('click', '#cdc-btn-run-diag').on('click', '#cdc-btn-run-diag', function(e) {
             e.preventDefault();
             var report = window._cdc_run_diagnostics();
@@ -633,19 +644,47 @@
             }).join('\n\n');
 
             var modalContent = `
-                <div style="font-family: monospace; font-size: 11px; text-align: left; background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; line-height: 1.5; max-height: 400px; overflow-y: auto;">
-                    <div style="color: #60a5fa; font-weight: bold; margin-bottom: 8px;">📅 DATA / HORA: ${report.timestamp}</div>
-                    <div style="color: #34d399; font-weight: bold; margin-bottom: 12px;">⚙️ ASSET VERSION: ${report.asset_version}</div>
-                    <hr style="border-color: #334155; margin-bottom: 12px;">
-                    <pre style="color: inherit; background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">${statusMsg}</pre>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 14px; border-radius: 8px;">
+                        <span style="color: #38bdf8; font-weight: 800; font-size: 12px;">📋 Relatório de Inquérito CDC</span>
+                        <button id="cdc-btn-copy-diag" class="btn btn-xs" style="background: #2563eb; color: #ffffff; border: none; font-weight: 700; font-size: 11px; padding: 4px 12px; border-radius: 6px; cursor: pointer;">
+                            📋 Copiar Diagnóstico
+                        </button>
+                    </div>
+                    <div style="font-family: monospace; font-size: 11px; text-align: left; background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; line-height: 1.5; max-height: 380px; overflow-y: auto;">
+                        <div style="color: #60a5fa; font-weight: bold; margin-bottom: 8px;">📅 DATA / HORA: ${report.timestamp}</div>
+                        <div style="color: #34d399; font-weight: bold; margin-bottom: 12px;">⚙️ ASSET VERSION: ${report.asset_version}</div>
+                        <hr style="border-color: #334155; margin-bottom: 12px;">
+                        <pre style="color: inherit; background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">${statusMsg}</pre>
+                    </div>
                 </div>
             `;
 
-            frappe.msgprint({
+            var d = frappe.msgprint({
                 title: __('Inquérito de Diagnóstico CDC - Suíte de Validação'),
                 indicator: 'blue',
                 message: modalContent
             });
+
+            // ATRIBUIÇÃO DE EVENTO DE CÓPIA PARA ÁREA DE TRANSFERÊNCIA
+            setTimeout(function() {
+                $('#cdc-btn-copy-diag').off('click').on('click', function(ev) {
+                    ev.preventDefault();
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(lastDiagnosticReportText).then(function() {
+                            frappe.show_alert({ message: __('📋 Diagnóstico copiado com sucesso!'), indicator: 'green' });
+                        });
+                    } else {
+                        var tempInput = document.createElement('textarea');
+                        tempInput.value = lastDiagnosticReportText;
+                        document.body.appendChild(tempInput);
+                        tempInput.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(tempInput);
+                        frappe.show_alert({ message: __('📋 Diagnóstico copiado com sucesso!'), indicator: 'green' });
+                    }
+                });
+            }, 200);
         });
 
         $(document).off('click', '.cdc-period-btn').on('click', '.cdc-period-btn', function(e) {
