@@ -2,25 +2,23 @@
     'use strict';
 
     var currentSelectedUnit = 'All';
-    var currentSelectedPeriod = 'quarter'; // Trimestre por padrão
-    var showReceipts = true;
-    var showIssues = true;
-    var showTransfers = true;
+    var currentSelectedPeriod = 'quarter'; // Trimestre
+    var currentOccurrencesType = 'all'; // Todos
     var currentTableTypeFilter = 'all';
     var isDashboardLoading = false;
+    var lastFetchTime = 0;
 
     function isStockWorkspacePage() {
         var href = (window.location.href || '').toLowerCase();
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var routeStr = route.join('/').toLowerCase();
 
-        if (href.includes('/app/stock') || href.includes('workspace/stock') || href.includes('workspaces/stock')) {
-            return true;
-        }
-        if (routeStr.includes('stock')) {
+        // 1. Verificação por URL ou Rota Frappe
+        if (href.includes('/app/stock') || href.includes('workspace/stock') || href.includes('workspaces/stock') || routeStr.includes('stock')) {
             return true;
         }
 
+        // 2. Verificação por Elementos da Interface (Título da Página / Item do Menu Lateral)
         var pageTitle = ($('.page-title').text() || $('h1').text() || $('.title-text').text() || '').toLowerCase();
         var activeSidebar = ($('.sidebar-item.selected').text() || $('.desk-sidebar .selected').text() || '').toLowerCase();
 
@@ -33,16 +31,25 @@
 
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) return;
+
+        // Destravar travamentos de carregamento antigos após 6 segundos
+        if (isDashboardLoading && (Date.now() - lastFetchTime > 6000)) {
+            isDashboardLoading = false;
+        }
+
         if (isDashboardLoading) return;
 
+        // Localizar o contêiner principal da página no Frappe
         var workspaceBody = document.querySelector('.workspace-page-content') ||
                             document.querySelector('.workspace-body') || 
                             document.querySelector('.layout-main-section') || 
                             document.querySelector('.page-body') ||
                             document.querySelector('.page-container') ||
-                            document.querySelector('.workspace-page');
+                            document.querySelector('.workspace-page') ||
+                            document.querySelector('#body');
         if (!workspaceBody) return;
 
+        // Remover duplicados se existirem
         var existingDashboards = document.querySelectorAll('#cdc-stock-exec-dashboard');
         if (existingDashboards.length > 1) {
             for (var i = 1; i < existingDashboards.length; i++) {
@@ -54,26 +61,23 @@
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
-            dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%;';
-            
-            dashDiv.addEventListener('mousedown', function(e) { e.stopPropagation(); }, true);
-            dashDiv.addEventListener('mousemove', function(e) { e.stopPropagation(); }, true);
-            dashDiv.addEventListener('dragstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
-            dashDiv.addEventListener('selectstart', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+            dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px;';
         }
 
+        // Inserir no topo absoluto
         if (workspaceBody.firstChild !== dashDiv) {
             workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
         }
 
         isDashboardLoading = true;
+        lastFetchTime = Date.now();
 
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
             args: { 
                 selected_unit: currentSelectedUnit,
                 period: currentSelectedPeriod,
-                entry_type: 'all'
+                entry_type: currentOccurrencesType
             },
             callback: function(r) {
                 isDashboardLoading = false;
@@ -287,100 +291,55 @@
                     </div>
                 `;
 
-                // --- 6. GRÁFICO DE COLUNAS AGRUPADAS COM CHECKBOXES (EXATAMENTE COMO NA IMAGEM ENVIADA) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (ARQUITETURA EXACTA DO USUÁRIO) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
-                // Montar sub-gráficos por projeto com colunas verticais agrupadas lado a lado
                 var projectsChartsHTML = datasetsList.map(function(d) {
-                    var maxVal = Math.max.apply(null, d.occurrences.concat([2]));
-                    var topY = Math.ceil(maxVal * 1.2);
-                    var stepY = Math.max(Math.ceil(topY / 4), 1);
-
                     var globalIndex = 0;
-                    var monthColumnsHTML = groupedMonthsList.map(function(gm) {
-                        var weekColumnsHTML = gm.weeks.map(function(wLbl) {
-                            var valReceipt = d.occurrences[globalIndex] || 0;
-                            var valIssue = (valReceipt > 0 && globalIndex % 3 === 0) ? 1 : 0; // Exemplo de saídas reais
-                            var valTransfer = 0;
+                    var monthBlocksHTML = groupedMonthsList.map(function(gm) {
+                        var weekItemsHTML = gm.weeks.map(function(wLbl) {
+                            var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            // Cálculo das alturas das colunas
-                            var hReceipt = valReceipt > 0 ? Math.min(Math.max((valReceipt / topY) * 100, 12), 100) : 0;
-                            var hIssue = valIssue > 0 ? Math.min(Math.max((valIssue / topY) * 100, 12), 100) : 0;
-                            var hTransfer = valTransfer > 0 ? Math.min(Math.max((valTransfer / topY) * 100, 12), 100) : 0;
+                            var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
 
-                            // Renderização condicional conforme Checkboxes no Topo
-                            var colReceipt = showReceipts ? `
-                                <div style="display: flex; flex-direction: column; align-items: center; width: 14px;">
-                                    ${valReceipt > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #2563eb; margin-bottom: 2px;">${valReceipt}</span>` : ''}
-                                    <div style="width: 12px; height: ${hReceipt}px; background-color: #2563eb; border-radius: 3px 3px 0 0; min-height: ${valReceipt > 0 ? '12px' : '0'};" title="Entradas (${wLbl}): ${valReceipt}"></div>
-                                </div>
-                            ` : '';
-
-                            var colIssue = showIssues ? `
-                                <div style="display: flex; flex-direction: column; align-items: center; width: 14px;">
-                                    ${valIssue > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #dc2626; margin-bottom: 2px;">${valIssue}</span>` : ''}
-                                    <div style="width: 12px; height: ${hIssue}px; background-color: #dc2626; border-radius: 3px 3px 0 0; min-height: ${valIssue > 0 ? '12px' : '0'};" title="Saídas (${wLbl}): ${valIssue}"></div>
-                                </div>
-                            ` : '';
-
-                            var colTransfer = showTransfers ? `
-                                <div style="display: flex; flex-direction: column; align-items: center; width: 14px;">
-                                    ${valTransfer > 0 ? `<span style="font-size: 10px; font-weight: 800; color: #d97706; margin-bottom: 2px;">${valTransfer}</span>` : ''}
-                                    <div style="width: 12px; height: ${hTransfer}px; background-color: #f59e0b; border-radius: 3px 3px 0 0; min-height: ${valTransfer > 0 ? '12px' : '0'};" title="Transferências (${wLbl}): ${valTransfer}"></div>
-                                </div>
-                            ` : '';
+                            var customBarStyle = '';
+                            if (currentOccurrencesType === 'issue' && val > 0) {
+                                customBarStyle = 'background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 45%, #fca5a5 100%); border-color: #f87171;';
+                            }
 
                             return `
-                                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 38px;">
-                                    <!-- Grupo de Colunas Agrupadas lado a lado -->
-                                    <div style="height: 120px; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; border-bottom: 2px solid #cbd5e1; padding-bottom: 2px;">
-                                        ${colReceipt}
-                                        ${colIssue}
-                                        ${colTransfer}
+                                <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos">
+                                    <div class="bar-container">
+                                        ${valDisplay}
+                                        <div class="chart-bar" style="--value: ${val}; ${customBarStyle}"></div>
                                     </div>
-                                    <span style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">${wLbl}</span>
+                                    <span class="week-label">${wLbl}</span>
                                 </div>
                             `;
                         }).join('');
 
                         return `
-                            <div style="flex: ${gm.weeks.length}; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 160px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-                                <div style="background: #f1f5f9; color: #0f172a; font-size: 11px; font-weight: 800; border-radius: 6px; padding: 4px 8px; text-align: center; border: 1px solid #e2e8f0;">
-                                    🗓️ ${gm.month}
+                            <section class="month-block">
+                                <div class="weeks-row" role="list">
+                                    ${weekItemsHTML}
                                 </div>
-                                <div style="display: flex; align-items: flex-end; gap: 4px; justify-content: space-around;">
-                                    ${weekColumnsHTML}
-                                </div>
-                            </div>
+                                <h3 class="month-label">${gm.month}</h3>
+                            </section>
                         `;
                     }).join('');
 
                     return `
-                        <div style="padding: 18px; background: #f8fafc; border-radius: 14px; border: 1px solid #cbd5e1; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                                <span style="font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                                    <span style="width: 12px; height: 12px; border-radius: 3px; background-color: #2563eb; display: inline-block;"></span>
-                                    ${d.project}
-                                </span>
-                                <span class="badge-soft-primary" style="font-size: 12px; font-weight: 700; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
+                                <span>${d.project}</span>
+                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 700; margin-left: 6px;">${d.total_occurrences} lançamentos</span>
                             </div>
-
-                            <!-- Régua do Eixo Y + Colunas por Mês -->
-                            <div style="display: flex; align-items: flex-end; gap: 10px; overflow-x: auto;">
-                                <!-- Régua Eixo Y à Esquerda -->
-                                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 120px; font-size: 10px; font-weight: 700; color: #64748b; text-align: right; min-width: 36px; padding-bottom: 26px;">
-                                    <span>${topY} ┤</span>
-                                    <span>${stepY * 2} ┤</span>
-                                    <span>0 ┴</span>
-                                </div>
-
-                                <!-- Blocos de Meses Agrupados -->
-                                <div style="flex: 1; display: flex; gap: 12px; width: 100%;">
-                                    ${monthColumnsHTML}
-                                </div>
+                            <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}">
+                                ${monthBlocksHTML}
                             </div>
                         </div>
                     `;
@@ -388,53 +347,38 @@
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
-                        <!-- Cabeçalho do Card com Título, Checkboxes de Legenda e Seletor de Período -->
-                        <div class="cdc-exec-card-title" style="align-items: flex-start;">
-                            <div>
-                                <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">Monitoramento de Lançamentos</h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC (Gráfico de Colunas Agrupadas)</p>
+                        <div class="cdc-exec-card-title">
+                            <div class="cdc-exec-title-content">
+                                <h2>Monitoramento de Lançamentos</h2>
+                                <p>Volume de lançamentos por período e programa do CDC</p>
                             </div>
 
-                            <!-- Controles e Checkboxes (Idêntico à Imagem Exemplo) -->
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                                <!-- Checkboxes de Filtro de Séries -->
-                                <div style="display: flex; align-items: center; gap: 14px; background: #ffffff; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
-                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #1e40af; cursor: pointer; user-select: none;">
-                                        <input type="checkbox" id="cdc-check-receipts" ${showReceipts ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
-                                        <span style="display: inline-block; width: 12px; height: 12px; background: #2563eb; border-radius: 3px;"></span>
-                                        Entradas
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #991b1b; cursor: pointer; user-select: none;">
-                                        <input type="checkbox" id="cdc-check-issues" ${showIssues ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
-                                        <span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 3px;"></span>
-                                        Saídas
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #92400e; cursor: pointer; user-select: none;">
-                                        <input type="checkbox" id="cdc-check-transfers" ${showTransfers ? 'checked' : ''} style="cursor: pointer; width: 15px; height: 15px;">
-                                        <span style="display: inline-block; width: 12px; height: 12px; background: #f59e0b; border-radius: 3px;"></span>
-                                        Transferências
-                                    </label>
-                                </div>
-
-                                <!-- Seletor de Período -->
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 12px; font-weight: 700; color: #64748b;">Período:</span>
-                                    <select id="cdc-period-select" class="form-control" style="width: auto; height: 34px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid #cbd5e1; color: #0f172a; padding: 0 10px; cursor: pointer;">
-                                        <option value="quarter" ${currentSelectedPeriod === 'quarter' ? 'selected' : ''}>Trimestre</option>
+                            <div class="cdc-exec-filters">
+                                <label class="cdc-filter">
+                                    <span>Período</span>
+                                    <select id="cdc-period-select" aria-label="Selecionar período">
                                         <option value="month" ${currentSelectedPeriod === 'month' ? 'selected' : ''}>Mês</option>
+                                        <option value="quarter" ${currentSelectedPeriod === 'quarter' ? 'selected' : ''}>Trimestre</option>
                                         <option value="semester" ${currentSelectedPeriod === 'semester' ? 'selected' : ''}>Semestre</option>
                                         <option value="year" ${currentSelectedPeriod === 'year' ? 'selected' : ''}>Ano</option>
                                     </select>
-                                </div>
+                                </label>
+
+                                <label class="cdc-filter">
+                                    <span>Tipo</span>
+                                    <select id="cdc-type-select" aria-label="Selecionar tipo de lançamento">
+                                        <option value="all" ${currentOccurrencesType === 'all' ? 'selected' : ''}>Todos</option>
+                                        <option value="receipt" ${currentOccurrencesType === 'receipt' ? 'selected' : ''}>Entradas</option>
+                                        <option value="issue" ${currentOccurrencesType === 'issue' ? 'selected' : ''}>Saídas</option>
+                                    </select>
+                                </label>
                             </div>
                         </div>
 
-                        <!-- Gráficos Agrupados por Projeto -->
                         ${projectsChartsHTML}
                     </div>
                 `;
 
-                // MONTAGEM DA PÁGINA COMPLETA
                 dashDiv.innerHTML = `
                     ${selectorHeader}
                     ${top4CardsGrid}
@@ -445,6 +389,9 @@
                 `;
 
                 window._cdc_debug_dashboard_data = data;
+            },
+            error: function(err) {
+                isDashboardLoading = false;
             }
         });
     }
@@ -465,19 +412,9 @@
             renderStockDashboard();
         });
 
-        // HANDLERS DOS CHECKBOXES DE SÉRIE DO GRÁFICO AGRUPADO
-        $(document).off('change', '#cdc-check-receipts').on('change', '#cdc-check-receipts', function(e) {
-            showReceipts = $(this).is(':checked');
-            renderStockDashboard();
-        });
-
-        $(document).off('change', '#cdc-check-issues').on('change', '#cdc-check-issues', function(e) {
-            showIssues = $(this).is(':checked');
-            renderStockDashboard();
-        });
-
-        $(document).off('change', '#cdc-check-transfers').on('change', '#cdc-check-transfers', function(e) {
-            showTransfers = $(this).is(':checked');
+        $(document).off('change', '#cdc-type-select').on('change', '#cdc-type-select', function(e) {
+            e.stopPropagation();
+            currentOccurrencesType = $(this).val();
             renderStockDashboard();
         });
 
