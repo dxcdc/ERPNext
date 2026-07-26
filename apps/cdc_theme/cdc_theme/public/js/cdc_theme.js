@@ -123,47 +123,77 @@
 
     // HELPER PARA ANOTAR QUANTIDADES NO TOPO DAS BARRAS DO FRAPPE.CHART
     function annotateChartValuesOnTop(containerId) {
-        setTimeout(function() {
+        function doAnnotate() {
             var container = document.querySelector(containerId);
             if (!container) return;
 
             var svg = container.querySelector('svg');
             if (!svg) return;
 
+            // Remove anotações anteriores
             svg.querySelectorAll('.cdc-bar-value-label').forEach(function(el) { el.remove(); });
 
-            var bars = svg.querySelectorAll('rect.bar, rect.dataset-bar, rect');
-            bars.forEach(function(rect) {
+            // Pega o viewBox para entender o espaço disponível
+            var svgH = parseFloat(svg.getAttribute('height') || svg.viewBox.baseVal.height || 300);
+
+            // Seleciona todos os rect do SVG
+            var allRects = svg.querySelectorAll('rect');
+            allRects.forEach(function(rect) {
                 var x = parseFloat(rect.getAttribute('x') || '0');
                 var y = parseFloat(rect.getAttribute('y') || '0');
                 var w = parseFloat(rect.getAttribute('width') || '0');
                 var h = parseFloat(rect.getAttribute('height') || '0');
 
-                if (w > 2 && h > 2) {
-                    var titleEl = rect.querySelector('title');
-                    var valStr = titleEl ? titleEl.textContent : (rect.getAttribute('data-value') || '');
-                    var match = valStr.match(/:\s*(\d+)/) || valStr.match(/(\d+)/);
-                    var numVal = match ? match[1] : '';
+                // Ignora barras muito pequenas (altura ≤ 5 = valor 0 ou elemento estrutural)
+                // Ignora rects muito largos (fundo/eixo) ou muito finos (linhas de grade)
+                if (w < 4 || h < 6 || w > 120) return;
 
-                    if (numVal && parseInt(numVal, 10) > 0) {
-                        var textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        textEl.setAttribute('x', x + (w / 2));
-                        textEl.setAttribute('y', Math.max(y - 4, 11));
-                        textEl.setAttribute('text-anchor', 'middle');
-                        textEl.setAttribute('font-size', '10px');
-                        textEl.setAttribute('font-weight', '800');
-                        textEl.setAttribute('fill', '#0f172a');
-                        textEl.classList.add('cdc-bar-value-label');
-                        textEl.textContent = numVal;
+                // Verifica se tem fill colorido (não transparente, não branco, não cinza claro de fundo)
+                var fill = rect.getAttribute('fill') || window.getComputedStyle(rect).fill || '';
+                if (!fill || fill === 'none' || fill === 'transparent' ||
+                    fill === 'rgb(255, 255, 255)' || fill === '#ffffff' ||
+                    fill === 'rgb(248, 250, 252)' || fill === '#f8fafc') return;
 
-                        if (rect.parentNode) {
-                            rect.parentNode.appendChild(textEl);
-                        }
-                    }
+                // Extrai o valor: tenta <title>, depois atributos, depois tooltip data
+                var numVal = 0;
+                var titleEl = rect.querySelector('title');
+                if (titleEl) {
+                    var raw = titleEl.textContent || '';
+                    // Formatos: "Maio: 42", "42", "dataset: 42"
+                    var m = raw.match(/:\s*([0-9]+(?:\.[0-9]+)?)/) || raw.match(/^([0-9]+(?:\.[0-9]+)?)/);
+                    if (m) numVal = parseFloat(m[1]);
+                }
+                if (!numVal) {
+                    var dv = rect.getAttribute('data-value') || rect.getAttribute('data-point-value') || '';
+                    if (dv) numVal = parseFloat(dv);
+                }
+
+                if (numVal > 0) {
+                    var labelY = Math.max(y - 5, 12);
+                    var textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    textEl.setAttribute('x', x + (w / 2));
+                    textEl.setAttribute('y', labelY);
+                    textEl.setAttribute('text-anchor', 'middle');
+                    textEl.setAttribute('font-size', '10');
+                    textEl.setAttribute('font-weight', '800');
+                    textEl.setAttribute('fill', '#0f172a');
+                    textEl.setAttribute('pointer-events', 'none');
+                    textEl.classList.add('cdc-bar-value-label');
+                    textEl.textContent = Math.round(numVal);
+
+                    // Adiciona no mesmo grupo do rect para herdar transformações
+                    var parent = rect.parentNode || svg;
+                    parent.appendChild(textEl);
                 }
             });
-        }, 450);
+        }
+
+        // Primeira tentativa após 700ms
+        setTimeout(doAnnotate, 700);
+        // Segunda tentativa após 1300ms (retry caso frappe.Chart ainda estivesse renderizando)
+        setTimeout(doAnnotate, 1300);
     }
+
 
     // --- VALIDAÇÃO ESTRITA DE ROTA SPA DO FRAPPE ---
     function isStockWorkspacePage() {
