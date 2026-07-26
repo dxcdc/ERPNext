@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v2.3.0-20260726_1340-BOTH-SVG-AND-CUSTOM-CHARTS';
+    var SYSTEM_ASSET_VERSION = 'v2.4.0-20260726_1345-SINGLE-MAIN-CHART-ONLY';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
@@ -269,15 +269,15 @@
             details: 'Versão em execução: ' + SYSTEM_ASSET_VERSION
         });
 
-        // H7: Inspeção dos Cards de Projeto Restaurados (.cdc-project-card)
-        var projectCards = document.querySelectorAll('.cdc-project-card');
-        var h7Passed = projectCards.length > 0;
+        // H7: Validação do Card Único Principal de Monitoramento
+        var mainCardEl = document.getElementById('cdc-main-svg-chart');
+        var h7Passed = !!mainCardEl;
         if (!h7Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 7,
-            name: 'Cards Individuais de Projeto (.cdc-project-card)',
+            name: 'Card Único de Monitoramento de Lançamentos',
             passed: h7Passed,
-            details: h7Passed ? projectCards.length + ' cards de projeto ativos e renderizados no DOM' : '❌ ALERTA: 0 cards de projeto no DOM'
+            details: h7Passed ? 'Apenas o Gráfico Principal de Lançamentos ativo no DOM conforme solicitado' : '❌ ALERTA: Card Principal não encontrado'
         });
 
         // H8: Restauração da Posição de Scroll (sessionStorage)
@@ -289,11 +289,11 @@
             details: 'Posição de scroll memorizada em sessionStorage (' + Math.round(parseFloat(savedScroll)) + 'px Y)'
         });
 
-        // H9: Grupos de Mês Estruturados em Todos os Cards
+        // H9: Grupos de Mês Estruturados no Card Principal
         var monthGroupsCount = document.querySelectorAll('.month-group-card').length;
         report.hypotheses.push({
             id: 9,
-            name: 'Grupos de Mês Estruturados (Cores por Mês + S1, S2...)',
+            name: 'Grupos de Mês Estruturados no Card Principal',
             passed: monthGroupsCount > 0,
             details: monthGroupsCount > 0 ? monthGroupsCount + ' grupos de mês coloridos com rótulos S1, S2 em baixo' : '❌ ALERTA: 0 grupos de mês'
         });
@@ -680,7 +680,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GRÁFICO PRINCIPAL COM AMBOS SVG INTERATIVO E ESTRUTURA POR MÊS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GRÁFICO ÚNICO PRINCIPAL EXCLUSIVO) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -723,33 +723,6 @@
 
                 var isIssue = (currentOccurrencesType === 'issue');
 
-                // CONSTRUÇÃO DOS CARDS INDIVIDUAIS COM AMBAS AS VISUALIZAÇÕES
-                var projectsBarChartsHTML = datasetsList.map(function(d, pIdx) {
-                    var nativeChartContainerId = `cdc-project-native-chart-${pIdx}`;
-                    var customChartContainerId = `cdc-project-custom-chart-${pIdx}`;
-                    var typeBadgeLabel = (currentOccurrencesType === 'receipt') ? 'lançamentos de entrada' : ((currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos totais');
-
-                    return `
-                        <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${isIssue ? '#dc2626' : d.color}; display: inline-block;"></span>
-                                    <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
-                                </div>
-                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px; background: #eff6ff; color: #2563eb; border-radius: 6px;">
-                                    ${d.total_occurrences} ${typeBadgeLabel}
-                                </span>
-                            </div>
-
-                            <!-- 1. GRÁFICO SVG FRAPPE.CHART -->
-                            <div id="${nativeChartContainerId}" style="width: 100%; min-height: 170px; margin-bottom: 12px; background: #fafafa; border-radius: 8px; padding: 6px;"></div>
-
-                            <!-- 2. ESTRUTURA CUSTOMIZADA POR MÊS COM CORES E S1 S2 ABAIXO DAS BARRAS -->
-                            <div id="${customChartContainerId}" style="border-top: 1px dashed #cbd5e1; padding-top: 10px; margin-top: 6px;"></div>
-                        </div>
-                    `;
-                }).join('');
-
                 var discreteDiagBtn = `
                     <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 700; font-size: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 2px 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;" title="Rodar Inquérito de Diagnóstico CDC">
                         <span>🔍 Diag</span>
@@ -758,7 +731,7 @@
                 `;
 
                 var customMainChartCard = `
-                    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
+                    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin-bottom: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <span style="font-size: 15px; font-weight: 800; color: #0f172a;">📊 Gráfico Principal de Lançamentos</span>
@@ -799,7 +772,6 @@
                         </div>
 
                         ${customMainChartCard}
-                        ${projectsBarChartsHTML}
                     </div>
                 `;
 
@@ -890,39 +862,6 @@
                             renderCustomStructuredMonthChart('#cdc-native-frappe-chart', activeDataset, groupedMonthsList, isIssue, true);
                         }
                     }
-
-                    // 3. RENDERIZAÇÃO DOS GRÁFICOS SVG NATIVOS E ESTRUTURAS CUSTOMIZADAS DOS PROJETOS INDIVIDUAIS
-                    datasetsList.forEach(function(ds, pIdx) {
-                        var nativeContainerId = `#cdc-project-native-chart-${pIdx}`;
-                        var customContainerId = `#cdc-project-custom-chart-${pIdx}`;
-
-                        if (document.querySelector(nativeContainerId) && window.frappe && window.frappe.Chart) {
-                            try {
-                                new frappe.Chart(nativeContainerId, {
-                                    title: ds.project,
-                                    data: {
-                                        labels: ptBrLabels,
-                                        datasets: [{
-                                            name: ds.project,
-                                            type: 'bar',
-                                            values: ds.occurrences
-                                        }]
-                                    },
-                                    type: 'bar',
-                                    height: 170,
-                                    colors: [isIssue ? '#dc2626' : (ds.color || '#2563eb')],
-                                    axisOptions: { xIsSeries: true },
-                                    barOptions: { spaceRatio: 0.4 }
-                                });
-
-                                annotateChartValuesOnTop(nativeContainerId);
-                            } catch (errProj) {
-                                console.error('Erro no gráfico SVG individual:', errProj);
-                            }
-                        }
-
-                        renderCustomStructuredMonthChart(customContainerId, ds, groupedMonthsList, isIssue, false);
-                    });
 
                     restoreScrollPosition();
                     window._cdc_run_diagnostics();
