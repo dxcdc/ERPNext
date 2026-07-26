@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.9.0-20260725_2330-SCROLL-STATE-PRESERVATION';
+    var SYSTEM_ASSET_VERSION = 'v2.1.0-20260725_2335-MONTH-COLOR-GROUPED-BARS';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
@@ -16,34 +16,94 @@
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
 
-    // REGISTRO DO EVENTO DE SCROLL E DESLIGAMENTO DA PÁGINA (SALVAR POSIÇÃO EM F5)
-    window.addEventListener('beforeunload', function() {
-        if (isStockWorkspacePage()) {
-            var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-            sessionStorage.setItem('cdc_scroll_y', scrollY);
-        }
-    });
+    // PALETA DE CORES POR MÊS E TIPO (ENTRADA / SAÍDA)
+    var MONTH_COLORS = ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6']; // Maio (Verde), Junho (Azul), Julho (Laranja), Agosto (Roxo)
+    var ISSUE_COLORS = ['#f87171', '#ef4444', '#dc2626', '#b91c1c']; // Tons de Vermelho para Saídas
 
-    $(window).on('scroll', function() {
+    // CAPTURA DA POSIÇÃO EXATA DE SCROLL TANTO DA JANELA QUANTO DOS CONTEÎNERES INTERNOS DO FRAPPE
+    function getActualScrollTop() {
+        var mainEl = document.querySelector('.page-container') || document.querySelector('.layout-main-section') || document.querySelector('#body');
+        var winScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+        var elScroll = mainEl ? mainEl.scrollTop : 0;
+        return Math.max(winScroll, elScroll);
+    }
+
+    function saveCurrentScrollState() {
         if (isStockWorkspacePage()) {
-            var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-            if (scrollY > 50) {
-                sessionStorage.setItem('cdc_scroll_y', scrollY);
+            var y = getActualScrollTop();
+            if (y > 0) {
+                sessionStorage.setItem('cdc_scroll_y', y);
             }
         }
-    });
+    }
+
+    window.addEventListener('beforeunload', saveCurrentScrollState);
+    $(window).on('scroll', saveCurrentScrollState);
+    $(document).on('scroll', '.page-container, .layout-main-section, #body', saveCurrentScrollState);
 
     function restoreScrollPosition() {
         var savedScrollY = sessionStorage.getItem('cdc_scroll_y');
         if (savedScrollY && parseFloat(savedScrollY) > 0) {
             var targetY = parseFloat(savedScrollY);
             setTimeout(function() {
-                window.scrollTo({
-                    top: targetY,
-                    behavior: 'smooth'
-                });
-            }, 400);
+                window.scrollTo(0, targetY);
+                document.documentElement.scrollTop = targetY;
+                var mainEl = document.querySelector('.page-container') || document.querySelector('.layout-main-section') || document.querySelector('#body');
+                if (mainEl) mainEl.scrollTop = targetY;
+            }, 350);
         }
+    }
+
+    // HELPER PARA CONSTRUIR O GRÁFICO ESTRUTURADO POR MÊS E SEMANA
+    function buildStructuredMonthGroupedChartHTML(dataset, groupedMonthsList, maxVal, isIssueType) {
+        var globalIndex = 0;
+
+        var monthCardsHTML = groupedMonthsList.map(function(gm, mIdx) {
+            var monthColor = isIssueType ? (ISSUE_COLORS[mIdx % ISSUE_COLORS.length]) : (MONTH_COLORS[mIdx % MONTH_COLORS.length]);
+            var weeksArr = gm.weeks || ['S1', 'S2', 'S3', 'S4'];
+
+            var weekBarsHTML = weeksArr.map(function(wLbl) {
+                var val = dataset.occurrences[globalIndex] || 0;
+                globalIndex++;
+
+                var barHeightPx = val > 0 ? Math.max(Math.round((val / maxVal) * 90), 14) : 4;
+                var barBg = val > 0 ? monthColor : '#e2e8f0';
+
+                return `
+                    <div style="display: flex; flex-direction: column; align-items: center; min-width: 34px;" class="week-bar-item">
+                        <span style="font-size: 11px; font-weight: 800; color: ${val > 0 ? '#0f172a' : '#cbd5e1'}; margin-bottom: 4px;">${val > 0 ? val : '-'}</span>
+                        <div style="width: 100%; height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 4px;">
+                            <div class="chart-bar-pill" style="width: 18px; height: ${barHeightPx}px; background-color: ${barBg}; border-radius: 4px; transition: height 0.3s ease; box-shadow: ${val > 0 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};"></div>
+                        </div>
+                        <span style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">${wLbl}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="month-group-card" style="display: flex; flex-direction: column; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px 18px; flex: 1; min-width: 180px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display: flex; gap: 14px; justify-content: center; align-items: flex-end; width: 100%;">
+                        ${weekBarsHTML}
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 12px; padding-top: 6px; border-top: 3px solid ${monthColor}; width: 100%; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${gm.month}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div style="display: flex; align-items: flex-end; gap: 8px; overflow-x: auto; padding: 12px 4px;">
+                <div class="cdc-y-axis" style="display: flex; flex-direction: column; justify-content: space-between; height: 110px; font-size: 10px; font-weight: 700; color: #64748b; padding-right: 8px; border-right: 2px solid #cbd5e1; text-align: right; min-width: 32px; flex-shrink: 0; margin-bottom: 34px;">
+                    <span>${maxVal}</span>
+                    <span>${Math.round(maxVal / 2)}</span>
+                    <span>0 ┴</span>
+                </div>
+                <div style="display: flex; flex: 1; justify-content: space-around; gap: 16px;">
+                    ${monthCardsHTML}
+                </div>
+            </div>
+        `;
     }
 
     // --- HELPER PARA ANOTAR QUANTIDADES NO TOPO DAS BARRAS DO FRAPPE.CHART ---
@@ -154,9 +214,9 @@
         if (!hasNativeChartSVG) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
-            name: 'Renderização do Gráfico Nativo Consolidado (frappe.Chart)',
+            name: 'Gráfico Nativo Consolidado (frappe.Chart)',
             passed: hasNativeChartSVG,
-            details: hasNativeChartSVG ? 'Gráfico nativo frappe.Chart renderizado com SVG interativo no DOM' : '❌ ALERTA: Gráfico nativo ainda não inicializado'
+            details: hasNativeChartSVG ? 'Gráfico nativo renderizado com SVG no DOM' : '❌ ALERTA: Gráfico nativo não inicializado'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -214,15 +274,13 @@
             details: 'Posição de scroll memorizada em sessionStorage (' + Math.round(parseFloat(savedScroll)) + 'px Y)'
         });
 
-        // H9: Inspeção do Eixo Y Lateral
-        var yAxes = document.querySelectorAll('.cdc-y-axis');
-        var h9Passed = yAxes.length > 0;
-        if (!h9Passed) report.all_passed = false;
+        // H9: Grupos de Mês Estruturados com Cores e Rótulos S1 S2 abaixo das Barras
+        var monthGroupsCount = document.querySelectorAll('.month-group-card').length;
         report.hypotheses.push({
             id: 9,
-            name: 'Eixo Y Lateral de Valores (.cdc-y-axis)',
-            passed: h9Passed,
-            details: h9Passed ? yAxes.length + ' réguas de eixo Y ativas' : '❌ ALERTA: 0 réguas de eixo Y'
+            name: 'Grupos de Mês Estruturados (Cores por Mês + S1, S2...)',
+            passed: monthGroupsCount > 0,
+            details: monthGroupsCount > 0 ? monthGroupsCount + ' grupos de mês coloridos ativas com rótulos S1, S2 centralizados' : '❌ ALERTA: 0 grupos de mês'
         });
 
         // H10: Diagnóstico da Primeira Barra Pílula
@@ -607,7 +665,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (PRESERVAÇÃO DE SCROLL E FILTROS EM F5) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (ESTRUTURAÇÃO DAS BARRAS POR MÊS E SEMANAS S1, S2...) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -648,48 +706,20 @@
                     </div>
                 `;
 
+                // CONSTRUÇÃO DOS CARDS INDIVIDUAIS COM O NOVO DESIGN ESTRUTURADO (S1, S2 ABAIXO DAS BARRAS + CORES POR MÊS + NOME CENTRALIZADO)
                 var projectsBarChartsHTML = datasetsList.map(function(d, pIdx) {
                     var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
-                    var globalIndex = 0;
                     var nativeChartContainerId = `cdc-project-native-chart-${pIdx}`;
+                    var isIssue = (currentOccurrencesType === 'issue');
 
-                    var monthBlocksHTML = groupedMonthsList.map(function(gm) {
-                        var weeksArr = gm.weeks || ['S1', 'S2', 'S3', 'S4'];
-                        var weekItemsHTML = weeksArr.map(function(wLbl) {
-                            var val = d.occurrences[globalIndex] || 0;
-                            globalIndex++;
-
-                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 85), 14) : 4;
-                            var barColor = (currentOccurrencesType === 'issue' && val > 0) ? '#dc2626' : (val > 0 ? (d.color || '#2563eb') : '#e2e8f0');
-
-                            return `
-                                <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 36px;" class="week-block-item">
-                                    <div class="week-box" style="width: 100%; height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 4px; position: relative;">
-                                        <span style="font-size: 11px; font-weight: 800; color: ${val > 0 ? '#0f172a' : '#cbd5e1'}; position: absolute; top: 4px;">${val > 0 ? val : '-'}</span>
-                                        <div class="chart-bar-pill" style="width: 16px; height: ${barHeightPx}px; background-color: ${barColor}; border-radius: 4px; transition: height 0.3s ease;"></div>
-                                    </div>
-                                    <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 6px;">${wLbl}</span>
-                                </div>
-                            `;
-                        }).join('');
-
-                        return `
-                            <div class="month-group-container" style="display: flex; flex-direction: column; align-items: center; flex: 1; padding: 0 6px;">
-                                <div style="display: flex; gap: 6px; width: 100%;">
-                                    ${weekItemsHTML}
-                                </div>
-                                <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; margin-top: 6px;">${gm.month}</div>
-                            </div>
-                        `;
-                    }).join('');
-
+                    var monthGroupedStructureHTML = buildStructuredMonthGroupedChartHTML(d, groupedMonthsList, maxValInProject, isIssue);
                     var typeBadgeLabel = (currentOccurrencesType === 'receipt') ? 'lançamentos de entrada' : ((currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos totais');
 
                     return `
                         <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${isIssue ? '#dc2626' : d.color}; display: inline-block;"></span>
                                     <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
                                 </div>
                                 <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px; background: #eff6ff; color: #2563eb; border-radius: 6px;">
@@ -699,16 +729,8 @@
 
                             <div id="${nativeChartContainerId}" style="width: 100%; min-height: 180px; margin-bottom: 12px; background: #fafafa; border-radius: 8px; padding: 8px;"></div>
 
-                            <div style="display: flex; align-items: flex-end; gap: 12px; overflow-x: auto; padding: 4px 0; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
-                                <div class="cdc-y-axis" style="display: flex; flex-direction: column; justify-content: space-between; height: 110px; font-size: 10px; font-weight: 700; color: #64748b; padding-right: 6px; border-right: 2px solid #e2e8f0; text-align: right; min-width: 28px; flex-shrink: 0; margin-bottom: 22px;">
-                                    <span>${maxValInProject}</span>
-                                    <span>${Math.round(maxValInProject / 2)}</span>
-                                    <span>0 ┴</span>
-                                </div>
-
-                                <div style="display: flex; gap: 12px; flex: 1; align-items: flex-end;">
-                                    ${monthBlocksHTML}
-                                </div>
+                            <div style="border-top: 1px dashed #cbd5e1; padding-top: 12px; margin-top: 8px;">
+                                ${monthGroupedStructureHTML}
                             </div>
                         </div>
                     `;
@@ -742,7 +764,7 @@
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa do CDC</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos organizados com cores por mês e semanas S1, S2... centralizadas</p>
                             </div>
 
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
@@ -813,7 +835,7 @@
                             }
                         }
 
-                        // 2. Gráficos Individuais por Programa
+                        // 2. Gráficos Nativos por Programa
                         datasetsList.forEach(function(ds, pIdx) {
                             var containerId = '#cdc-project-native-chart-' + pIdx;
                             if (document.querySelector(containerId)) {
