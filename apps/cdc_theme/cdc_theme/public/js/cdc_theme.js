@@ -5,6 +5,7 @@
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos
     var currentTableTypeFilter = 'all';
+    var activeCategoriesMap = {}; // Controle de categorias ativas (checkboxes)
     var isDashboardLoading = false;
     var lastFetchTime = 0;
 
@@ -246,21 +247,61 @@
                     </div>
                 `;
 
-                // --- 5. COMPOSIÇÃO POR CATEGORIA ---
-                var categoriesList = (data.categories && data.categories.length > 0) ? data.categories : [];
-                var stackedSegments = categoriesList.map(function(c) {
-                    return `<div class="cdc-stacked-bar-segment" style="width: ${c.percent}%; background-color: ${c.color};" title="${c.label}: ${c.count} itens (${c.percent}%)"></div>`;
+                // --- 5. COMPOSIÇÃO POR CATEGORIA COM GRÁFICO ROSCA (DONUT CHART) + CHECKBOXES INTERATIVOS ---
+                var rawCategoriesList = (data.categories && data.categories.length > 0) ? data.categories : [];
+                
+                // Inicializar mapa de checkboxes ativos se ainda não existir
+                rawCategoriesList.forEach(function(c) {
+                    if (activeCategoriesMap[c.label] === undefined) {
+                        activeCategoriesMap[c.label] = true;
+                    }
+                });
+
+                // Filtrar categorias ativas conforme os Checkboxes
+                var activeCategories = rawCategoriesList.filter(function(c) {
+                    return activeCategoriesMap[c.label] !== false;
+                });
+
+                var activeCategoriesTotal = activeCategories.reduce(function(sum, c) { return sum + c.count; }, 0);
+
+                // Cálculo das fatias do Gráfico Rosca (SVG Donut Chart)
+                var accumulatedPercent = 0;
+                var donutSlicesSVG = activeCategories.map(function(c) {
+                    var pct = activeCategoriesTotal > 0 ? ((c.count / activeCategoriesTotal) * 100) : 0;
+                    var strokeDasharray = `${pct} ${100 - pct}`;
+                    var strokeDashoffset = 100 - accumulatedPercent + 25; // 25 compensa início no topo (12 horas)
+                    accumulatedPercent += pct;
+
+                    return `<circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="${c.color}" stroke-width="6" stroke-dasharray="${strokeDasharray}" stroke-dashoffset="${strokeDashoffset}" style="transition: all 0.3s ease;"></circle>`;
                 }).join('');
 
-                var legendItems = categoriesList.map(function(c) {
-                    return `
-                        <div style="padding: 6px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="background-color: ${c.color}; width: 10px; height: 10px; border-radius: 3px; display: inline-block;"></span>
-                                <span style="font-weight: 600; color: #1e293b; font-size: 12px;">${c.label}</span>
-                            </div>
-                            <span style="font-weight: 700; color: #0f172a; font-size: 12px;">${c.count} (${c.percent}%)</span>
+                var donutSVGChart = `
+                    <div style="position: relative; width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg width="160" height="160" viewBox="0 0 42 42" style="transform: rotate(-90deg); border-radius: 50%;">
+                            <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e2e8f0" stroke-width="6"></circle>
+                            ${donutSlicesSVG}
+                        </svg>
+                        <div style="position: absolute; text-align: center; pointer-events: none;">
+                            <div style="font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1;">${activeCategoriesTotal}</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px;">Itens</div>
                         </div>
+                    </div>
+                `;
+
+                // Legenda com Checkboxes Interativos
+                var categoryCheckboxItems = rawCategoriesList.map(function(c) {
+                    var isChecked = activeCategoriesMap[c.label] !== false;
+                    var displayPercent = activeCategoriesTotal > 0 && isChecked ? ((c.count / activeCategoriesTotal) * 100).toFixed(1) : c.percent;
+
+                    return `
+                        <label style="padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: all 0.15s ease;" class="cdc-cat-label-item">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" class="cdc-cat-checkbox" data-label="${c.label}" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;">
+                                <span style="background-color: ${c.color}; width: 12px; height: 12px; border-radius: 3px; display: inline-block;"></span>
+                                <span style="font-weight: 700; color: #1e293b; font-size: 12px;">${c.label}</span>
+                            </div>
+                            <span style="font-weight: 800; color: #0f172a; font-size: 12px;">${c.count} (${displayPercent}%)</span>
+                        </label>
                     `;
                 }).join('');
 
@@ -270,22 +311,25 @@
                 var categoryFullWidthCard = `
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
                         <div class="cdc-exec-card-title" style="margin-bottom: 6px;">
-                            <span>Composição por Categoria (Parametrizado por Qtd. de Itens)</span>
-                            <span style="font-size: 12px; font-weight: 700; color: #2563eb;">Total: ${totalItemsCount} Itens Ativos</span>
+                            <span>Composição por Categoria (Gráfico Rosca com Checkboxes)</span>
+                            <span style="font-size: 12px; font-weight: 700; color: #2563eb;">Total Geral: ${totalItemsCount} Itens</span>
                         </div>
-                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 16px;">
                             📍 Unidade Filtrada: <span style="color: #0f172a; font-weight: 700;">${unitDisplay}</span>
                         </div>
-                        <div class="cdc-stacked-bar" style="height: 18px; border-radius: 8px; margin: 12px 0;">
-                            ${stackedSegments}
-                        </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-top: 14px;">
-                            ${legendItems}
+
+                        <!-- Lado a Lado: Gráfico Rosca (Esquerda) + Checkboxes (Direita) -->
+                        <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                            ${donutSVGChart}
+
+                            <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; min-width: 300px;">
+                                ${categoryCheckboxItems}
+                            </div>
                         </div>
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (CÁLCULO PROPORCIONAL DE ALTURA) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -299,7 +343,6 @@
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            // Cálculo da porcentagem de altura proporcional entre 0% e 100%
                             var heightPct = val > 0 ? Math.min(Math.max((val / maxValInProject) * 100, 18), 100) : 0;
                             var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
 
@@ -418,6 +461,16 @@
             e.stopPropagation();
             currentOccurrencesType = $(this).val();
             renderStockDashboard();
+        });
+
+        // CHECKBOXES INTERATIVOS DO GRÁFICO ROSCA DE CATEGORIAS
+        $(document).off('change', '.cdc-cat-checkbox').on('change', '.cdc-cat-checkbox', function(e) {
+            e.stopPropagation();
+            var lbl = $(this).data('label');
+            if (lbl) {
+                activeCategoriesMap[lbl] = $(this).is(':checked');
+                renderStockDashboard();
+            }
         });
 
         $(document).off('click', '.cdc-table-filter-btn').on('click', '.cdc-table-filter-btn', function(e) {
