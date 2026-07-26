@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.0.7-20260725_2250';
+    var SYSTEM_ASSET_VERSION = 'v1.0.8-20260725_2255';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -123,7 +123,7 @@
             id: 9,
             name: 'Contêineres de Semana e Barras (.bar-container)',
             passed: barContainers.length > 0,
-            details: barContainers.length > 0 ? barContainers.length + ' contêineres de semana e ' + weekItems.length + ' blocos semanais no DOM' : '❌ ALERTA: 0 elementos .bar-container encontrados no DOM'
+            details: barContainers.length > 0 ? barContainers.length + ' contêineres .bar-container e ' + weekItems.length + ' blocos .week-item no DOM' : '❌ ALERTA: 0 elementos .bar-container encontrados no DOM'
         });
 
         // H10: Diagnóstico do Estilo Computado da Primeira Barra
@@ -526,7 +526,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GARANTIA DE RENDERIZAÇÃO DE BARRAS DE MÊS/SEMANA) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GARANTIA DE RENDERIZAÇÃO DE BARRAS DE MÊS/SEMANA EM DIVS PADRONIZADAS) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -553,7 +553,8 @@
                     var globalIndex = 0;
 
                     var monthBlocksHTML = groupedMonthsList.map(function(gm) {
-                        var weekItemsHTML = gm.weeks.map(function(wLbl) {
+                        var weeksArr = gm.weeks || ['S1', 'S2', 'S3', 'S4'];
+                        var weekItemsHTML = weeksArr.map(function(wLbl) {
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
@@ -582,12 +583,12 @@
                         }).join('');
 
                         return `
-                            <section class="month-block" style="display: flex; flex: 1; flex-direction: column; min-width: 240px; padding: 0 10px;">
+                            <div class="month-block" style="display: flex; flex: 1; flex-direction: column; min-width: 240px; padding: 0 10px;">
                                 <div class="weeks-row" role="list" style="display: flex; flex: 1; align-items: flex-end; justify-content: space-around; gap: 6px; min-height: 150px;">
                                     ${weekItemsHTML}
                                 </div>
-                                <h3 class="month-label" style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; padding: 8px 0 4px; margin: 0;">${gm.month}</h3>
-                            </section>
+                                <div class="month-label" style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; padding: 8px 0 4px; margin: 0;">${gm.month}</div>
+                            </div>
                         `;
                     }).join('');
 
@@ -609,9 +610,9 @@
 
                 lastRenderedHTMLStringLength = projectsBarChartsHTML.length;
 
-                // BOTÃO DE DIAGNÓSTICO DISCRETO NO CANTO ESQUERDO DO CABEÇALHO DO CARD
+                // BOTÃO DE DIAGNÓSTICO DISCRETO NO CANTO ESQUERDO AO LADO DO TÍTULO
                 var discreteDiagBtn = `
-                    <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 700; font-size: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 3px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;" title="Rodar Inquérito de Diagnóstico CDC">
+                    <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 700; font-size: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 2px 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 10px;" title="Rodar Inquérito de Diagnóstico CDC">
                         <span>🔍 Diag</span>
                         <span style="color: #2563eb; font-size: 10px;">⚡</span>
                     </button>
@@ -619,16 +620,18 @@
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
-                        <div class="cdc-exec-card-title" style="align-items: center; flex-wrap: wrap; gap: 16px;">
+                        <!-- Cabeçalho do Card com Título no Canto Esquerdo e Filtros (Período & Tipo) Alinhados no Canto Superior Direito -->
+                        <div class="cdc-exec-card-title" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px;">
                             <div>
-                                <h2 style="display: flex; align-items: center;">
+                                <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center;">
                                     Monitoramento de Lançamentos
                                     ${discreteDiagBtn}
                                 </h2>
-                                <p>Volume de lançamentos por período e programa em Gráficos de Barra</p>
+                                <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Volume de lançamentos por período e programa em Gráficos de Barra</p>
                             </div>
 
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                            <!-- Filtros Alinhados no Canto Superior Direito -->
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="font-size: 11px; font-weight: 700; color: #64748b;">Período:</span>
                                     ${periodButtonsHTML}
