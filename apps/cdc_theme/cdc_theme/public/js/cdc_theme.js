@@ -378,7 +378,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (ABORDAGEM EM BARRAS + FILTROS DE BOTÕES PERÍODO E TIPO) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (TODOS OS GRÁFICOS EM BARRAS POR PROGRAMA) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -412,11 +412,12 @@
                             var heightPct = val > 0 ? Math.min(Math.max((val / maxValInProject) * 100, 18), 100) : 0;
                             var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
 
+                            var barColor = d.color || '#2563eb';
                             var customBarStyle = '';
                             if (currentOccurrencesType === 'issue' && val > 0) {
                                 customBarStyle = 'background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 45%, #fca5a5 100%); border: 1px solid #f87171;';
                             } else if (val > 0) {
-                                customBarStyle = 'background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 45%, #93c5fd 100%); border: 1px solid #2563eb;';
+                                customBarStyle = `background: linear-gradient(180deg, #ffffff 0%, #f8fafc 45%, ${barColor} 100%); border: 1px solid ${barColor};`;
                             } else {
                                 customBarStyle = 'background: #f1f5f9; border: 1px solid #e2e8f0;';
                             }
@@ -444,10 +445,12 @@
 
                     return `
                         <div style="margin-bottom: 22px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
-                            <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
-                                <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
-                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 700; margin-left: 6px;">${d.total_occurrences} lançamentos</span>
+                            <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
+                                    <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
+                                </div>
+                                <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
                             </div>
                             <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}">
                                 ${monthBlocksHTML}
@@ -462,7 +465,7 @@
                         <div class="cdc-exec-card-title" style="align-items: center; flex-wrap: wrap; gap: 16px;">
                             <div>
                                 <h2>Monitoramento de Lançamentos</h2>
-                                <p>Volume de lançamentos em barras por período e programa do CDC</p>
+                                <p>Volume de lançamentos por período e programa em Gráficos de Barra</p>
                             </div>
 
                             <!-- Botões Interativos de Filtro (Período & Tipo) -->
@@ -478,6 +481,7 @@
                             </div>
                         </div>
 
+                        <!-- Gráficos de Barras de Todos os Programas -->
                         ${projectsBarChartsHTML}
                     </div>
                 `;
