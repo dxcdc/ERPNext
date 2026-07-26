@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.0.9-20260725_2300-SVG';
+    var SYSTEM_ASSET_VERSION = 'v1.1.0-20260725_2305-NAMESPACE-FIX';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -21,12 +21,14 @@
         var report = {
             timestamp: dateFormatted,
             asset_version: SYSTEM_ASSET_VERSION,
+            all_passed: true,
             hypotheses: []
         };
 
         // H1: Presença do Contêiner Principal no DOM
         var dash = document.getElementById('cdc-stock-exec-dashboard');
         var isAttached = !!(dash && dash.parentNode && document.body.contains(dash));
+        if (!isAttached) report.all_passed = false;
         report.hypotheses.push({
             id: 1,
             name: 'Presença do Painel no DOM',
@@ -37,6 +39,7 @@
         // H2: Recebimento de Payload de Dados da API Python Backend
         var hasData = !!(window._cdc_debug_dashboard_data && window._cdc_debug_dashboard_data.occurrences_data);
         var datasetsCount = hasData ? (window._cdc_debug_dashboard_data.occurrences_data.datasets || []).length : 0;
+        if (!hasData || datasetsCount === 0) report.all_passed = false;
         report.hypotheses.push({
             id: 2,
             name: 'Recebimento de Dados da API Python',
@@ -59,11 +62,12 @@
         });
 
         var h3Passed = visibleRectsCount > 0;
+        if (!h3Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
             name: 'Renderização Física das Barras SVG (Pixel Height)',
             passed: h3Passed,
-            details: h3Passed ? visibleRectsCount + '/' + totalRectsCount + ' retângulos SVG renderizados fisicamente (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalRectsCount + ' barras SVG no DOM'
+            details: h3Passed ? visibleRectsCount + '/' + totalRectsCount + ' retângulos SVG renderizados fisicamente (Alturas: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: 0 barras SVG visíveis (' + totalRectsCount + ' no DOM)'
         });
 
         // H4: Visibilidade e Opacidade do Estilo CSS
@@ -74,6 +78,7 @@
                 isVisible = false;
             }
         }
+        if (!isVisible) report.all_passed = false;
         report.hypotheses.push({
             id: 4,
             name: 'Visibilidade de Estilo CSS do Card',
@@ -84,6 +89,7 @@
         // H5: Validação da Rota e URL do SPA
         var currentRoute = (frappe.get_route && frappe.get_route()) ? frappe.get_route().join('/') : '';
         var isStockRoute = isStockWorkspacePage();
+        if (!isStockRoute) report.all_passed = false;
         report.hypotheses.push({
             id: 5,
             name: 'Validação da Rota SPA do Frappe',
@@ -100,48 +106,53 @@
         });
 
         // H7: Inspeção do Tamanho da String HTML de Saída
+        var h7Passed = lastRenderedHTMLStringLength > 500;
+        if (!h7Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 7,
             name: 'Tamanho da String HTML Gerada',
-            passed: lastRenderedHTMLStringLength > 500,
-            details: lastRenderedHTMLStringLength > 500 ? 'HTML gerado com ' + lastRenderedHTMLStringLength + ' caracteres' : '❌ ERRO: String HTML vazia'
+            passed: h7Passed,
+            details: h7Passed ? 'HTML gerado com ' + lastRenderedHTMLStringLength + ' caracteres' : '❌ ERRO: String HTML vazia'
         });
 
-        // H8: Inspeção da Árvore de Nós Internos (.project-chart-box)
-        var chartBoxes = document.querySelectorAll('.project-chart-box');
+        // H8: Inspeção de Contêineres CDC (.cdc-project-chart-container)
+        var chartBoxes = document.querySelectorAll('.cdc-project-chart-container');
+        var h8Passed = chartBoxes.length > 0;
+        if (!h8Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 8,
-            name: 'Contêineres Internos de Gráfico (.project-chart-box)',
-            passed: chartBoxes.length > 0,
-            details: chartBoxes.length > 0 ? chartBoxes.length + ' contêineres de gráfico ativos no DOM' : '❌ ALERTA: 0 contêineres .project-chart-box'
+            name: 'Contêineres de Gráfico Nativos CDC (.cdc-project-chart-container)',
+            passed: h8Passed,
+            details: h8Passed ? chartBoxes.length + ' contêineres CDC ativos no DOM' : '❌ ALERTA: 0 contêineres CDC encontrados no DOM'
         });
 
         // H9: Inspeção dos Gráficos SVG Renderizados (.cdc-svg-chart)
         var svgCharts = document.querySelectorAll('.cdc-svg-chart');
+        var h9Passed = svgCharts.length > 0;
+        if (!h9Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 9,
             name: 'Gráficos Vetoriais SVG no DOM (.cdc-svg-chart)',
-            passed: svgCharts.length > 0,
-            details: svgCharts.length > 0 ? svgCharts.length + ' gráficos SVG independentes ativos com ' + totalRectsCount + ' retângulos de barra no DOM' : '❌ ALERTA: 0 gráficos SVG encontrados no DOM'
+            passed: h9Passed,
+            details: h9Passed ? svgCharts.length + ' gráficos SVG ativos com ' + totalRectsCount + ' retângulos de barra' : '❌ ALERTA: 0 gráficos SVG no DOM'
         });
 
-        // H10: Diagnóstico de Atributos SVG do Primeiro Retângulo de Barra
+        // H10: Inspeção de Snippet DOM e Interceptação Nítida
         var firstRect = document.querySelector('.chart-bar-rect');
-        var firstRectDetails = 'Nenhuma barra SVG encontrada no DOM';
-        if (firstRect) {
-            firstRectDetails = 'Primeira barra SVG: height=' + firstRect.getAttribute('height') + 'px, y=' + firstRect.getAttribute('y') + 'px, fill=' + firstRect.getAttribute('fill');
-        }
+        var domSnippet = dash ? (dash.innerHTML || '').slice(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'DOM vazio';
         report.hypotheses.push({
             id: 10,
-            name: 'Atributos Físicos da Primeira Barra SVG',
+            name: 'Inspeção de Snippet DOM e Atributos SVG',
             passed: !!firstRect,
-            details: firstRectDetails
+            details: firstRect ? 'Barra SVG: height=' + firstRect.getAttribute('height') + 'px, y=' + firstRect.getAttribute('y') + 'px' : '❌ ALERTA: Snippet DOM atual -> [' + domSnippet + '...]'
         });
 
         // Montagem do Texto Puro para Cópia
         var textLines = [];
         textLines.push('📅 DATA / HORA: ' + report.timestamp);
         textLines.push('⚙️ ASSET VERSION: ' + report.asset_version);
+        textLines.push('STATUS GERAL: ' + (report.all_passed ? '✅ 100% OPERACIONAL' : '❌ ALERTAS DETECTADOS'));
+        
         report.hypotheses.forEach(function(h) {
             textLines.push('\nH' + h.id + ' (' + h.name + '):');
             textLines.push('  ' + (h.passed ? '✅ OK -> ' : '❌ ALERTA -> ') + h.details);
@@ -524,7 +535,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GRÁFICO DE BARRAS VETORIAL SVG - TOTALMENTE IMUNE A COLAPSO DE ALTURA CSS) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (USANDO CLASSE DE NAMESPACE CDC `.cdc-project-chart-container` ISOLADA) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -598,7 +609,7 @@
                                 </div>
                                 <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
                             </div>
-                            <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}" style="display: flex; align-items: stretch; width: 100%; min-height: 180px; overflow-x: auto; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding-top: 10px;">
+                            <div class="cdc-project-chart-container" role="group" aria-label="Volume semanal de lançamentos do ${d.project}" style="display: flex; align-items: stretch; width: 100%; min-height: 180px; overflow-x: auto; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding-top: 10px;">
                                 ${monthBlocksHTML}
                             </div>
                         </div>
@@ -675,34 +686,47 @@
             renderStockDashboard();
         });
 
-        // BOTÃO RODAR TESTE DE DIAGNÓSTICO COM BOTÃO DE CÓPIA DE CLIPBOARD
+        // BOTÃO RODAR TESTE DE DIAGNÓSTICO COM CONTEXTO RELEVANTE E BOTÃO DE CÓPIA DE CLIPBOARD
         $(document).off('click', '#cdc-btn-run-diag').on('click', '#cdc-btn-run-diag', function(e) {
             e.preventDefault();
             var report = window._cdc_run_diagnostics();
-            var statusMsg = report.hypotheses.map(function(h) { 
-                return 'H' + h.id + ' (' + h.name + '):\n' + (h.passed ? '  ✅ OK -> ' : '  ❌ ALERTA -> ') + h.details; 
-            }).join('\n\n');
+            
+            var modalContent = '';
+            if (report.all_passed) {
+                modalContent = `
+                    <div style="display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; padding: 10px;">
+                        <div style="font-size: 32px;">🎉</div>
+                        <div style="font-size: 15px; font-weight: 800; color: #15803d;">SISTEMA 100% OPERACIONAL</div>
+                        <div style="font-size: 12px; color: #475569;">Todos os 10 testes de diagnósticos foram aprovados com sucesso!</div>
+                        <button id="cdc-btn-copy-diag" class="btn btn-default btn-xs" style="margin-top: 8px; font-weight: 700; font-size: 11px;">📋 Copiar Resumo Técnico</button>
+                    </div>
+                `;
+            } else {
+                var statusMsg = report.hypotheses.filter(function(h) { return !h.passed; }).map(function(h) { 
+                    return 'H' + h.id + ' (' + h.name + '):\n  ❌ ALERTA -> ' + h.details; 
+                }).join('\n\n');
 
-            var modalContent = `
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 14px; border-radius: 8px;">
-                        <span style="color: #38bdf8; font-weight: 800; font-size: 12px;">📋 Relatório de Inquérito CDC (10 Diagnósticos)</span>
-                        <button id="cdc-btn-copy-diag" class="btn btn-xs" style="background: #2563eb; color: #ffffff; border: none; font-weight: 700; font-size: 11px; padding: 4px 12px; border-radius: 6px; cursor: pointer;">
-                            📋 Copiar Diagnóstico
-                        </button>
+                modalContent = `
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 14px; border-radius: 8px;">
+                            <span style="color: #f87171; font-weight: 800; font-size: 12px;">⚠️ ALERTAS ENCONTRADOS NO DIAGNÓSTICO</span>
+                            <button id="cdc-btn-copy-diag" class="btn btn-xs" style="background: #2563eb; color: #ffffff; border: none; font-weight: 700; font-size: 11px; padding: 4px 12px; border-radius: 6px; cursor: pointer;">
+                                📋 Copiar Diagnóstico Completo
+                            </button>
+                        </div>
+                        <div style="font-family: monospace; font-size: 11px; text-align: left; background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; line-height: 1.5; max-height: 380px; overflow-y: auto;">
+                            <div style="color: #60a5fa; font-weight: bold; margin-bottom: 8px;">📅 DATA / HORA: ${report.timestamp}</div>
+                            <div style="color: #34d399; font-weight: bold; margin-bottom: 12px;">⚙️ ASSET VERSION: ${report.asset_version}</div>
+                            <hr style="border-color: #334155; margin-bottom: 12px;">
+                            <pre style="color: #fca5a5; background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">${statusMsg}</pre>
+                        </div>
                     </div>
-                    <div style="font-family: monospace; font-size: 11px; text-align: left; background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; line-height: 1.5; max-height: 380px; overflow-y: auto;">
-                        <div style="color: #60a5fa; font-weight: bold; margin-bottom: 8px;">📅 DATA / HORA: ${report.timestamp}</div>
-                        <div style="color: #34d399; font-weight: bold; margin-bottom: 12px;">⚙️ ASSET VERSION: ${report.asset_version}</div>
-                        <hr style="border-color: #334155; margin-bottom: 12px;">
-                        <pre style="color: inherit; background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">${statusMsg}</pre>
-                    </div>
-                </div>
-            `;
+                `;
+            }
 
             var d = frappe.msgprint({
-                title: __('Inquérito de Diagnóstico CDC - Suíte Vetorial SVG'),
-                indicator: 'blue',
+                title: __('Inquérito de Diagnóstico CDC - Suíte Contextual'),
+                indicator: report.all_passed ? 'green' : 'orange',
                 message: modalContent
             });
 
