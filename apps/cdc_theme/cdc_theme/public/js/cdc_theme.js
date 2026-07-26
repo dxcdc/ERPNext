@@ -3,7 +3,7 @@
 
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
-    var currentOccurrencesType = 'all'; // Todos
+    var currentOccurrencesType = 'all'; // Todos por padrão
     var currentTableTypeFilter = 'all';
     var activeCategoriesMap = {}; // Controle de categorias ativas (checkboxes)
     var isCategoryDropdownOpen = false;
@@ -248,7 +248,7 @@
                     </div>
                 `;
 
-                // --- 5. COMPOSIÇÃO POR CATEGORIA (DUAL ROSCA + BARRAS COM MENU SUSPENSO DROPDOWN DE CATEGORIAS) ---
+                // --- 5. COMPOSIÇÃO POR CATEGORIA ---
                 var rawCategoriesList = (data.categories && data.categories.length > 0) ? data.categories : [];
                 
                 rawCategoriesList.forEach(function(c) {
@@ -264,7 +264,6 @@
                 var activeCategoriesTotal = activeCategories.reduce(function(sum, c) { return sum + c.count; }, 0);
                 var maxCategoryCount = Math.max.apply(null, activeCategories.map(function(c) { return c.count; }).concat([1]));
 
-                // 1. MENU SUSPENSO DROPDOWN COM CHECKBOXES (ECONOMIA MÁXIMA DE ESPAÇO)
                 var dropdownCheckboxItems = rawCategoriesList.map(function(c) {
                     var isChecked = activeCategoriesMap[c.label] !== false;
                     var displayPercent = activeCategoriesTotal > 0 && isChecked ? ((c.count / activeCategoriesTotal) * 100).toFixed(1) : c.percent;
@@ -300,7 +299,6 @@
                     </div>
                 `;
 
-                // 2. GRÁFICO ROSCA (DONUT CHART) COM PORCENTAGENS
                 var accumulatedPercent = 0;
                 var donutSlicesSVG = activeCategories.map(function(c) {
                     var pct = activeCategoriesTotal > 0 ? ((c.count / activeCategoriesTotal) * 100) : 0;
@@ -328,7 +326,6 @@
                     </div>
                 `;
 
-                // 3. GRÁFICO DE BARRAS AO LADO DO GRÁFICO ROSCA
                 var categoryBarsHTML = activeCategories.map(function(c) {
                     var pct = activeCategoriesTotal > 0 ? ((c.count / activeCategoriesTotal) * 100).toFixed(1) : 0;
                     var barWidthPct = maxCategoryCount > 0 ? Math.min(Math.max((c.count / maxCategoryCount) * 100, 4), 100) : 0;
@@ -371,12 +368,9 @@
                                     📍 Unidade Filtrada: <span style="color: #0f172a; font-weight: 700;">${unitDisplay}</span> (Total Geral: ${totalItemsCount} Itens)
                                 </div>
                             </div>
-                            
-                            <!-- MENU SUSPENSO DE CATEGORIAS NO CANTO SUPERIOR DIREITO -->
                             ${dropdownMenuHTML}
                         </div>
 
-                        <!-- LADO A LADO: GRÁFICO ROSCA (ESQUERDA) + BARRAS (DIREITA) -->
                         <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-top: 8px;">
                             ${donutSVGChart}
                             ${horizontalBarChartSection}
@@ -384,12 +378,29 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (ABORDAGEM EM BARRAS + FILTROS DE BOTÕES PERÍODO E TIPO) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
-                var projectsChartsHTML = datasetsList.map(function(d) {
+                var periodButtonsHTML = `
+                    <div class="cdc-period-filter-group" id="cdc-period-filter-group" style="display: flex; gap: 4px;">
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'quarter' ? 'active' : ''}" data-period="quarter">Trimestre</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'semester' ? 'active' : ''}" data-period="semester">Semestre</button>
+                        <button class="cdc-period-btn ${currentSelectedPeriod === 'year' ? 'active' : ''}" data-period="year">Ano</button>
+                    </div>
+                `;
+
+                var typeButtonsHTML = `
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'all' ? 'active-all' : ''}" data-occ-type="all">Todos</button>
+                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'receipt' ? 'active-receipt' : ''}" data-occ-type="receipt">Entradas</button>
+                        <button class="cdc-occ-type-btn ${currentOccurrencesType === 'issue' ? 'active-issue' : ''}" data-occ-type="issue">Saídas</button>
+                    </div>
+                `;
+
+                var projectsBarChartsHTML = datasetsList.map(function(d) {
                     var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
                     var globalIndex = 0;
 
@@ -447,35 +458,27 @@
 
                 var occurrencesSection = `
                     <div class="cdc-exec-card">
-                        <div class="cdc-exec-card-title">
-                            <div class="cdc-exec-title-content">
+                        <!-- Cabeçalho com Título + Botões de Período e Tipo -->
+                        <div class="cdc-exec-card-title" style="align-items: center; flex-wrap: wrap; gap: 16px;">
+                            <div>
                                 <h2>Monitoramento de Lançamentos</h2>
-                                <p>Volume de lançamentos por período e programa do CDC</p>
+                                <p>Volume de lançamentos em barras por período e programa do CDC</p>
                             </div>
 
-                            <div class="cdc-exec-filters">
-                                <label class="cdc-filter">
-                                    <span>Período</span>
-                                    <select id="cdc-period-select" aria-label="Selecionar período">
-                                        <option value="month" ${currentSelectedPeriod === 'month' ? 'selected' : ''}>Mês</option>
-                                        <option value="quarter" ${currentSelectedPeriod === 'quarter' ? 'selected' : ''}>Trimestre</option>
-                                        <option value="semester" ${currentSelectedPeriod === 'semester' ? 'selected' : ''}>Semestre</option>
-                                        <option value="year" ${currentSelectedPeriod === 'year' ? 'selected' : ''}>Ano</option>
-                                    </select>
-                                </label>
-
-                                <label class="cdc-filter">
-                                    <span>Tipo</span>
-                                    <select id="cdc-type-select" aria-label="Selecionar tipo de lançamento">
-                                        <option value="all" ${currentOccurrencesType === 'all' ? 'selected' : ''}>Todos</option>
-                                        <option value="receipt" ${currentOccurrencesType === 'receipt' ? 'selected' : ''}>Entradas</option>
-                                        <option value="issue" ${currentOccurrencesType === 'issue' ? 'selected' : ''}>Saídas</option>
-                                    </select>
-                                </label>
+                            <!-- Botões Interativos de Filtro (Período & Tipo) -->
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #64748b;">Período:</span>
+                                    ${periodButtonsHTML}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #64748b;">Tipo:</span>
+                                    ${typeButtonsHTML}
+                                </div>
                             </div>
                         </div>
 
-                        ${projectsChartsHTML}
+                        ${projectsBarChartsHTML}
                     </div>
                 `;
 
@@ -506,16 +509,24 @@
             renderStockDashboard();
         });
 
-        $(document).off('change', '#cdc-period-select').on('change', '#cdc-period-select', function(e) {
-            e.stopPropagation();
-            currentSelectedPeriod = $(this).val();
-            renderStockDashboard();
+        // HANDLERS DOS BOTÕES DE PERÍODO (Mês, Trimestre, Semestre, Ano)
+        $(document).off('click', '.cdc-period-btn').on('click', '.cdc-period-btn', function(e) {
+            e.preventDefault();
+            var newPeriod = $(this).attr('data-period') || $(this).data('period');
+            if (newPeriod && newPeriod !== currentSelectedPeriod) {
+                currentSelectedPeriod = newPeriod;
+                renderStockDashboard();
+            }
         });
 
-        $(document).off('change', '#cdc-type-select').on('change', '#cdc-type-select', function(e) {
-            e.stopPropagation();
-            currentOccurrencesType = $(this).val();
-            renderStockDashboard();
+        // HANDLERS DOS BOTÕES DE TIPO (Todos, Entradas, Saídas)
+        $(document).off('click', '[data-occ-type]').on('click', '[data-occ-type]', function(e) {
+            e.preventDefault();
+            var occType = $(this).attr('data-occ-type') || $(this).data('occ-type');
+            if (occType && occType !== currentOccurrencesType) {
+                currentOccurrencesType = occType;
+                renderStockDashboard();
+            }
         });
 
         // MENU SUSPENSO DROPDOWN DE CATEGORIAS
@@ -544,7 +555,6 @@
             }
         });
 
-        // FECHAR DROPDOWN AO CLICAR FORA
         $(document).on('click', function(e) {
             if (!$(e.target).closest('.cdc-cat-dropdown-wrapper').length) {
                 if (isCategoryDropdownOpen) {
