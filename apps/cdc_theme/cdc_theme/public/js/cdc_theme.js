@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.4.0-20260725_2310-STRICT-ROUTE-FIX';
+    var SYSTEM_ASSET_VERSION = 'v1.5.0-20260725_2315-MILESTONE-FIRST-BAR-CHART';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -20,7 +20,7 @@
         var mainRoute = (route[0] || '').toLowerCase();
         var subRoute = (route[1] || '').toLowerCase();
 
-        // Se for um formulário, lista, relatório ou árvore (ex: Form/Stock Entry, List/User, query-report), NÃO é a página inicial de Workspace!
+        // Se for um formulário, lista, relatório ou árvore, NÃO é a página inicial de Workspace!
         if (mainRoute === 'form' || mainRoute === 'list' || mainRoute === 'query-report' || mainRoute === 'report' || mainRoute === 'tree' || mainRoute === 'dashboard-view' || mainRoute === 'print') {
             return false;
         }
@@ -533,10 +533,15 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (FRAPPE.CHART + CARDS FOTO) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (MARCO: PRIMEIRO GRÁFICO EM BARRA CONSOLIDADO) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
+
+                // TRADUÇÃO DOS MESES DO EIXO X PARA PORTUGUÊS BRASIL
+                var ptBrLabels = (occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"]).map(function(lbl) {
+                    return lbl.replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
+                });
 
                 var periodButtonsHTML = `
                     <div class="cdc-period-filter-group" id="cdc-period-filter-group" style="display: flex; gap: 4px;">
@@ -680,7 +685,7 @@
                             new frappe.Chart('#cdc-native-frappe-chart', {
                                 title: 'Volume de Lançamentos por Programa',
                                 data: {
-                                    labels: occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"],
+                                    labels: ptBrLabels,
                                     datasets: (occurrencesData.datasets || []).map(function(ds) {
                                         return {
                                             name: ds.project,
