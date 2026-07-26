@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v1.5.0-20260725_2315-MILESTONE-FIRST-BAR-CHART';
+    var SYSTEM_ASSET_VERSION = 'v1.6.0-20260725_2315-ALL-PROJECTS-BAR-CHARTS';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -20,12 +20,10 @@
         var mainRoute = (route[0] || '').toLowerCase();
         var subRoute = (route[1] || '').toLowerCase();
 
-        // Se for um formulário, lista, relatório ou árvore, NÃO é a página inicial de Workspace!
         if (mainRoute === 'form' || mainRoute === 'list' || mainRoute === 'query-report' || mainRoute === 'report' || mainRoute === 'tree' || mainRoute === 'dashboard-view' || mainRoute === 'print') {
             return false;
         }
 
-        // Apenas a página de Workspace de Estoque (/app/stock ou /app/workspaces/stock)
         if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && (subRoute === 'stock' || subRoute === 'estoque')) {
             return true;
         }
@@ -78,7 +76,7 @@
         if (!hasNativeChartSVG) report.all_passed = false;
         report.hypotheses.push({
             id: 3,
-            name: 'Renderização do Gráfico Nativo (frappe.Chart)',
+            name: 'Renderização do Gráfico Nativo Consolidado (frappe.Chart)',
             passed: hasNativeChartSVG,
             details: hasNativeChartSVG ? 'Gráfico nativo frappe.Chart renderizado com SVG interativo no DOM' : '❌ ALERTA: Gráfico nativo ainda não inicializado'
         });
@@ -129,15 +127,15 @@
             details: h7Passed ? projectCards.length + ' cards de projeto ativos e renderizados no DOM' : '❌ ALERTA: 0 cards de projeto no DOM'
         });
 
-        // H8: Inspeção dos Quadros Brancos por Semana (.week-box)
-        var weekBoxes = document.querySelectorAll('.week-box');
-        var h8Passed = weekBoxes.length > 0;
+        // H8: Inspeção dos Gráficos Individuais por Projeto
+        var projChartsCount = document.querySelectorAll('[id^="cdc-project-native-chart-"]').length;
+        var h8Passed = projChartsCount > 0;
         if (!h8Passed) report.all_passed = false;
         report.hypotheses.push({
             id: 8,
-            name: 'Quadros Individuais por Semana (.week-box)',
+            name: 'Gráficos de Barra Individuais por Projeto',
             passed: h8Passed,
-            details: h8Passed ? weekBoxes.length + ' quadros de semana com fundo #f8fafc no DOM' : '❌ ALERTA: 0 quadros no DOM'
+            details: h8Passed ? projChartsCount + ' gráficos de barra individuais interativos gerados no DOM' : '❌ ALERTA: 0 gráficos individuais'
         });
 
         // H9: Inspeção do Eixo Y Lateral
@@ -533,12 +531,11 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (MARCO: PRIMEIRO GRÁFICO EM BARRA CONSOLIDADO) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (APLICANDO GRÁFICOS DE BARRA NATIVOS PARA TODOS OS PROJETOS) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
-                // TRADUÇÃO DOS MESES DO EIXO X PARA PORTUGUÊS BRASIL
                 var ptBrLabels = (occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"]).map(function(lbl) {
                     return lbl.replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
                 });
@@ -560,9 +557,11 @@
                     </div>
                 `;
 
-                var projectsBarChartsHTML = datasetsList.map(function(d) {
+                // RENDERIZAÇÃO DOS CARDS COM GRÁFICO NATIVO POR PROJETO + QUADROS DA FOTO
+                var projectsBarChartsHTML = datasetsList.map(function(d, pIdx) {
                     var maxValInProject = Math.max.apply(null, d.occurrences.concat([1]));
                     var globalIndex = 0;
+                    var nativeChartContainerId = `cdc-project-native-chart-${pIdx}`;
 
                     var monthBlocksHTML = groupedMonthsList.map(function(gm) {
                         var weeksArr = gm.weeks || ['S1', 'S2', 'S3', 'S4'];
@@ -597,8 +596,9 @@
                     var typeBadgeLabel = (currentOccurrencesType === 'receipt') ? 'lançamentos de entrada' : ((currentOccurrencesType === 'issue') ? 'lançamentos de saída' : 'lançamentos totais');
 
                     return `
+                        <!-- CARD DO PROJETO COM GRÁFICO NATIVO INDIVIDUAL E QUADROS DA FOTO -->
                         <div class="cdc-project-card" style="background: #ffffff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="width: 12px; height: 12px; border-radius: 50%; background-color: ${currentOccurrencesType === 'issue' ? '#dc2626' : d.color}; display: inline-block;"></span>
                                     <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${d.project}</span>
@@ -608,7 +608,11 @@
                                 </span>
                             </div>
 
-                            <div style="display: flex; align-items: flex-end; gap: 12px; overflow-x: auto; padding: 4px 0;">
+                            <!-- Gráfico de Barra Interativo por Programa -->
+                            <div id="${nativeChartContainerId}" style="width: 100%; min-height: 180px; margin-bottom: 12px; background: #fafafa; border-radius: 8px; padding: 8px;"></div>
+
+                            <!-- Visão em Quadros por Semana -->
+                            <div style="display: flex; align-items: flex-end; gap: 12px; overflow-x: auto; padding: 4px 0; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
                                 <div class="cdc-y-axis" style="display: flex; flex-direction: column; justify-content: space-between; height: 110px; font-size: 10px; font-weight: 700; color: #64748b; padding-right: 6px; border-right: 2px solid #e2e8f0; text-align: right; min-width: 28px; flex-shrink: 0; margin-bottom: 22px;">
                                     <span>${maxValInProject}</span>
                                     <span>${Math.round(maxValInProject / 2)}</span>
@@ -679,34 +683,61 @@
 
                 window._cdc_debug_dashboard_data = data;
 
+                // INICIALIZAÇÃO DO GRÁFICO CONSOLIDADO E DE CADA GRÁFICO INDIVIDUAL POR PROJETO
                 setTimeout(function() {
-                    if (window.frappe && window.frappe.Chart && document.getElementById('cdc-native-frappe-chart')) {
-                        try {
-                            new frappe.Chart('#cdc-native-frappe-chart', {
-                                title: 'Volume de Lançamentos por Programa',
-                                data: {
-                                    labels: ptBrLabels,
-                                    datasets: (occurrencesData.datasets || []).map(function(ds) {
-                                        return {
-                                            name: ds.project,
-                                            type: 'bar',
-                                            values: ds.occurrences
-                                        };
-                                    })
-                                },
-                                type: 'bar',
-                                height: 260,
-                                colors: ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'],
-                                axisOptions: {
-                                    xIsSeries: true
-                                },
-                                barOptions: {
-                                    spaceRatio: 0.3
-                                }
-                            });
-                        } catch (e) {
-                            console.error('Erro ao renderizar frappe.Chart nativo:', e);
+                    if (window.frappe && window.frappe.Chart) {
+                        // 1. Gráfico Consolidado
+                        if (document.getElementById('cdc-native-frappe-chart')) {
+                            try {
+                                new frappe.Chart('#cdc-native-frappe-chart', {
+                                    title: 'Volume de Lançamentos por Programa',
+                                    data: {
+                                        labels: ptBrLabels,
+                                        datasets: (occurrencesData.datasets || []).map(function(ds) {
+                                            return {
+                                                name: ds.project,
+                                                type: 'bar',
+                                                values: ds.occurrences
+                                            };
+                                        })
+                                    },
+                                    type: 'bar',
+                                    height: 260,
+                                    colors: ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'],
+                                    axisOptions: { xIsSeries: true },
+                                    barOptions: { spaceRatio: 0.3 }
+                                });
+                            } catch (e) {
+                                console.error('Erro ao renderizar frappe.Chart nativo:', e);
+                            }
                         }
+
+                        // 2. Gráficos de Barra Individuais para Cada Programa de Projeto
+                        datasetsList.forEach(function(ds, pIdx) {
+                            var containerId = '#cdc-project-native-chart-' + pIdx;
+                            if (document.querySelector(containerId)) {
+                                try {
+                                    new frappe.Chart(containerId, {
+                                        title: ds.project,
+                                        data: {
+                                            labels: ptBrLabels,
+                                            datasets: [{
+                                                name: ds.project,
+                                                type: 'bar',
+                                                values: ds.occurrences
+                                            }]
+                                        },
+                                        type: 'bar',
+                                        height: 180,
+                                        colors: [currentOccurrencesType === 'issue' ? '#dc2626' : (ds.color || '#2563eb')],
+                                        axisOptions: { xIsSeries: true },
+                                        barOptions: { spaceRatio: 0.4 }
+                                    });
+                                } catch (errProj) {
+                                    console.error('Erro no gráfico do programa ' + ds.project + ':', errProj);
+                                }
+                            }
+                        });
                     }
 
                     window._cdc_run_diagnostics();
