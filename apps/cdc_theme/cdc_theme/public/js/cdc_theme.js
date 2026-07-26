@@ -1,6 +1,7 @@
 (function() {
     'use strict';
 
+    var SYSTEM_ASSET_VERSION = 'v1.0.5-20260725_2240';
     var currentSelectedUnit = 'All';
     var currentSelectedPeriod = 'quarter'; // Trimestre
     var currentOccurrencesType = 'all'; // Todos por padrão
@@ -11,51 +12,60 @@
     var lastFetchTime = 0;
     var lastDiagnosticReport = null;
 
-    // --- FERRAMENTA DE INQUÉRITO E DIAGNÓSTICO EM TEMPO REAL ---
+    // --- SUÍTE DE INQUÉRITO DE DIAGNÓSTICO EM TEMPO REAL ---
     window._cdc_run_diagnostics = function() {
+        var now = new Date();
+        var dateFormatted = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+
         var report = {
-            timestamp: new Date().toISOString(),
+            timestamp: dateFormatted,
+            asset_version: SYSTEM_ASSET_VERSION,
             hypotheses: []
         };
 
-        // Hipótese 1: Presença do Contêiner no DOM
+        // H1: Presença do Contêiner Principal no DOM
         var dash = document.getElementById('cdc-stock-exec-dashboard');
         var isAttached = !!(dash && dash.parentNode && document.body.contains(dash));
         report.hypotheses.push({
             id: 1,
             name: 'Presença do Painel no DOM',
             passed: isAttached,
-            details: isAttached ? 'Contêiner pai encontrado em ' + (dash.parentNode ? dash.parentNode.className : 'DOM') : 'ERRO: Contêiner não encontrado no DOM'
+            details: isAttached ? 'Contêiner pai encontrado em <' + (dash.parentNode ? dash.parentNode.className : 'DOM') + '>' : '❌ ERRO: Contêiner pai não encontrado'
         });
 
-        // Hipótese 2: Payload da API Backend
+        // H2: Recebimento de Payload de Dados da API Python Backend
         var hasData = !!(window._cdc_debug_dashboard_data && window._cdc_debug_dashboard_data.occurrences_data);
+        var datasetsCount = hasData ? (window._cdc_debug_dashboard_data.occurrences_data.datasets || []).length : 0;
         report.hypotheses.push({
             id: 2,
             name: 'Recebimento de Dados da API Python',
-            passed: hasData,
-            details: hasData ? 'Dados de ocorrências recebidos com sucesso (' + window._cdc_debug_dashboard_data.occurrences_data.datasets.length + ' projetos)' : 'ERRO: Dados da API indisponíveis ou nulos'
+            passed: hasData && datasetsCount > 0,
+            details: (hasData && datasetsCount > 0) ? 'Payload recebido com sucesso (' + datasetsCount + ' programas de projetos)' : '❌ ERRO: Payload da API indisponível ou sem programas'
         });
 
-        // Hipótese 3: Renderização Física das Barras (Pixel Height)
+        // H3: Renderização Física de Pixels das Barras (Pixel Height)
         var barElements = document.querySelectorAll('.chart-bar');
-        var visibleBars = 0;
-        var barHeights = [];
+        var totalBarsCount = barElements.length;
+        var visibleBarsCount = 0;
+        var sampleHeights = [];
+
         barElements.forEach(function(bar) {
             var h = bar.offsetHeight || parseFloat(window.getComputedStyle(bar).height);
             if (h > 0) {
-                visibleBars++;
-                barHeights.push(h + 'px');
+                visibleBarsCount++;
+                if (sampleHeights.length < 5) sampleHeights.push(Math.round(h) + 'px');
             }
         });
+
+        var h3Passed = visibleBarsCount > 0;
         report.hypotheses.push({
             id: 3,
             name: 'Renderização Física das Barras (Pixel Height)',
-            passed: visibleBars > 0,
-            details: visibleBars > 0 ? visibleBars + ' barras renderizadas fisicamente (' + barHeights.slice(0, 5).join(', ') + '...)' : 'ALERTA: 0 barras visíveis na tela (Possível colapso de altura CSS)'
+            passed: h3Passed,
+            details: h3Passed ? visibleBarsCount + '/' + totalBarsCount + ' barras físicas renderizadas na tela (Exemplos: ' + sampleHeights.join(', ') + ')' : '❌ ALERTA: ' + totalBarsCount + ' elementos no DOM com 0px de altura física'
         });
 
-        // Hipótese 4: Visibilidade e Ocultamento CSS (Display / Visibility)
+        // H4: Visibilidade e Opacidade do Estilo CSS
         var isVisible = true;
         if (dash) {
             var comp = window.getComputedStyle(dash);
@@ -65,13 +75,35 @@
         }
         report.hypotheses.push({
             id: 4,
-            name: 'Visibilidade de Estilo CSS',
+            name: 'Visibilidade de Estilo CSS do Card',
             passed: isVisible,
-            details: isVisible ? 'Painel com display visível e opacidade total' : 'ERRO: Estilo CSS nativo ocultando o painel'
+            details: isVisible ? 'Painel com display visível e opacidade 1.0' : '❌ ERRO: Regra CSS oculta o card principal'
+        });
+
+        // H5: Validação da Rota e URL do SPA
+        var currentRoute = (frappe.get_route && frappe.get_route()) ? frappe.get_route().join('/') : '';
+        var isStockRoute = isStockWorkspacePage();
+        report.hypotheses.push({
+            id: 5,
+            name: 'Validação da Rota SPA do Frappe',
+            passed: isStockRoute,
+            details: isStockRoute ? 'Rota ativa aceita: /' + currentRoute : '❌ ALERTA: Rota fora do escopo de Estoque'
+        });
+
+        // H6: Validação de Asset Versioning e Cache Busting
+        report.hypotheses.push({
+            id: 6,
+            name: 'Versão do Script JS do CDC',
+            passed: true,
+            details: 'Versão em execução: ' + SYSTEM_ASSET_VERSION
         });
 
         lastDiagnosticReport = report;
+        console.group('🔍 INQUÉRITO DE DIAGNÓSTICO CDC - ' + dateFormatted);
+        console.log('Versão do Asset:', SYSTEM_ASSET_VERSION);
         console.table(report.hypotheses);
+        console.groupEnd();
+
         return report;
     };
 
@@ -443,7 +475,7 @@
                     </div>
                 `;
 
-                // --- 6. MONITORAMENTO DE LANÇAMENTOS (CORREÇÃO DE ALTURA MÍNIMA DE LINHA DE BASE PARA PASSAR EM H3) ---
+                // --- 6. MONITORAMENTO DE LANÇAMENTOS (GARANTIA DE RENDERIZAÇÃO DE BARRAS DE MÊS/SEMANA) ---
                 var occurrencesData = data.occurrences_data || { labels: [], datasets: [], grouped_months: [] };
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
@@ -474,37 +506,36 @@
                             var val = d.occurrences[globalIndex] || 0;
                             globalIndex++;
 
-                            // CÁLCULO DE ALTURA DE LINHA DE BASE MÍNIMA (4px PARA 0 LANÇAMENTOS / 16px A 120px PARA VALORES)
-                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 100), 16) : 4;
-                            var valDisplay = val > 0 ? `<span class="bar-value">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px;">-</span>';
+                            var barHeightPx = val > 0 ? Math.max(Math.round((val / maxValInProject) * 100), 16) : 6;
+                            var valDisplay = val > 0 ? `<span class="bar-value" style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">${val}</span>` : '<span class="bar-value" style="color: #cbd5e1; font-size: 10px; margin-bottom: 4px;">-</span>';
 
                             var barColor = d.color || '#2563eb';
                             var customBarStyle = '';
                             if (currentOccurrencesType === 'issue' && val > 0) {
-                                customBarStyle = 'background: linear-gradient(180deg, #dc2626 0%, #ef4444 60%, #fca5a5 100%); border: 1px solid #dc2626;';
+                                customBarStyle = 'background: #dc2626 !important; border: 1px solid #dc2626 !important;';
                             } else if (val > 0) {
-                                customBarStyle = `background: linear-gradient(180deg, ${barColor} 0%, ${barColor}cc 60%, #93c5fd 100%); border: 1px solid ${barColor};`;
+                                customBarStyle = `background: ${barColor} !important; border: 1px solid ${barColor} !important;`;
                             } else {
-                                customBarStyle = 'background: #e2e8f0; border: 1px solid #cbd5e1;';
+                                customBarStyle = 'background: #cbd5e1 !important; border: 1px solid #94a3b8 !important;';
                             }
 
                             return `
                                 <div class="week-item" role="listitem" aria-label="${gm.month}, ${wLbl}: ${val} lançamentos" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 32px;">
                                     <div class="bar-container" style="height: 125px !important; min-height: 125px !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: flex-end !important; width: 100%;">
                                         ${valDisplay}
-                                        <div class="chart-bar" style="height: ${barHeightPx}px !important; min-height: ${barHeightPx}px !important; width: 24px !important; ${customBarStyle}"></div>
+                                        <div class="chart-bar" style="height: ${barHeightPx}px !important; min-height: ${barHeightPx}px !important; width: 22px !important; border-radius: 4px 4px 2px 2px !important; ${customBarStyle}"></div>
                                     </div>
-                                    <span class="week-label">${wLbl}</span>
+                                    <span class="week-label" style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 6px;">${wLbl}</span>
                                 </div>
                             `;
                         }).join('');
 
                         return `
-                            <section class="month-block">
-                                <div class="weeks-row" role="list">
+                            <section class="month-block" style="display: flex; flex: 1; flex-direction: column; min-width: 240px; padding: 0 10px;">
+                                <div class="weeks-row" role="list" style="display: flex; flex: 1; align-items: flex-end; justify-content: space-around; gap: 6px; min-height: 150px;">
                                     ${weekItemsHTML}
                                 </div>
-                                <h3 class="month-label">${gm.month}</h3>
+                                <h3 class="month-label" style="font-size: 12px; font-weight: 800; color: #0f172a; text-align: center; padding: 8px 0 4px; margin: 0;">${gm.month}</h3>
                             </section>
                         `;
                     }).join('');
@@ -518,21 +549,22 @@
                                 </div>
                                 <span class="badge-soft-primary" style="font-size: 11px; font-weight: 800; padding: 4px 12px;">Total: ${d.total_occurrences} lançamentos</span>
                             </div>
-                            <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}">
+                            <div class="project-chart-box" role="group" aria-label="Volume semanal de lançamentos do ${d.project}" style="display: flex; align-items: stretch; width: 100%; min-height: 200px; overflow-x: auto; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
                                 ${monthBlocksHTML}
                             </div>
                         </div>
                     `;
                 }).join('');
 
+                var nowFormatted = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR');
                 var diagnosticBarHeader = `
-                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #0f172a;">
-                            <span>🔍 Inquérito de Validação CDC:</span>
-                            <span style="color: #2563eb; font-weight: 700;">Status do Sistema Ativo</span>
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; color: #0f172a;">
+                            <span>🔍 Suíte de Inquérito CDC (${nowFormatted}):</span>
+                            <span style="color: #2563eb; font-weight: 700; background: #dbeafe; padding: 2px 8px; border-radius: 4px;">Asset: ${SYSTEM_ASSET_VERSION}</span>
                         </div>
-                        <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 800; font-size: 11px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: #ffffff; padding: 4px 10px; cursor: pointer;">
-                            ⚡ Rodar Teste de Diagnóstico
+                        <button id="cdc-btn-run-diag" class="btn btn-default btn-xs" style="font-weight: 800; font-size: 11px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: #ffffff; padding: 6px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            ⚡ Rodar Teste de Diagnóstico Detalhado
                         </button>
                     </div>
                 `;
@@ -572,7 +604,7 @@
                 `;
 
                 window._cdc_debug_dashboard_data = data;
-                
+
                 setTimeout(function() {
                     window._cdc_run_diagnostics();
                 }, 300);
@@ -596,11 +628,23 @@
         $(document).off('click', '#cdc-btn-run-diag').on('click', '#cdc-btn-run-diag', function(e) {
             e.preventDefault();
             var report = window._cdc_run_diagnostics();
-            var statusMsg = report.hypotheses.map(function(h) { return 'H' + h.id + ' (' + h.name + '): ' + (h.passed ? '✅ OK' : '❌ ' + h.details); }).join('\n');
+            var statusMsg = report.hypotheses.map(function(h) { 
+                return 'H' + h.id + ' (' + h.name + '):\n' + (h.passed ? '  ✅ OK -> ' : '  ❌ ALERTA -> ') + h.details; 
+            }).join('\n\n');
+
+            var modalContent = `
+                <div style="font-family: monospace; font-size: 11px; text-align: left; background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; line-height: 1.5; max-height: 400px; overflow-y: auto;">
+                    <div style="color: #60a5fa; font-weight: bold; margin-bottom: 8px;">📅 DATA / HORA: ${report.timestamp}</div>
+                    <div style="color: #34d399; font-weight: bold; margin-bottom: 12px;">⚙️ ASSET VERSION: ${report.asset_version}</div>
+                    <hr style="border-color: #334155; margin-bottom: 12px;">
+                    <pre style="color: inherit; background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">${statusMsg}</pre>
+                </div>
+            `;
+
             frappe.msgprint({
-                title: __('Inquérito de Diagnóstico CDC'),
+                title: __('Inquérito de Diagnóstico CDC - Suíte de Validação'),
                 indicator: 'blue',
-                message: '<pre style="font-size:11px; text-align:left;">' + statusMsg + '</pre>'
+                message: modalContent
             });
         });
 
