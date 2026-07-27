@@ -449,3 +449,103 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         "recent_entries": recent_entries,
         "occurrences_data": occurrences_data
     }
+
+
+# =============================================================================
+# CDC MATTERMOST NOTIFICATIONS
+# =============================================================================
+
+def _build_mattermost_message(doc, event_type):
+    """Constrói o payload de texto formatado para o Mattermost."""
+    icons  = {"entry": "📥", "exit": "📤", "update": "🔄"}
+    labels = {
+        "entry":  "ENTRADA de Estoque",
+        "exit":   "SAÍDA de Estoque",
+        "update": "ATUALIZAÇÃO / TRANSFERÊNCIA",
+    }
+    icon  = icons.get(event_type, "📋")
+    label = labels.get(event_type, "Movimentação")
+
+    items = doc.get("items") or []
+    item_lines = []
+    for itm in items[:5]:
+        item_name = itm.get("item_name") or itm.get("item_code") or "—"
+        qty = itm.get("qty", 0)
+        uom = itm.get("uom", "un.")
+        item_lines.append(f"• {item_name} × {qty} {uom}")
+    if len(items) > 5:
+        item_lines.append(f"_...e mais {len(items) - 5} itens_")
+    items_text = "\n".join(item_lines) if item_lines else "_(sem itens)_"
+
+    import frappe.utils
+    now_str = frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy HH:mm")
+    site_url = frappe.utils.get_url()
+    doc_link = f"{site_url}/app/stock-entry/{doc.name}"
+
+    warehouse = (doc.get("from_warehouse") or doc.get("to_warehouse") or "—")
+    warehouse_display = warehouse.replace(" - C", "").strip()
+
+    return (
+        f"**{icon} {label}**\n"
+        f"🏪 **Armazém:** {warehouse_display}\n"
+        f"📋 **Lançamento:** {doc.name}\n"
+        f"📦 **Itens:**\n{items_text}\n"
+        f"👤 **Por:** {doc.modified_by or doc.owner}\n"
+        f"🕐 {now_str}\n\n"
+        f"[🔗 Ver lançamento no ERPNext →]({doc_link})"
+    )
+
+
+def send_mattermost_notification(warehouse, event_type, doc):
+    """Busca configs ativas e envia notificação para cada canal Mattermost configurado."""
+    import requests
+    field_map = {"entry": "notify_entry", "exit": "notify_exit", "update": "notify_update"}
+    event_field = field_map.get(event_type)
+    if not event_field:
+        return
+    try:
+        configs = frappe.get_all(
+            "CDC Mattermost Config",
+            filters={"warehouse": warehouse, "enabled": 1, event_field: 1},
+            fields=["name", "channel_name"],
+        )
+    except Exception:
+        return  # DocType ainda nao migrado
+    if not configs:
+        return
+    message_text = _build_mattermost_message(doc, event_type)
+    for cfg in configs:
+        try:
+            cfg_doc = frappe.get_doc("CDC Mattermost Config", cfg["name"])
+            url = cfg_doc.get_password("webhook_url")
+            requests.post(url, json={"text": message_text}, timeout=8)
+        except Exception as e:
+            frappe.log_error(
+                title="CDC Mattermost — Erro ao enviar",
+                message=f"Config: {cfg['name']} | {str(e)}"
+            )
+
+
+def notify_stock_entry_mattermost(doc, method):
+    """Hook disparado nos eventos de Stock Entry (on_submit / on_update)."""
+    purpose = (doc.stock_entry_type or doc.purpose or "").lower()
+    if "receipt" in purpose:
+        event_type = "entry"
+        warehouse  = doc.to_warehouse or (doc.items[0].t_warehouse if doc.items else None)
+    elif "issue" in purpose:
+        event_type = "exit"
+        warehouse  = doc.from_warehouse or (doc.items[0].s_warehouse if doc.items else None)
+    else:
+        event_type = "update"
+        warehouse  = doc.from_warehouse or doc.to_warehouse or (
+            (doc.items[0].s_warehouse or doc.items[0].t_warehouse) if doc.items else None
+        )
+    if warehouse:
+        send_mattermost_notification(warehouse, event_type, doc)
+
+
+@frappe.whitelist()
+def test_mattermost_config(config_name):
+    """Endpoint do botão Testar Conexão no formulário."""
+    doc = frappe.get_doc("CDC Mattermost Config", config_name)
+    doc.test_connection()
