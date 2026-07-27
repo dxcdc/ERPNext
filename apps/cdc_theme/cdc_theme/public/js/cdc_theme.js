@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var SYSTEM_ASSET_VERSION = 'v2.8.0-20260727_0120-INTEGRACOES-WORKSPACE';
+    var SYSTEM_ASSET_VERSION = 'v2.9.0-20260727_1218-INTEGRACOES-FIX';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
@@ -222,13 +222,15 @@
     // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
     function isIntegrationPage() {
         var href = (window.location.href || '').toLowerCase();
-        if (href.includes('/app/integracoes') || href.includes('/app/integra%C3%A7%C3%B5es')) return true;
+        // Aceita /app/integracoes  ou  /app/integra%C3%A7%C3%B5es
+        if (href.indexOf('/app/integracoes') !== -1 ||
+            href.indexOf('/app/integra%c3%a7%c3%b5es') !== -1) return true;
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
-        var sub = (route[1] || '').toLowerCase();
-        return sub.includes('integracoes') || sub.includes('integra');
+        var sub = decodeURIComponent((route[1] || '')).toLowerCase();
+        return sub === 'integracoes' || sub === 'integrações';
     }
 
-    // --- BANNER DE DIAGNÓSTICO NA WORKSPACE INTEGRAÇÕES ---
+    // --- BANNER COMPLETO DA WORKSPACE INTEGRAÇÕES ---
     function renderIntegrationsDiagnosticBanner() {
         if (document.getElementById('cdc-integracoes-banner')) return;
 
@@ -239,99 +241,170 @@
 
         var banner = document.createElement('div');
         banner.id = 'cdc-integracoes-banner';
-        banner.style.cssText = 'margin:18px 24px 0;font-family:system-ui,sans-serif;';
-        banner.innerHTML = [
-            '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:14px;padding:22px 28px;color:#f1f5f9;margin-bottom:16px;">',
-            '  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">',
-            '    <div>',
-            '      <div style="font-size:18px;font-weight:800;color:#fff;">⚙️ Integrações — CDC NextERP</div>',
-            '      <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Gerencie notificações Mattermost por armazém e conexões de BI</div>',
-            '    </div>',
-            '    <button id="cdc-mm-diag-btn" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">',
-            '      🔍 Diagnóstico Mattermost',
-            '    </button>',
-            '  </div>',
-            '  <div id="cdc-mm-diag-result" style="margin-top:0;max-height:0;overflow:hidden;transition:max-height 0.4s ease;"></div>',
-            '</div>',
-            '<div style="background:linear-gradient(135deg,#0f172a,#1e2d45);border-radius:14px;padding:22px 28px;color:#f1f5f9;">',
-            '  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">',
-            '    <span style="font-size:22px;">📊</span>',
-            '    <span style="font-size:16px;font-weight:800;">Business Intelligence</span>',
-            '    <span style="background:#2563eb;color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;">Em breve</span>',
-            '  </div>',
-            '  <p style="font-size:13px;color:#cbd5e1;line-height:1.7;margin:0 0 16px;">',
-            '    Este espaço será dedicado à conexão do CDC NextERP com ferramentas de análise e visualização de dados.',
-            '    Poderemos integrar indicadores de estoque, movimentações e desempenho operacional diretamente em',
-            '    painéis interativos — acessíveis por gestores e diretoria em tempo real.',
-            '  </p>',
-            '  <div style="display:flex;flex-wrap:wrap;gap:10px;">',
-            '    <div style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;font-size:12px;font-weight:700;color:#e2e8f0;">🟡 Power BI</div>',
-            '    <div style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;font-size:12px;font-weight:700;color:#e2e8f0;">🔵 Google Data Studio</div>',
-            '    <div style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;font-size:12px;font-weight:700;color:#e2e8f0;">🟠 Microsoft Fabric</div>',
-            '    <div style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;font-size:12px;font-weight:700;color:#e2e8f0;">🔴 Databricks</div>',
-            '  </div>',
-            '</div>'
-        ].join('');
+        banner.style.cssText = 'margin:18px 24px 0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;gap:16px;';
 
+        // ── 1. BUSINESS INTELLIGENCE (primeiro, conforme solicitado) ──────────
+        var S = '<div style="background:linear-gradient(135deg,#0f172a,#172038);border-radius:14px;padding:24px 28px;color:#f1f5f9;">';
+        S += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+        S += '<span style="font-size:24px;">📊</span>';
+        S += '<span style="font-size:17px;font-weight:800;color:#fff;">Business Intelligence</span>';
+        S += '<span style="background:#7c3aed;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-left:4px;">Em breve</span>';
+        S += '</div>';
+        S += '<p style="font-size:13px;color:#cbd5e1;line-height:1.8;margin:0 0 18px;">Este espaço será dedicado à conexão do <strong style="color:#fff;">CDC NextERP</strong> com ferramentas de análise e visualização de dados. Poderemos integrar indicadores de estoque, movimentações e desempenho operacional diretamente em painéis interativos — acessíveis por gestores e diretoria em tempo real, sem exportações manuais.</p>';
+        S += '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+        S += '<div style="background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#fde68a;">🟡 Power BI</div>';
+        S += '<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#93c5fd;">🔵 Google Data Studio</div>';
+        S += '<div style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#fdba74;">🟠 Microsoft Fabric</div>';
+        S += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#fca5a5;">🔴 Databricks</div>';
+        S += '</div></div>';
+
+        // ── 2. MATTERMOST — WEBHOOKS POR ARMAZÉM (segundo) ───────────────────
+        S += '<div style="background:linear-gradient(135deg,#0f172a,#0c2240);border-radius:14px;padding:24px 28px;color:#f1f5f9;">';
+        S += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px;">';
+        S += '<div><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:22px;">🔔</span>';
+        S += '<span style="font-size:17px;font-weight:800;color:#fff;">Integrações — CDC NextERP</span></div>';
+        S += '<div style="font-size:12px;color:#475569;margin-top:5px;margin-left:32px;">Notificações Mattermost por armazém · Incoming Webhooks</div></div>';
+        S += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+        S += '<button id="cdc-mm-new-btn" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Nova Config</button>';
+        S += '<button id="cdc-mm-diag-btn" style="background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🔍 Diagnóstico</button>';
+        S += '</div></div>';
+        S += '<div id="cdc-mm-configs-list"><div style="text-align:center;color:#475569;font-size:13px;padding:24px;">⏳ Carregando...</div></div>';
+        S += '<div id="cdc-mm-diag-result" style="max-height:0;overflow:hidden;transition:max-height 0.4s ease;"></div>';
+        S += '</div>';
+
+        banner.innerHTML = S;
         target.insertBefore(banner, target.firstChild);
 
-        // Botão de diagnóstico
+        // ── Carrega lista de configs agrupadas por armazém ────────────────────
+        function loadMattermostConfigs() {
+            frappe.call({
+                method: 'frappe.client.get_list',
+                args: {
+                    doctype: 'CDC Mattermost Config',
+                    fields: ['name', 'warehouse', 'channel_name', 'enabled', 'notify_entry', 'notify_exit', 'notify_update'],
+                    limit: 200,
+                    order_by: 'warehouse asc'
+                },
+                callback: function(r) {
+                    var listEl = document.getElementById('cdc-mm-configs-list');
+                    if (!listEl) return;
+                    var configs = (r && r.message) ? r.message : [];
+
+                    if (!configs.length) {
+                        listEl.innerHTML = '<div style="background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.08);border-radius:10px;padding:28px;text-align:center;">'
+                            + '<div style="font-size:30px;margin-bottom:8px;">🏭</div>'
+                            + '<div style="color:#64748b;font-size:13px;">Nenhum armazém configurado ainda.</div>'
+                            + '<div style="color:#475569;font-size:12px;margin-top:6px;">Clique em <strong style="color:#10b981;">+ Nova Config</strong> para adicionar o primeiro canal Mattermost.</div>'
+                            + '</div>';
+                        return;
+                    }
+
+                    // Agrupa por armazém
+                    var byWh = {}, order = [];
+                    configs.forEach(function(c) {
+                        var w = c.warehouse || '—';
+                        if (!byWh[w]) { byWh[w] = []; order.push(w); }
+                        byWh[w].push(c);
+                    });
+
+                    var html = '';
+                    order.forEach(function(wh) {
+                        var cfgs = byWh[wh];
+                        var whLabel = wh.replace(/ - C$/, '').replace(/ - CDC$/, '').trim();
+                        html += '<div style="border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 16px;margin-bottom:10px;">';
+                        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+                        html += '<span style="font-size:13px;font-weight:700;color:#f1f5f9;">🏭 ' + whLabel + '</span>';
+                        html += '<span style="font-size:10px;color:#475569;">' + cfgs.length + ' canal(is)</span>';
+                        html += '</div>';
+                        cfgs.forEach(function(c) {
+                            var dot = c.enabled ? '#10b981' : '#475569';
+                            var evts = (c.notify_entry ? '📥 ' : '') + (c.notify_exit ? '📤 ' : '') + (c.notify_update ? '🔄' : '');
+                            html += '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.04);border-radius:7px;padding:8px 12px;margin-bottom:4px;">';
+                            html += '<div style="display:flex;align-items:center;gap:8px;">';
+                            html += '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';flex-shrink:0;display:inline-block;"></span>';
+                            html += '<span style="font-size:12px;color:#e2e8f0;font-weight:600;">' + (c.channel_name || '—') + '</span>';
+                            html += '<span style="font-size:11px;color:#64748b;">' + evts + '</span>';
+                            html += '</div>';
+                            html += '<a href="/app/cdc-mattermost-config/' + c.name + '" style="font-size:11px;color:#3b82f6;text-decoration:none;font-weight:600;" onclick="frappe.set_route(\'Form\',\'CDC Mattermost Config\',\'' + c.name + '\');return false;">Editar →</a>';
+                            html += '</div>';
+                        });
+                        html += '</div>';
+                    });
+
+                    listEl.innerHTML = html;
+                }
+            });
+        }
+
+        loadMattermostConfigs();
+
+        // ── Botão: Nova Config ────────────────────────────────────────────────
+        document.getElementById('cdc-mm-new-btn').addEventListener('click', function() {
+            frappe.new_doc('CDC Mattermost Config');
+        });
+
+        // ── Botão: Diagnóstico (toggle) ───────────────────────────────────────
         document.getElementById('cdc-mm-diag-btn').addEventListener('click', function() {
             var resultEl = document.getElementById('cdc-mm-diag-result');
             var btn = this;
-            btn.textContent = '⏳ Verificando...';
+
+            if (resultEl.dataset.open === '1') {
+                resultEl.style.maxHeight = '0';
+                resultEl.dataset.open = '0';
+                btn.innerHTML = '🔍 Diagnóstico';
+                return;
+            }
+
+            btn.innerHTML = '⏳ Verificando...';
             btn.disabled = true;
 
             frappe.call({
                 method: 'cdc_theme.api.diagnostico_mattermost',
+                freeze: false,
                 callback: function(r) {
-                    btn.innerHTML = '🔍 Diagnóstico Mattermost';
+                    btn.innerHTML = '🔍 Diagnóstico';
                     btn.disabled = false;
+
                     if (!r || !r.message) {
-                        resultEl.innerHTML = '<div style="color:#fca5a5;margin-top:14px;">❌ Erro ao obter diagnóstico</div>';
-                        resultEl.style.maxHeight = '200px';
+                        resultEl.innerHTML = '<div style="padding:14px 0;color:#fca5a5;">❌ Sem resposta do servidor. Verifique o console.</div>';
+                        resultEl.style.maxHeight = '80px';
+                        resultEl.dataset.open = '1';
                         return;
                     }
+
                     var d = r.message;
-                    var errosHtml = (d.erros_recentes && d.erros_recentes.length > 0)
+                    if (d.erro) {
+                        resultEl.innerHTML = '<div style="padding:14px 0;color:#fca5a5;">❌ ' + d.erro + '</div>';
+                        resultEl.style.maxHeight = '80px';
+                        resultEl.dataset.open = '1';
+                        return;
+                    }
+
+                    var erros = (d.erros_recentes && d.erros_recentes.length)
                         ? d.erros_recentes.map(function(e) {
-                            return '<div style="background:rgba(239,68,68,0.15);border-radius:6px;padding:6px 10px;font-size:11px;color:#fca5a5;margin-bottom:4px;">⚠️ ' + (e.title || '') + ' — ' + (e.creation || '') + '</div>';
+                            return '<div style="background:rgba(239,68,68,0.1);border-radius:6px;padding:6px 10px;font-size:11px;color:#fca5a5;margin-bottom:4px;">⚠️ '
+                                + (e.title || '') + '<span style="color:#475569;margin-left:8px;">' + (e.creation || '') + '</span></div>';
                           }).join('')
-                        : '<div style="color:#86efac;font-size:11px;">✅ Nenhum erro recente registrado</div>';
+                        : '<div style="color:#86efac;font-size:12px;">✅ Nenhum erro recente</div>';
 
-                    var armazensHtml = (d.armazens_cobertos && d.armazens_cobertos.length)
-                        ? d.armazens_cobertos.map(function(w) {
-                            return '<span style="background:rgba(37,99,235,0.25);border-radius:4px;padding:2px 8px;font-size:10px;margin:2px;display:inline-block;">' + w + '</span>';
-                          }).join('')
-                        : '<span style="color:#94a3b8;font-size:11px;">Nenhum armazém configurado ainda</span>';
+                    resultEl.innerHTML = '<div style="border-top:1px solid rgba(255,255,255,0.07);margin-top:12px;padding-top:16px;">'
+                        + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">'
+                        + '<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:10px 18px;text-align:center;min-width:64px;"><div style="font-size:20px;font-weight:800;color:#fff;">' + (d.total_configs || 0) + '</div><div style="font-size:10px;color:#64748b;">Total</div></div>'
+                        + '<div style="background:rgba(16,185,129,0.1);border-radius:8px;padding:10px 18px;text-align:center;min-width:64px;"><div style="font-size:20px;font-weight:800;color:#34d399;">' + (d.ativos || 0) + '</div><div style="font-size:10px;color:#64748b;">Ativos</div></div>'
+                        + '<div style="background:rgba(239,68,68,0.08);border-radius:8px;padding:10px 18px;text-align:center;min-width:64px;"><div style="font-size:20px;font-weight:800;color:#f87171;">' + (d.inativos || 0) + '</div><div style="font-size:10px;color:#64748b;">Inativos</div></div>'
+                        + '<div style="background:rgba(37,99,235,0.1);border-radius:8px;padding:10px 18px;text-align:center;min-width:64px;"><div style="font-size:20px;font-weight:800;color:#93c5fd;">' + ((d.armazens_cobertos || []).length) + '</div><div style="font-size:10px;color:#64748b;">Armazéns</div></div>'
+                        + '</div>'
+                        + '<div style="font-size:10px;font-weight:700;color:#475569;letter-spacing:1px;margin-bottom:8px;">ERROS RECENTES</div>'
+                        + erros
+                        + '</div>';
 
-                    resultEl.innerHTML = [
-                        '<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;">',
-                        '  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">',
-                        '    <div style="background:rgba(255,255,255,0.07);border-radius:8px;padding:10px 16px;text-align:center;">',
-                        '      <div style="font-size:22px;font-weight:800;color:#fff;">' + d.total_configs + '</div>',
-                        '      <div style="font-size:10px;color:#94a3b8;">Total Configs</div>',
-                        '    </div>',
-                        '    <div style="background:rgba(16,185,129,0.15);border-radius:8px;padding:10px 16px;text-align:center;">',
-                        '      <div style="font-size:22px;font-weight:800;color:#34d399;">' + d.ativos + '</div>',
-                        '      <div style="font-size:10px;color:#94a3b8;">Ativos</div>',
-                        '    </div>',
-                        '    <div style="background:rgba(239,68,68,0.1);border-radius:8px;padding:10px 16px;text-align:center;">',
-                        '      <div style="font-size:22px;font-weight:800;color:#f87171;">' + d.inativos + '</div>',
-                        '      <div style="font-size:10px;color:#94a3b8;">Inativos</div>',
-                        '    </div>',
-                        '  </div>',
-                        '  <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;">ARMAZÉNS COBERTOS:</div>',
-                        '  <div style="margin-bottom:12px;">' + armazensHtml + '</div>',
-                        '  <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;">ERROS RECENTES:</div>',
-                        '  ' + errosHtml,
-                        '</div>'
-                    ].join('');
-                    resultEl.style.maxHeight = '500px';
+                    resultEl.style.maxHeight = '420px';
+                    resultEl.dataset.open = '1';
                 }
             });
         });
     }
+
 
     // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC ---
     window._cdc_run_diagnostics = function() {
