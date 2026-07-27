@@ -549,3 +549,40 @@ def test_mattermost_config(config_name):
     """Endpoint do botão Testar Conexão no formulário."""
     doc = frappe.get_doc("CDC Mattermost Config", config_name)
     doc.test_connection()
+
+
+@frappe.whitelist()
+def diagnostico_mattermost():
+    """
+    Endpoint de diagnóstico para o workspace Integrações.
+    Retorna status de todas as configs ativas de Mattermost.
+    """
+    try:
+        configs = frappe.get_all(
+            "CDC Mattermost Config",
+            fields=["name", "warehouse", "channel_name", "enabled",
+                    "notify_entry", "notify_exit", "notify_update"],
+            order_by="warehouse asc"
+        )
+    except Exception as e:
+        return {"erro": str(e), "configs": []}
+
+    erros_recentes = frappe.db.sql("""
+        SELECT title, error, creation
+        FROM `tabError Log`
+        WHERE title LIKE '%CDC Mattermost%'
+        ORDER BY creation DESC
+        LIMIT 5
+    """, as_dict=True)
+
+    ativos   = [c for c in configs if c.enabled]
+    inativos = [c for c in configs if not c.enabled]
+
+    return {
+        "total_configs": len(configs),
+        "ativos": len(ativos),
+        "inativos": len(inativos),
+        "armazens_cobertos": list(set(c.warehouse for c in ativos)),
+        "erros_recentes": erros_recentes,
+        "configs": configs,
+    }
