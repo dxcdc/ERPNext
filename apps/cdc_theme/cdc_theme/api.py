@@ -499,7 +499,7 @@ def _build_mattermost_message(doc, event_type):
 def send_mattermost_notification(warehouse, event_type, doc):
     """Busca configs ativas e envia notificação para cada canal Mattermost configurado."""
     import requests
-    field_map = {"entry": "notify_entry", "exit": "notify_exit", "update": "notify_update"}
+    field_map = {"entry": "notify_entry", "exit": "notify_exit", "update": "notify_transfer"}
     event_field = field_map.get(event_type)
     if not event_field:
         return
@@ -561,7 +561,7 @@ def diagnostico_mattermost():
         configs = frappe.get_all(
             "CDC Mattermost Config",
             fields=["name", "warehouse", "channel_name", "enabled",
-                    "notify_entry", "notify_exit", "notify_update"],
+                    "notify_entry", "notify_exit", "notify_transfer"],
             order_by="warehouse asc"
         )
     except Exception as e:

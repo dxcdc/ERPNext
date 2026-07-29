@@ -281,7 +281,7 @@
                 method: 'frappe.client.get_list',
                 args: {
                     doctype: 'CDC Mattermost Config',
-                    fields: ['name', 'warehouse', 'channel_name', 'enabled', 'notify_entry', 'notify_exit', 'notify_update'],
+                    fields: ['name', 'warehouse', 'channel_name', 'enabled', 'notify_entry', 'notify_exit', 'notify_transfer'],
                     limit: 200,
                     order_by: 'warehouse asc'
                 },
@@ -318,7 +318,7 @@
                         html += '</div>';
                         cfgs.forEach(function(c) {
                             var dot = c.enabled ? '#10b981' : '#475569';
-                            var evts = (c.notify_entry ? '📥 ' : '') + (c.notify_exit ? '📤 ' : '') + (c.notify_update ? '🔄' : '');
+                            var evts = (c.notify_entry ? '📥 ' : '') + (c.notify_exit ? '📤 ' : '') + (c.notify_transfer ? '🔄' : '');
                             html += '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.04);border-radius:7px;padding:8px 12px;margin-bottom:4px;">';
                             html += '<div style="display:flex;align-items:center;gap:8px;">';
                             html += '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';flex-shrink:0;display:inline-block;"></span>';

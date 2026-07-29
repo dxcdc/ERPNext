@@ -7,7 +7,7 @@ class CDCMattermostConfig(Document):
     def validate(self):
         if not self.webhook_url:
             frappe.throw("A URL do Webhook é obrigatória.")
-        if not (self.notify_entry or self.notify_exit or self.notify_update):
+        if not (self.notify_entry or self.notify_exit or self.notify_transfer):
             frappe.throw("Selecione ao menos um tipo de evento para notificar.")
 
     def on_update(self):

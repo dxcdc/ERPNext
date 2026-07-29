@@ -20,7 +20,7 @@
   "col_break_events",
   "notify_entry",
   "notify_exit",
-  "notify_update",
+  "notify_transfer",
   "section_break_msg",
   "message_preview"
  ],
@@ -72,7 +72,7 @@
    "default": "1"
   },
   {
-   "fieldname": "notify_update",
+   "fieldname": "notify_transfer",
    "fieldtype": "Check",
    "label": "🔄 Notificar Atualizações / Transferências",
    "default": "1"
