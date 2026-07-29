@@ -1,0 +1,118 @@
+{
+ "actions": [
+  {
+   "action": "Testar Conexão",
+   "action_type": "Server Action",
+   "label": "Testar Conexão"
+  }
+ ],
+ "allow_rename": 1,
+ "autoname": "format:CDC-MM-{warehouse:.20}-{####}",
+ "creation": "2026-07-26 17:24:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "warehouse",
+  "channel_name",
+  "webhook_url",
+  "enabled",
+  "col_break_events",
+  "notify_entry",
+  "notify_exit",
+  "notify_transfer",
+  "section_break_msg",
+  "message_preview"
+ ],
+ "fields": [
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Armazém",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "channel_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nome do Canal",
+   "description": "Ex: #estoque-institucional",
+   "reqd": 1
+  },
+  {
+   "fieldname": "webhook_url",
+   "fieldtype": "Password",
+   "in_list_view": 0,
+   "label": "URL do Webhook (Mattermost Incoming Webhook)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Ativo",
+   "default": "1"
+  },
+  {
+   "fieldname": "col_break_events",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notify_entry",
+   "fieldtype": "Check",
+   "label": "📥 Notificar Entradas",
+   "default": "1"
+  },
+  {
+   "fieldname": "notify_exit",
+   "fieldtype": "Check",
+   "label": "📤 Notificar Saídas",
+   "default": "1"
+  },
+  {
+   "fieldname": "notify_transfer",
+   "fieldtype": "Check",
+   "label": "🔄 Notificar Atualizações / Transferências",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_break_msg",
+   "fieldtype": "Section Break",
+   "label": "Pré-visualização da Mensagem"
+  },
+  {
+   "fieldname": "message_preview",
+   "fieldtype": "HTML",
+   "label": "Exemplo de mensagem enviada ao canal",
+   "options": "<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font-family:monospace;font-size:12px;color:#1e293b;'><b>🏪 [Nome do Armazém]</b><br>📥 ENTRADA de Estoque<br>📦 Item: [Nome do Item] × [Qtd] un.<br>👤 Por: [Usuário]<br>🕐 [Data e Hora]<br><br>🔗 <span style='color:#2563eb;'>Ver lançamento no ERPNext →</span></div>"
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-26 17:24:00",
+ "modified_by": "Administrator",
+ "module": "cdc_theme",
+ "name": "CDC Mattermost Config",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "channel_name",
+ "track_changes": 1
+}

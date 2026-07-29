@@ -44,3 +44,7 @@ extractor/arquivo.txt
 extractor/log_criador_lancamentos_final.txt
 extractor/*.csv
 extractor/.git/
+
+# Vendor Theme References
+temas/
+
