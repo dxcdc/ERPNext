@@ -1413,7 +1413,7 @@
                     return;
                 }
                 frappe.call({
-                    method: 'cdc_theme.cdc_theme.doctype.cdc_mattermost_config.cdc_mattermost_config.test_connection',
+                    method: 'test_connection',
                     doc: frm.doc,
                     freeze: true,
                     freeze_message: __('Enviando mensagem de teste para o Mattermost...'),
