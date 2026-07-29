@@ -1403,4 +1403,26 @@
         if (isIntegrationPage()) renderIntegrationsDiagnosticBanner();
     }, 600);
 
+
+    // REGISTRO GLOBAL DO BOTÃO TESTAR CONEXÃO NO FORMULÁRIO MATTERMOST
+    frappe.ui.form.on('CDC Mattermost Config', {
+        refresh: function(frm) {
+            frm.add_custom_button(__('🧪 Testar Conexão'), function() {
+                if (!frm.doc.webhook_url) {
+                    frappe.msgprint(__('Por favor, preencha a URL do Webhook antes de testar.'), __('Aviso'), 'orange');
+                    return;
+                }
+                frappe.call({
+                    method: 'cdc_theme.cdc_theme.doctype.cdc_mattermost_config.cdc_mattermost_config.test_connection',
+                    doc: frm.doc,
+                    freeze: true,
+                    freeze_message: __('Enviando mensagem de teste para o Mattermost...'),
+                    callback: function(r) {
+                        frm.reload_doc();
+                    }
+                });
+            }).addClass('btn-primary');
+        }
+    });
+
 })();

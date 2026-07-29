@@ -25,3 +25,8 @@ doc_events = {
         "on_update_after_submit": "cdc_theme.api.notify_stock_entry_mattermost",
     }
 }
+
+
+doctype_js = {
+    "CDC Mattermost Config": "cdc_theme/doctype/cdc_mattermost_config/cdc_mattermost_config.js"
+}
