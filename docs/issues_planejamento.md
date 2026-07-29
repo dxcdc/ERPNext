@@ -88,3 +88,60 @@ Este documento estabelece o **inventário oficial de planejamento e backlog de t
   - [ ] Configurar guia interativo de treinamento no painel principal do ERPNext.
   - [ ] Criar manual de usuário simplificado para a equipe de estoque.
 
+
+---
+
+### 8. [INFRA] Estabilidade dos Containers Docker de Worker e Scheduler
+- **Categoria**: Infraestrutura & Containers
+- **Rótulos**: `docker`, `infrastructure`, `bug`
+- **Prioridade**: 🔴 Alta
+- **Descrição**: Corrigir a instabilidade dos containers de segundo plano (`nexterp-scheduler-1`, `nexterp-queue-short-1` e `nexterp-queue-long-1`) adicionando a montagem de volume da pasta `./apps/cdc_theme` no `docker-compose.yml`.
+- **Checklist de Aceite**:
+  - [x] Montar volume `./apps/cdc_theme` nos serviços de fila e scheduler.
+  - [x] Garantir que todos os 10 containers permaneçam no status `Up (healthy)`.
+
+---
+
+### 9. [UI] Design do Layout de Atalhos e Cartões da Workspace de Estoque
+- **Categoria**: Interface & Usuário
+- **Rótulos**: `ui`, `workspace`, `feature`
+- **Prioridade**: 🔴 Alta
+- **Descrição**: Desenhar a estrutura da Workspace de Estoque com barra de atalhos horizontal com ícone `↗` e 3 cartões de categorias (`Catálogo`, `Movimentação` e `Relatórios Personalizados`).
+- **Checklist de Aceite**:
+  - [x] Configurar título `Atalho` e 4 botões na barra superior.
+  - [x] Estruturar os 3 cartões de categorias em colunas responsivas.
+  - [x] Sincronizar tabelas `tabWorkspace`, `tabWorkspace Link` e `tabWorkspace Shortcut`.
+
+---
+
+### 10. [BUG] Travamento de Skeleton Loaders na Workspace de Estoque
+- **Categoria**: Correção de Bugs & Frontend
+- **Rótulos**: `ui`, `bug`, `frappe`
+- **Prioridade**: 🔴 Alta
+- **Descrição**: Resolver o travamento do renderizador de workspaces do Frappe v15 (congelado nas caixas cinzas de carregamento em 99%).
+- **Checklist de Aceite**:
+  - [x] Remover a chave de bloco inválida `custom_block` do JSON `content` da workspace.
+  - [x] Adicionar a trava de segurança *Skeleton Guard* no script `cdc_theme.js`.
+
+---
+
+### 11. [BUG] Erro ao Salvar Formulário do Mattermost (notify_transfer field rename)
+- **Categoria**: Correção de Bugs & Backend
+- **Rótulos**: `backend`, `python`, `bug`
+- **Prioridade**: 🟡 Média
+- **Descrição**: Corrigir a colisão de nomes de atributos no formulário do `CDC Mattermost Config` onde o campo `notify_update` sobrescrevia o método nativo `self.notify_update()` da classe Document do Frappe (`TypeError: 'int' object is not callable`).
+- **Checklist de Aceite**:
+  - [x] Renomear o campo de checkbox de `notify_update` para `notify_transfer`.
+  - [x] Executar `bench migrate` para atualizar o esquema da tabela no MariaDB.
+
+---
+
+### 12. [FEAT] Feedback Automático de Conexão e Notificação Visual no Mattermost
+- **Categoria**: Integração & Monitoramento
+- **Rótulos**: `integrations`, `mattermost`, `feature`
+- **Prioridade**: 🟡 Média
+- **Descrição**: Implementar mecanismo transparente de feedback de conexão ao salvar a integração do Mattermost, exibindo status `HTTP 200 OK`, botão de teste e log explicativo na área de Atividade.
+- **Checklist de Aceite**:
+  - [x] Implementar chamada automática no método `on_update`.
+  - [x] Adicionar o botão `🧪 Testar Conexão` no topo do formulário.
+  - [x] Exibir banner verde de status e registrar log formatado na área de Atividade.
