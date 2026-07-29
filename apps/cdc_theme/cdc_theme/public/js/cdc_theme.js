@@ -676,17 +676,51 @@
                     </div>
                 `;
 
-                // --- 3. ATALHOS OPERACIONAIS ---
+                // --- 3. ATALHO & CARTÕES DE CATEGORIAS (LAYOUT EXATO) ---
                 var shortcutsBar = `
-                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                        <div style="font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                            <span>🚀 Atalhos Operacionais</span>
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 22px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                        <div style="font-size: 17px; font-weight: 800; color: #0f172a; margin-bottom: 14px;">Atalho</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
+                            <a href="/app/query-report/Lancamento%20no%20Estoque%20-%20CDC" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                                Lançamento no Estoque <span style="font-size: 12px; color: #64748b;">↗</span>
+                            </a>
+                            <a href="/app/stock-reconciliation" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                                Conciliação de Estoque <span style="font-size: 12px; color: #64748b;">↗</span>
+                            </a>
+                            <a href="/app/query-report/Livro%20de%20Inventarios%20-%20CDC" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                                Livro de inventario <span style="font-size: 12px; color: #64748b;">↗</span>
+                            </a>
+                            <a href="/app/query-report/Balan%C3%A7o%20de%20Estoque%20-%20CDC" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                                Balanço de Estoque <span style="font-size: 12px; color: #64748b;">↗</span>
+                            </a>
                         </div>
-                        <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-                            <a href="/app/stock-entry/new" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">📥 Lançamento no Estoque</a>
-                            <a href="/app/stock-reconciliation/new" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">📊 Conciliação de Estoque</a>
-                            <a href="/app/query-report/Stock%20Balance" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">📖 Livro de Inventário</a>
-                            <a href="/app/query-report/Stock%20Summary" class="btn btn-default btn-sm" style="font-weight: 600; font-size: 13px; border-radius: 6px; padding: 6px 14px; background: #f8fafc; color: #0f172a; border-color: #cbd5e1; text-decoration: none;">⚖️ Balanço de Estoque</a>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">Catálogo</div>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <a href="/app/item" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Item</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                                <a href="/app/item-group" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Grupo de Item</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                                <a href="/app/warehouse" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Armazém</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                            </div>
+                        </div>
+
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">Movimentação</div>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <a href="/app/stock-entry" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Lançamento no Estoque</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                                <a href="/app/stock-reconciliation" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Conciliação de Estoque</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                            </div>
+                        </div>
+
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">Relatórios Personalizados</div>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <a href="/app/query-report/Balan%C3%A7o%20de%20Estoque%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Balanço de Estoque - CDC</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                                <a href="/app/query-report/Lancamento%20no%20Estoque%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Lancamento no Estoque - CDC...</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                                <a href="/app/query-report/Livro%20de%20Inventarios%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Livro de Inventarios - CDC</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                            </div>
                         </div>
                     </div>
                 `;
