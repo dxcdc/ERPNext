@@ -24,6 +24,7 @@ docker exec "$BACKEND_CONTAINER" bench --site frontend clear-cache
 
 if [ -n "$FRONTEND_CONTAINER" ] && [ "$FRONTEND_CONTAINER" != "$BACKEND_CONTAINER" ]; then
     echo "ℹ️ Sincronizando bundles de assets CSS/JS compilados para o container frontend ($FRONTEND_CONTAINER)..."
+    rm -rf /tmp/frappe_dist_sync /tmp/erpnext_dist_sync
     docker cp "$BACKEND_CONTAINER":/home/frappe/frappe-bench/apps/frappe/frappe/public/dist /tmp/frappe_dist_sync
     docker cp "$BACKEND_CONTAINER":/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist /tmp/erpnext_dist_sync
     docker exec "$FRONTEND_CONTAINER" rm -rf /home/frappe/frappe-bench/apps/frappe/frappe/public/dist /home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
