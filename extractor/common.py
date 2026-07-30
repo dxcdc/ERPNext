@@ -90,7 +90,7 @@ class Common:
         *,
         page_number: Optional[int] = None,  # controla apenas pageNumber (opcional)
         payload: Optional[Dict[str, Any]] = None,
-        timeout: int = 30,
+        timeout: int = 90,
     ) -> requests.Response:
         """
         Requisição genérica ao ONGSYS.

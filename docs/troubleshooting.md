@@ -181,3 +181,14 @@ Esta seção documenta problemas reais ocorridos durante a homologação e teste
 *   **Solução Aplicada**: Implementada a função `ensure_labels_exist` utilizando `gh label create "$label" --force --color "0E8A16"` antes de chamar `gh issue create`. O uso de `--force` torna a criação idempotente (cria o rótulo se ausente, ou o mantém inalterado se existente).
 *   **Lição Aprendida**: Scripts de automação de CI/CD não devem assumir a presença de metadados externos. Sempre providencie o auto-provisionamento idempotente das dependências antes de invocar comandos de atribuição.
 
+### Ocorrência 05: Falha na Entrada Automática de Estoque via API ONGSYS (Armazéns Atitude)
+*   **Sintoma**: Os lançamentos de entrada automática de itens nos armazéns "Atitude" pararam de dar entrada no ERPNext desde 14/07/2026.
+*   **Causa**: 
+    1. **Timeout da API**: A API de pedidos do ONGSYS levava ~33.5s por página, enquanto o script Python usava `timeout=30s`, estourando a conexão e abortando a leitura a cada rodada.
+    2. **Filtro de Status**: O código `5_extrator_requisicoes_v2.py` filtra exclusivamente pedidos com `statusPedido == "Ordem finalizada"`. Os pedidos recentes de Julho no ONGSYS foram cadastrados com o status `"Ordem gerada"`.
+*   **Solução Aplicada**: 
+    1. Atualizado o `timeout` de `30s` para `90s` no arquivo `common.py` da GCP e repositório.
+    2. Documentado no relatório de inquérito (`docs/diagnostico_integracao_ongsys.md`) que o gestor do ONGSYS precisa alterar os pedidos de `"Ordem gerada"` para `"Ordem finalizada"` (ou ajustar o filtro no código).
+*   **Lição Aprendida**: Em integrações com sistemas externos legados, aumente os limites de *timeout* HTTP e faça validações ponta-a-ponta dos estados dos objetos para distinguir falhas de transporte de regras de negócio.
+
+
