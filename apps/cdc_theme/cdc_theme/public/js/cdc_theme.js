@@ -195,7 +195,7 @@
     }
 
 
-    // --- VALIDAÇÃO ESTRITA DE ROTA SPA DO FRAPPE (ESTOQUE) ---
+    // --- VALIDAÇÃO DE ROTA PARA EXIBIÇÃO DAS GUIAS E CARDS DO TEMA CDC ---
     function isStockWorkspacePage() {
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
 
@@ -207,18 +207,19 @@
                 return false;
             }
 
-            if (mainRoute === 'stock' || mainRoute === 'estoque') {
+            if (mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') {
                 return true;
             }
 
             if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
-                return subRoute === 'stock' || subRoute === 'estoque';
+                return subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute;
             }
         }
 
         var href = (window.location.href || '').toLowerCase();
-        return href.endsWith('/app/stock') || href.endsWith('/app/estoque') || href.indexOf('/app/workspace/stock') !== -1 || href.indexOf('/app/workspace/estoque') !== -1;
+        return href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/home') !== -1 || href.indexOf('/app/workspace') !== -1;
     }
+
 
 
 
