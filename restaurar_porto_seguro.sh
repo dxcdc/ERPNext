@@ -18,6 +18,7 @@ if [ -z "$BACKEND_CONTAINER" ]; then
 fi
 
 echo "ℹ️ Usando o container backend: $BACKEND_CONTAINER"
+docker exec "$BACKEND_CONTAINER" bench --site frontend install-app cdc_theme || true
 docker exec "$BACKEND_CONTAINER" bench --site frontend migrate
 docker exec "$BACKEND_CONTAINER" bench --site frontend build
 docker exec "$BACKEND_CONTAINER" bench --site frontend clear-cache
