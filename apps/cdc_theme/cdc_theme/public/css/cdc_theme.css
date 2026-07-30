@@ -8,7 +8,7 @@
   --cdc-primary-hover: #0f172a;
   --cdc-accent: #2490ef;
   --cdc-accent-hover: #1a74c4;
-  --cdc-bg-light: #f8fafc;
+  --cdc-bg-light: #ffffff;
   --cdc-card-bg: #ffffff;
   --cdc-border-color: #e2e8f0;
   --cdc-text-dark: #0f172a;
@@ -19,7 +19,34 @@
   --cdc-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
+/* ==========================================================================
+   Estilo Global - Tema Padrão Branco Limpo
+   ========================================================================== */
+body,
+body[data-theme="light"],
+.page-container,
+.layout-main-section,
+.workspace-page,
+#body,
+.body-scrollable {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.page-head,
+.navbar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.layout-side-section,
+.desk-sidebar {
+  background-color: #fafafa !important;
+  border-right: 1px solid #f1f5f9 !important;
+}
+
 /* Evita que padding e borda aumentem a largura dos componentes */
+
 .cdc-exec-card,
 .cdc-exec-card * {
     box-sizing: border-box;
