@@ -1401,11 +1401,43 @@
         }
     });
 
+    // FUNÇÃO DE SINCRONIZAÇÃO DA LOGOMARCA E FAVICON DO CDC
+    function syncCDCBrandLogos() {
+        var logoUrl = '/assets/cdc_theme/images/cdc_logo.png';
+        var faviconUrl = '/assets/cdc_theme/images/favicon.png';
+
+        // Atualiza Favicon
+        var favEl = document.querySelector('link[rel*="icon"]');
+        if (favEl && !favEl.href.includes('favicon.png')) {
+            favEl.href = faviconUrl;
+        } else if (!favEl) {
+            var newFav = document.createElement('link');
+            newFav.rel = 'shortcut icon';
+            newFav.href = faviconUrl;
+            newFav.type = 'image/x-icon';
+            document.getElementsByTagName('head')[0].appendChild(newFav);
+        }
+
+        // Atualiza Logomarcas do Sistema
+        var logoElements = document.querySelectorAll('.app-logo, .navbar-brand img, .page-card-head img, .sidebar-header img, img[src*="Logos-CDC"], img[src*="cdc_logo"]');
+        logoElements.forEach(function(img) {
+            if (img && (!img.src || !img.src.includes('cdc_logo.png'))) {
+                img.src = logoUrl;
+            }
+        });
+    }
+
+    $(document).ready(syncCDCBrandLogos);
+    $(window).on('hashchange route', syncCDCBrandLogos);
+    setInterval(syncCDCBrandLogos, 2500);
+
     // Inicialização na carga inicial
     setTimeout(function() {
+        syncCDCBrandLogos();
         if (isIntegrationPage()) renderIntegrationsDiagnosticBanner();
         if (isStockWorkspacePage()) renderStockDashboard();
     }, 600);
+
 
 
 
