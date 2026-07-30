@@ -337,13 +337,6 @@
   margin-bottom: 24px;
 }
 
-#cdc-stock-exec-dashboard ~ .ce-block,
-#cdc-stock-exec-dashboard ~ .widget,
-#cdc-stock-exec-dashboard ~ .widget-group,
-#cdc-stock-exec-dashboard ~ .widget-box,
-#cdc-stock-exec-dashboard ~ div:not(#cdc-stock-exec-dashboard) {
-  display: none !important;
-}
 
 .cdc-stacked-bar {
   display: flex;
