@@ -10,6 +10,7 @@ services:
         condition: on-failure
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
@@ -45,6 +46,7 @@ services:
       SOCKETIO_PORT: "9000"
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
 
@@ -57,6 +59,7 @@ services:
         condition: none
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
     entrypoint:
       - bash
@@ -125,6 +128,7 @@ services:
       CLIENT_MAX_BODY_SIZE: 50m
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     ports:
@@ -144,7 +148,9 @@ services:
       - long,default,short
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
@@ -163,7 +169,9 @@ services:
       - short,default
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
@@ -198,7 +206,9 @@ services:
       - schedule
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
 
   websocket:
     image: frappe/erpnext:v15.88.1
@@ -215,14 +225,18 @@ services:
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
 
 volumes:
   db-data:
   redis-queue-data:
   sites:
+  assets:
   logs:
 
 networks:
   frappe_network:
     driver: bridge
+
