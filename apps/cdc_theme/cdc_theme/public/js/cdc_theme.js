@@ -198,31 +198,28 @@
     // --- VALIDAÇÃO ESTRITA DE ROTA SPA DO FRAPPE (ESTOQUE) ---
     function isStockWorkspacePage() {
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
-        if (!route || route.length === 0) {
-            var href = (window.location.href || '').toLowerCase();
-            return href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1;
-        }
 
-        var mainRoute = (route[0] || '').toLowerCase();
-        var subRoute = (route[1] || '').toLowerCase();
+        if (route && route.length > 0) {
+            var mainRoute = (route[0] || '').toLowerCase();
+            var subRoute = (route[1] || '').toLowerCase();
 
-        if (mainRoute === 'form' || mainRoute === 'list' || mainRoute === 'query-report' || mainRoute === 'report' || mainRoute === 'tree' || mainRoute === 'dashboard-view' || mainRoute === 'print') {
-            return false;
-        }
+            if (mainRoute === 'form' || mainRoute === 'list' || mainRoute === 'query-report' || mainRoute === 'report' || mainRoute === 'tree' || mainRoute === 'dashboard-view' || mainRoute === 'print') {
+                return false;
+            }
 
-        if (mainRoute === 'stock' || mainRoute === 'estoque') {
-            return true;
-        }
-
-        if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
-            if (subRoute === 'stock' || subRoute === 'estoque' || subRoute === '' || !subRoute) {
+            if (mainRoute === 'stock' || mainRoute === 'estoque') {
                 return true;
+            }
+
+            if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
+                return subRoute === 'stock' || subRoute === 'estoque';
             }
         }
 
         var href = (window.location.href || '').toLowerCase();
-        return href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1;
+        return href.endsWith('/app/stock') || href.endsWith('/app/estoque') || href.indexOf('/app/workspace/stock') !== -1 || href.indexOf('/app/workspace/estoque') !== -1;
     }
+
 
 
     // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
@@ -1407,7 +1404,9 @@
     // Inicialização na carga inicial
     setTimeout(function() {
         if (isIntegrationPage()) renderIntegrationsDiagnosticBanner();
+        if (isStockWorkspacePage()) renderStockDashboard();
     }, 600);
+
 
 
     // REGISTRO GLOBAL DO BOTÃO TESTAR CONEXÃO NO FORMULÁRIO MATTERMOST
