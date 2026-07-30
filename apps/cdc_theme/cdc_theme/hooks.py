@@ -14,10 +14,12 @@ web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260730_v6"
 web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260730_v6"
 
 
-# Fixtures — DocTypes customizados para exportacao/importacao
+# Fixtures — DocTypes e Workspaces customizados para exportacao/importacao automatica no bench migrate
 fixtures = [
-    {"dt": "Custom DocType", "filters": [["module", "=", "cdc_theme"]]}
+    {"dt": "Workspace", "filters": [["name", "in", ["Stock", "Estoque"]]]}
 ]
+
+
 
 # Eventos de documento — notificacoes Mattermost por armazem
 doc_events = {
