@@ -18,10 +18,14 @@ if [ -z "$BACKEND_CONTAINER" ]; then
 fi
 
 echo "ℹ️ Usando o container backend: $BACKEND_CONTAINER"
+docker exec "$BACKEND_CONTAINER" /home/frappe/frappe-bench/env/bin/pip install -e /home/frappe/frappe-bench/apps/cdc_theme || true
 docker exec "$BACKEND_CONTAINER" bench --site frontend install-app cdc_theme || true
 docker exec "$BACKEND_CONTAINER" bench --site frontend migrate
 docker exec "$BACKEND_CONTAINER" bench --site frontend build
 docker exec "$BACKEND_CONTAINER" bench --site frontend clear-cache
+
+echo "ℹ️ Reiniciando o container backend para recarregar módulos Python no Gunicorn..."
+docker restart "$BACKEND_CONTAINER"
 
 if [ -n "$FRONTEND_CONTAINER" ] && [ "$FRONTEND_CONTAINER" != "$BACKEND_CONTAINER" ]; then
     echo "ℹ️ Sincronizando bundles de assets CSS/JS compilados para o container frontend ($FRONTEND_CONTAINER)..."
