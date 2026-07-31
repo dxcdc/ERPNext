@@ -195,7 +195,7 @@
     }
 
 
-    // --- VALIDAÇÃO DE ROTA SPA DO FRAPPE (CDC ESTOQUE) ---
+    // --- VALIDAÇÃO DE ROTA SPA DO FRAPPE (ESTOQUE) ---
     function isStockWorkspacePage() {
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var mainRoute = (route[0] || '').toLowerCase();
@@ -205,7 +205,6 @@
             return false;
         }
 
-        if (subRoute.indexOf('cdc') !== -1 && subRoute.indexOf('estoque') !== -1) return true;
         if (mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') return true;
 
         if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
@@ -213,27 +212,27 @@
         }
 
         var href = (window.location.href || '').toLowerCase();
-        return href.indexOf('cdc%20estoque') !== -1 || href.indexOf('cdc-estoque') !== -1 || href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1;
+        return href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/workspace/stock') !== -1;
     }
 
-    // --- DETECÇÃO DA ROTA CDC INTEGRAÇÕES ---
+    // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
     function isIntegrationPage() {
         var href = (window.location.href || '').toLowerCase();
-        if (href.indexOf('cdc%20integra') !== -1 || href.indexOf('cdc-integra') !== -1 || href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
+        if (href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
 
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         if (route && route.length > 0) {
             var mainRoute = (route[0] || '').toLowerCase();
             var subRoute = decodeURIComponent((route[1] || '')).toLowerCase();
-            if (subRoute.indexOf('cdc') !== -1 && subRoute.indexOf('integra') !== -1) return true;
             if (mainRoute === 'integrations' || mainRoute === 'integracoes' || mainRoute === 'integrações') return true;
             if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && 
-                (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes')) {
+                (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes' || subRoute.indexOf('integra') !== -1)) {
                 return true;
             }
         }
         return false;
     }
+
 
 
 
@@ -1444,7 +1443,25 @@
         }
     }
 
+    // PURGA AUTOMÁTICA DE CACHE LEGADO DE WORKSPACES NO NAVEGADOR DO USUÁRIO
+    function purgeLegacyBrowserWorkspaceCache() {
+        var currentBuildTag = '20260731_v70';
+        var storedTag = localStorage.getItem('cdc_theme_version');
+
+        if (storedTag !== currentBuildTag) {
+            try {
+                localStorage.removeItem('desktop:workspaces');
+                localStorage.removeItem('workspace_sidebar_items');
+                localStorage.removeItem('frappe:boot');
+                sessionStorage.clear();
+                localStorage.setItem('cdc_theme_version', currentBuildTag);
+                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v70).');
+            } catch(e) {}
+        }
+    }
+
     $(document).ready(function() {
+        purgeLegacyBrowserWorkspaceCache();
         syncCDCBrandLogos();
         sanitizeSidebarWorkspaces();
         checkAndRenderThemeComponents();
@@ -1462,10 +1479,12 @@
 
     // Inicialização na carga inicial
     setTimeout(function() {
+        purgeLegacyBrowserWorkspaceCache();
         syncCDCBrandLogos();
         sanitizeSidebarWorkspaces();
         checkAndRenderThemeComponents();
     }, 500);
+
 
 
 
