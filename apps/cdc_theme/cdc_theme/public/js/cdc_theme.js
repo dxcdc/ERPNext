@@ -195,37 +195,37 @@
     }
 
 
-    // --- VALIDAÇÃO DE ROTA SPA DO FRAPPE (ESTOQUE) ---
+    // --- VALIDAÇÃO DE ROTA SPA DO FRAPPE (CDC ESTOQUE) ---
     function isStockWorkspacePage() {
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         var mainRoute = (route[0] || '').toLowerCase();
-        var subRoute = (route[1] || '').toLowerCase();
+        var subRoute = decodeURIComponent((route[1] || '')).toLowerCase();
 
         if (mainRoute === 'form' || mainRoute === 'list' || mainRoute === 'query-report' || mainRoute === 'report' || mainRoute === 'tree' || mainRoute === 'dashboard-view' || mainRoute === 'print') {
             return false;
         }
 
-        if (mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') {
-            return true;
-        }
+        if (subRoute.indexOf('cdc') !== -1 && subRoute.indexOf('estoque') !== -1) return true;
+        if (mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') return true;
 
-        if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && (subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute)) {
-            return true;
+        if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
+            if (subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute || subRoute.indexOf('cdc') !== -1) return true;
         }
 
         var href = (window.location.href || '').toLowerCase();
-        return href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/home') !== -1 || href.indexOf('/app/workspace/stock') !== -1 || href.indexOf('/app/workspace/estoque') !== -1;
+        return href.indexOf('cdc%20estoque') !== -1 || href.indexOf('cdc-estoque') !== -1 || href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1;
     }
 
-    // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
+    // --- DETECÇÃO DA ROTA CDC INTEGRAÇÕES ---
     function isIntegrationPage() {
         var href = (window.location.href || '').toLowerCase();
-        if (href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
+        if (href.indexOf('cdc%20integra') !== -1 || href.indexOf('cdc-integra') !== -1 || href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
 
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         if (route && route.length > 0) {
             var mainRoute = (route[0] || '').toLowerCase();
             var subRoute = decodeURIComponent((route[1] || '')).toLowerCase();
+            if (subRoute.indexOf('cdc') !== -1 && subRoute.indexOf('integra') !== -1) return true;
             if (mainRoute === 'integrations' || mainRoute === 'integracoes' || mainRoute === 'integrações') return true;
             if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && 
                 (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes')) {
@@ -234,6 +234,7 @@
         }
         return false;
     }
+
 
 
     // --- BANNER COMPLETO DA WORKSPACE INTEGRAÇÕES ---

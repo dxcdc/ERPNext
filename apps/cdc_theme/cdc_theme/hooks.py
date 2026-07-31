@@ -7,11 +7,12 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions com Cache Busting Version Query
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v35"
-app_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v35"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v40"
+app_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v40"
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v35"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v35"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v40"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v40"
+
 
 
 
