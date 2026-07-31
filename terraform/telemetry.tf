@@ -18,21 +18,25 @@ report = {
     'checks': {}
 }
 
-# 1. Checkup MariaDB
+# 1. Checkup MariaDB Workspaces CDC
 try:
-    res = subprocess.check_output(\"docker exec -i nexterp-db-1 mysql -u root -p'admin' _5e5899d8398b5f7b -e 'SELECT COUNT(*) FROM tabWorkspace WHERE is_hidden = 0;'\", shell=True).decode()
-    visible_count = int(res.split('\n')[1].strip())
-    report['checks']['visible_workspaces'] = {'status': 'OK', 'count': visible_count}
+    res = subprocess.check_output(\"docker exec -i nexterp-db-1 mysql -u root -p'admin' _5e5899d8398b5f7b -e 'SELECT name, label, is_hidden, LENGTH(content) FROM tabWorkspace WHERE is_hidden = 0;'\", shell=True).decode()
+    lines = [l.strip() for l in res.strip().split('\n') if l.strip()]
+    report['checks']['workspaces_cdc'] = {
+        'status': 'OK',
+        'raw_rows': lines[1:],
+        'count': len(lines) - 1
+    }
 except Exception as e:
-    report['checks']['visible_workspaces'] = {'status': 'ERROR', 'details': str(e)}
+    report['checks']['workspaces_cdc'] = {'status': 'ERROR', 'details': str(e)}
 
 # 2. Checkup HTTP Assets Nginx (Porta 8085)
 try:
-    req = urllib.request.Request('http://localhost:8085/assets/cdc_theme/css/cdc_theme.css', headers={'User-Agent': 'Terraform-Telemetry'})
+    req = urllib.request.Request('http://localhost:8085/assets/cdc_theme/js/cdc_theme.js', headers={'User-Agent': 'Terraform-Telemetry'})
     with urllib.request.urlopen(req, timeout=5) as response:
-        report['checks']['http_css_assets'] = {'status': 'OK', 'code': response.getcode()}
+        report['checks']['http_js_assets'] = {'status': 'OK', 'code': response.getcode()}
 except Exception as e:
-    report['checks']['http_css_assets'] = {'status': 'ERROR', 'details': str(e)}
+    report['checks']['http_js_assets'] = {'status': 'ERROR', 'details': str(e)}
 
 # 3. Checkup API Estoque Dashboard
 try:
@@ -50,11 +54,12 @@ with open('../telemetria_laboratorio.json', 'w') as f:
 
 print('=== 📊 RELATÓRIO DE TELEMETRIA HCL (CDC NextERP) ===')
 print('⏱️ Duração total da Telemetria: ' + str(report['metrics']['total_duration_seconds']) + 's')
-print('🏥 Workspaces Operacionais Ativas: ' + str(report['checks'].get('visible_workspaces', {}).get('count', 0)))
-print('⚡ Status Nginx Assets: ' + str(report['checks'].get('http_css_assets', {}).get('status', 'ERROR')))
+print('🏥 Workspaces Operacionais CDC: ' + str(report['checks'].get('workspaces_cdc', {}).get('count', 0)))
+print('⚡ Status Nginx Assets JS: ' + str(report['checks'].get('http_js_assets', {}).get('status', 'ERROR')))
 print('📦 API Estoque Dashboard: ' + str(report['checks'].get('stock_api', {}).get('status', 'ERROR')))
 print('====================================================')
 "
     EOT
   }
 }
+

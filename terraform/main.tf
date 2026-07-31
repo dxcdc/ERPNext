@@ -49,20 +49,20 @@ resource "null_resource" "workspace_sanitization" {
 
   provisioner "local-exec" {
     command = <<EOT
-      echo "🗺️ Criando e ativando declarativamente Workspaces exclusivas CDC (CDC Estoque, CDC Usuários, CDC Integrações)..."
+      echo "🗺️ Garantindo chaves primárias e rótulos das Workspaces CDC (cdc-estoque, cdc-usuarios, cdc-integracoes)..."
       docker exec -i nexterp-db-1 mysql -u root -p'${var.db_password}' "${var.db_name}" -e "
-        DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
-        INSERT INTO tabWorkspace (name, creation, modified, modified_by, owner, docstatus, idx, label, title, sequence_id, module, icon, public, is_hidden, content) VALUES
-        ('CDC Estoque', NOW(), NOW(), 'Administrator', 'Administrator', 0, 1, 'CDC Estoque', 'CDC Estoque', 1.0, 'cdc_theme', 'stock', 1, 0, '[]'),
-        ('CDC Usuários', NOW(), NOW(), 'Administrator', 'Administrator', 0, 2, 'CDC Usuários', 'CDC Usuários', 2.0, 'cdc_theme', 'users', 1, 0, '[]'),
-        ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Integrações', 'CDC Integrações', 3.0, 'cdc_theme', 'share-2', 1, 0, '[]');
-        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
+        DELETE FROM tabWorkspace WHERE name IN ('Stock', 'Users', 'Integrations');
+        UPDATE tabWorkspace SET is_hidden = 0 WHERE name IN ('cdc-estoque', 'cdc-usuarios', 'cdc-integracoes');
+        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('cdc-estoque', 'cdc-usuarios', 'cdc-integracoes');
         UPDATE tabUser SET desk_theme = 'Light';
       "
       docker exec nexterp-backend-1 bench --site ${var.site_name} clear-cache
     EOT
   }
 }
+
+
+
 
 
 
