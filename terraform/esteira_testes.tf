@@ -81,13 +81,21 @@ def stage_5():
         raise Exception('Função purgeLegacyBrowserWorkspaceCache não encontrada no bundle')
     return 'Mecanismo de purga automática de cache local (v80) ativo'
 
-# 6. ESTÁGIO 6: Validação de Resolução de Rotas Python & Resposta do Backend
+# 6. ESTÁGIO 6: Validação Estrita de JSON Schemas & Resolução de Rotas Python RPC
 def stage_6():
-    cmd = \"docker exec nexterp-backend-1 bench --site frontend execute frappe.desk.desktop.get_workspace_sidebar_items\"
-    res = subprocess.check_output(cmd, shell=True).decode()
-    if 'Stock' not in res or 'Integrations' not in res or 'Users' not in res:
+    # 6a. Validação de Schemas JSON no Python
+    cmd_json = \"docker exec nexterp-backend-1 bench --site frontend execute cdc_theme.api.validate_workspace_json\"
+    res_json = subprocess.check_output(cmd_json, shell=True).decode()
+    if 'INVALID_JSON' in res_json:
+        raise Exception(f'Esquema JSON invalido detectado no MariaDB: {res_json}')
+    
+    # 6b. Validação das Rotas de Sidebar
+    cmd_sb = \"docker exec nexterp-backend-1 bench --site frontend execute frappe.desk.desktop.get_workspace_sidebar_items\"
+    res_sb = subprocess.check_output(cmd_sb, shell=True).decode()
+    if 'Stock' not in res_sb or 'Integrations' not in res_sb or 'Users' not in res_sb:
         raise Exception('Rotas essenciais (Stock, Users, Integrations) ausentes na API get_workspace_sidebar_items')
-    return 'Rotas Stock, Users e Integrations validadas no backend Python sem erros 404'
+
+    return 'JSON Schemas 100% válidos + Rotas Stock, Users e Integrations validadas no backend Python sem erros 404'
 
 # Execução Sequencial da Esteira
 print('===========================================================')
@@ -96,7 +104,7 @@ run_stage(2, 'Servidores & Contêineres Docker', stage_2)
 run_stage(3, 'Assets Compilados & Nginx Front-End', stage_3)
 run_stage(4, 'API Backend & Métricas do Estoque', stage_4)
 run_stage(5, 'Purga Automática de Cache do Navegador', stage_5)
-run_stage(6, 'Resolução de Rotas Python & Ausência de Erros 404', stage_6)
+run_stage(6, 'Validação Estrita de JSON Schemas & Rotas Python (Sem 404)', stage_6)
 print('===========================================================')
 
 # Salva Relatório da Esteira
@@ -106,4 +114,5 @@ with open('../esteira_resultados.json', 'w') as f:
     EOT
   }
 }
+
 

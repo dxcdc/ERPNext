@@ -1,6 +1,22 @@
 import frappe
 
+@frappe.whitelist()
+def validate_workspace_json():
+
+    import json
+    results = {}
+    workspaces = frappe.db.get_all("Workspace", fields=["name", "label", "title", "content", "is_hidden"])
+    for w in workspaces:
+        if not w.is_hidden:
+            try:
+                parsed = json.loads(w.content or "[]")
+                results[w.name] = {"status": "OK", "block_count": len(parsed)}
+            except Exception as e:
+                results[w.name] = {"status": "INVALID_JSON", "error": str(e)}
+    return results
+
 def get_unit_prefix(unit):
+
     """ Mapeia os nomes das unidades de exibição para os prefixos reais dos Armazéns no MariaDB """
     if not unit or unit == 'null' or unit == 'undefined' or unit == 'All' or unit == 'Todos os Armazéns':
         return 'All'
