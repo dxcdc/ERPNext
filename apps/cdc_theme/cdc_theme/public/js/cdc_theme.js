@@ -195,11 +195,9 @@
     }
 
 
-    // --- VALIDAÇÃO ESTRITA DE ROTA SPA DO FRAPPE (ESTOQUE) ---
+    // --- VALIDAÇÃO DE ROTA SPA DO FRAPPE (ESTOQUE) ---
     function isStockWorkspacePage() {
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
-        if (!route || route.length === 0) return false;
-
         var mainRoute = (route[0] || '').toLowerCase();
         var subRoute = (route[1] || '').toLowerCase();
 
@@ -207,28 +205,36 @@
             return false;
         }
 
-        if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && (subRoute === 'stock' || subRoute === 'estoque')) {
+        if (mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') {
+            return true;
+        }
+
+        if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && (subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute)) {
             return true;
         }
 
         var href = (window.location.href || '').toLowerCase();
-        if (href.endsWith('/app/stock') || href.endsWith('/app/workspace/stock') || href.endsWith('/app/workspaces/stock') || href.endsWith('/app/stock/')) {
-            return true;
-        }
-
-        return false;
+        return href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/home') !== -1 || href.indexOf('/app/workspace/stock') !== -1 || href.indexOf('/app/workspace/estoque') !== -1;
     }
 
     // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
     function isIntegrationPage() {
         var href = (window.location.href || '').toLowerCase();
-        // Aceita /app/integracoes  ou  /app/integra%C3%A7%C3%B5es
-        if (href.indexOf('/app/integracoes') !== -1 ||
-            href.indexOf('/app/integra%c3%a7%c3%b5es') !== -1) return true;
+        if (href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
+
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
-        var sub = decodeURIComponent((route[1] || '')).toLowerCase();
-        return sub === 'integracoes' || sub === 'integrações';
+        if (route && route.length > 0) {
+            var mainRoute = (route[0] || '').toLowerCase();
+            var subRoute = decodeURIComponent((route[1] || '')).toLowerCase();
+            if (mainRoute === 'integrations' || mainRoute === 'integracoes' || mainRoute === 'integrações') return true;
+            if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && 
+                (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes')) {
+                return true;
+            }
+        }
+        return false;
     }
+
 
     // --- BANNER COMPLETO DA WORKSPACE INTEGRAÇÕES ---
     function renderIntegrationsDiagnosticBanner() {
@@ -1389,19 +1395,78 @@
             }, 100);
         }
 
-        // Renderiza banner de diagnóstico na workspace Integrações
-        if (isIntegrationPage()) {
-            setTimeout(renderIntegrationsDiagnosticBanner, 400);
-        } else {
-            var b = document.getElementById('cdc-integracoes-banner');
-            if (b) b.remove();
+    // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
+    function isIntegrationPage() {
+        var href = (window.location.href || '').toLowerCase();
+        if (href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
+
+        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
+        if (route && route.length > 0) {
+            var mainRoute = (route[0] || '').toLowerCase();
+            var subRoute = (route[1] || '').toLowerCase();
+            if (mainRoute === 'integrations' || mainRoute === 'integracoes' || mainRoute === 'integrações') return true;
+            if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && 
+                (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes')) {
+                return true;
+            }
         }
+        return false;
+    }
+
+    // SANITIZAÇÃO DINÂMICA DA SIDEBAR: Exibe estritamente Estoque, Usuários e Integrações
+    function sanitizeSidebarWorkspaces() {
+        var allowedList = ['stock', 'estoque', 'users', 'usuários', 'usuarios', 'integrations', 'integrações', 'integracoes'];
+        
+        var sidebarLinks = document.querySelectorAll('.desk-sidebar .sidebar-item, .desk-sidebar .standard-sidebar-item, .desk-sidebar .sidebar-item-container, .desk-sidebar li');
+        sidebarLinks.forEach(function(el) {
+            var labelText = (el.innerText || el.textContent || '').trim().toLowerCase();
+            if (labelText && labelText !== 'público' && labelText !== 'public' && labelText !== 'módulos' && labelText !== 'modulos') {
+                var isAllowed = allowedList.some(function(term) {
+                    return labelText.indexOf(term) !== -1;
+                });
+                if (!isAllowed) {
+                    el.style.cssText = 'display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important;';
+                } else {
+                    el.style.cssText = 'display: block !important; visibility: visible !important;';
+                }
+            }
+        });
+    }
+
+    // DISPARADOR GERAL DE COMPONENTES DO TEMA CDC
+    function checkAndRenderThemeComponents() {
+        if (isStockWorkspacePage()) {
+            renderStockDashboard();
+        }
+        if (isIntegrationPage()) {
+            renderIntegrationsDiagnosticBanner();
+        }
+    }
+
+    $(document).ready(function() {
+        syncCDCBrandLogos();
+        sanitizeSidebarWorkspaces();
+        checkAndRenderThemeComponents();
     });
+    $(window).on('hashchange route page-change', function() {
+        syncCDCBrandLogos();
+        sanitizeSidebarWorkspaces();
+        checkAndRenderThemeComponents();
+    });
+    setInterval(function() {
+        syncCDCBrandLogos();
+        sanitizeSidebarWorkspaces();
+        checkAndRenderThemeComponents();
+    }, 1200);
 
     // Inicialização na carga inicial
     setTimeout(function() {
-        if (isIntegrationPage()) renderIntegrationsDiagnosticBanner();
-    }, 600);
+        syncCDCBrandLogos();
+        sanitizeSidebarWorkspaces();
+        checkAndRenderThemeComponents();
+    }, 500);
+
+
 
 
     // REGISTRO GLOBAL DO BOTÃO TESTAR CONEXÃO NO FORMULÁRIO MATTERMOST
