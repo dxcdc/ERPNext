@@ -24,6 +24,18 @@ variable "site_name" {
 
 variable "gcp_backup_path" {
   type        = string
-  default     = "backups/gcp-prod-database.sql.gz"
+  default     = "bkp gcp/gcp-prod-database-latest.sql.gz"
   description = "Caminho do arquivo de backup exportado da GCP"
+}
+
+variable "gcp_public_files_path" {
+  type        = string
+  default     = "bkp gcp/gcp-prod-public-files.tar"
+  description = "Caminho do arquivo de arquivos públicos exportado da GCP"
+}
+
+variable "gcp_private_files_path" {
+  type        = string
+  default     = "bkp gcp/gcp-prod-private-files.tar"
+  description = "Caminho do arquivo de arquivos privados exportado da GCP"
 }
