@@ -49,22 +49,24 @@ resource "null_resource" "workspace_sanitization" {
 
   provisioner "local-exec" {
     command = <<EOT
-      echo "🗺️ Garantindo Workspaces com conteúdo GCP e JSON 100% Válido (Estoque, Usuários, Integrações)..."
+      echo "🗺️ Garantindo Workspaces com rótulos e chaves nativas do CDC (CDC Estoque, CDC Usuários, CDC Integrações)..."
       docker exec -i nexterp-db-1 mysql -u root -p'${var.db_password}' "${var.db_name}" -e "
-        DELETE FROM tabWorkspace WHERE name IN ('cdc-estoque', 'cdc-usuarios', 'cdc-integracoes', 'CDC Estoque', 'CDC Usuários', 'CDC Integrações');
-        UPDATE tabWorkspace SET label = 'Estoque', title = 'Estoque', is_hidden = 0, content = '[{\"id\":\"i75oOgSdFT\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total de Armazém\",\"col\":12}},{\"id\":\"wwAoBx30p3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"_D_9nEcxkv\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Estoque\",\"col\":12}},{\"id\":\"LkqrpJHM9X\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Atalho</b></span>\",\"col\":12}},{\"id\":\"0EYKOrx6U1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lançamento no Estoque\",\"col\":3}},{\"id\":\"4APLzv0c56\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Conciliação de Estoque\",\"col\":3}},{\"id\":\"Yt53LeRakq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Livro de inventario\",\"col\":3}},{\"id\":\"o3sdEnNy34\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Balanço de Estoque\",\"col\":3}},{\"id\":\"Uon_-6uicQ\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"OAGNH9njt7\",\"type\":\"card\",\"data\":{\"card_name\":\"Catálogo\",\"col\":4}},{\"id\":\"jF9eKz0qr0\",\"type\":\"card\",\"data\":{\"card_name\":\"Movimentação\",\"col\":4}}]' WHERE name = 'Stock';
+        DELETE FROM tabWorkspace WHERE name IN ('Stock', 'Users', 'Integrations', 'cdc-estoque', 'cdc-usuarios', 'cdc-integracoes', 'cdc-integrações');
+        DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
 
-        UPDATE tabWorkspace SET label = 'Usuários', title = 'Usuários', is_hidden = 0, content = '[{\"id\":\"v-dY5c4bpt\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\'font-size: 18px; letter-spacing: 0.18px;\\'><b>Users</b><br></span>\",\"col\":12}},{\"id\":\"bS-k5_e8U3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User\",\"col\":3}},{\"id\":\"Wp_31s1k61\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Profile\",\"col\":3}},{\"id\":\"c_9XnF7Sgq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User Permission\",\"col\":3}},{\"id\":\"h2yYy94M4D\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User Group\",\"col\":3}}]' WHERE name = 'Users';
+        INSERT INTO tabWorkspace (name, creation, modified, modified_by, owner, docstatus, idx, label, title, sequence_id, module, icon, public, is_hidden, content) VALUES
+        ('CDC Estoque', NOW(), NOW(), 'Administrator', 'Administrator', 0, 1, 'CDC Estoque', 'CDC Estoque', 1.0, 'Stock', 'stock', 1, 0, '[{\"id\":\"i75oOgSdFT\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total de Armazém\",\"col\":12}},{\"id\":\"wwAoBx30p3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"_D_9nEcxkv\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Estoque\",\"col\":12}},{\"id\":\"LkqrpJHM9X\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Atalho</b></span>\",\"col\":12}},{\"id\":\"0EYKOrx6U1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lançamento no Estoque\",\"col\":3}},{\"id\":\"4APLzv0c56\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Conciliação de Estoque\",\"col\":3}},{\"id\":\"Yt53LeRakq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Livro de inventario\",\"col\":3}},{\"id\":\"03sdEnNy34\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Balanço de Estoque\",\"col\":3}},{\"id\":\"Uon_-6uicQ\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"OAGNH9njt7\",\"type\":\"card\",\"data\":{\"card_name\":\"Catálogo\",\"col\":4}},{\"id\":\"jF9eKz0qr0\",\"type\":\"card\",\"data\":{\"card_name\":\"Movimentação\",\"col\":4}}]'),
+        ('CDC Usuários', NOW(), NOW(), 'Administrator', 'Administrator', 0, 2, 'CDC Usuários', 'CDC Usuários', 2.0, 'Core', 'users', 1, 0, '[{\"id\":\"v-dY5c4bpt\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\'font-size: 18px; letter-spacing: 0.18px;\\'><b>Users</b><br></span>\",\"col\":12}},{\"id\":\"bS-k5_e8U3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User\",\"col\":3}},{\"id\":\"Wp_31s1k61\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Profile\",\"col\":3}},{\"id\":\"c_9XnF7Sgq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User Permission\",\"col\":3}},{\"id\":\"h2yYy94M4D\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User Group\",\"col\":3}}]'),
+        ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Integrações', 'CDC Integrações', 3.0, 'Integrations', 'share-2', 1, 0, '[{\"id\":\"hQ-2qgq-0c\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\'font-size: 18px; letter-spacing: 0.18px;\\'><b>Integrations</b><br></span>\",\"col\":12}},{\"id\":\"y_1n0pT5E2\",\"type\":\"card\",\"data\":{\"card_name\":\"Integrations\",\"col\":4}},{\"id\":\"4pX_9oTq0W\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]');
 
-        UPDATE tabWorkspace SET label = 'Integrações', title = 'Integrações', is_hidden = 0, content = '[{\"id\":\"hQ-2qgq-0c\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\'font-size: 18px; letter-spacing: 0.18px;\\'><b>Integrations</b><br></span>\",\"col\":12}},{\"id\":\"y_1n0pT5E2\",\"type\":\"card\",\"data\":{\"card_name\":\"Integrations\",\"col\":4}},{\"id\":\"4pX_9oTq0W\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]' WHERE name = 'Integrations';
-
-        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('Stock', 'Users', 'Integrations');
+        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
         UPDATE tabUser SET desk_theme = 'Light';
       "
       docker exec nexterp-backend-1 bench --site ${var.site_name} clear-cache
     EOT
   }
 }
+
 
 
 

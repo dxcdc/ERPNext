@@ -7,13 +7,11 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions com Cache Busting Version Query
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v80"
-app_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v80"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v90"
+app_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v90"
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v80"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v80"
-
-
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260731_v90"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v90"
 
 
 
@@ -21,8 +19,16 @@ web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260731_v80"
 
 
 
+
+
+
+
+override_whitelisted_methods = {
+    "frappe.desk.desktop.get_desktop_page": "cdc_theme.api.custom_get_desktop_page"
+}
 
 # Fixtures — DocTypes customizados para exportacao/importacao
+
 fixtures = [
     {"dt": "Custom DocType", "filters": [["module", "=", "cdc_theme"]]}
 ]

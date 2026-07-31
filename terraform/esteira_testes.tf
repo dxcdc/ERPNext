@@ -96,13 +96,18 @@ def stage_6():
     sub4 = res.get('sub_stage_6_4_stock_dashboard', {})
     sub5 = res.get('sub_stage_6_5_mattermost_bi', {})
 
+    visible_pages = sub2.get('visible_sidebar_pages', [])
+    for req_page in ['CDC Estoque', 'CDC Usuários', 'CDC Integrações']:
+        if req_page not in visible_pages:
+            raise Exception(f'Página com prefixo CDC obrigatorio ausente: {req_page}')
+
     print(f'   ↳ [6.1 JSON Schemas] Workspaces ativas: {list(sub1.keys())}')
-    print(f'   ↳ [6.2 Sidebar Routes] Páginas visíveis: {sub2.get(\"visible_sidebar_pages\")}')
-    print(f'   ↳ [6.3 Desktop Pages] Stock, Users, Integrations validadas no Python Loader')
+    print(f'   ↳ [6.2 Sidebar Routes] Páginas com prefixo CDC: {visible_pages}')
+    print(f'   ↳ [6.3 Desktop Pages Loader] CDC Estoque, CDC Usuários, CDC Integrações validadas sem 404')
     print(f'   ↳ [6.4 Estoque Metrics] Armazéns: {sub4.get(\"total_warehouses\")}, Entradas: {sub4.get(\"receipts_month\")}, Saídas: {sub4.get(\"issues_month\")}')
     print(f'   ↳ [6.5 Mattermost/BI] Status: {sub5.get(\"status\")}')
 
-    return 'Estágio 6 (5/5 Sub-pontos Validados: Schemas JSON, Rotas, Construtor de Páginas, API Estoque e Mattermost)'
+    return 'Estágio 6 (5/5 Sub-pontos Validados: Prefixo CDC Obrigatorio em Schemas, Rotas, Construtor, API Estoque e Mattermost)'
 
 # Execução Sequencial da Esteira
 print('===========================================================')
@@ -111,7 +116,7 @@ run_stage(2, 'Servidores & Contêineres Docker', stage_2)
 run_stage(3, 'Assets Compilados & Nginx Front-End', stage_3)
 run_stage(4, 'API Backend & Métricas do Estoque', stage_4)
 run_stage(5, 'Purga Automática de Cache do Navegador', stage_5)
-run_stage(6, 'Validação Holística Granular (Telas, Rotas, Schemas & APIs Python)', stage_6)
+run_stage(6, 'Validação Holística Granular (Prefixo CDC em Telas, Rotas, Schemas & APIs Python)', stage_6)
 print('===========================================================')
 
 # Salva Relatório da Esteira
@@ -121,6 +126,7 @@ with open('../esteira_resultados.json', 'w') as f:
     EOT
   }
 }
+
 
 
 

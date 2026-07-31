@@ -1,7 +1,47 @@
 import frappe
 
 @frappe.whitelist()
+def custom_get_desktop_page(page):
+    import json
+    if isinstance(page, str):
+        try:
+            p_dict = json.loads(page)
+            name = p_dict.get("name", "")
+        except Exception:
+            name = page
+    else:
+        p_dict = page
+        name = p_dict.get("name", "") if isinstance(p_dict, dict) else str(page)
+
+    slug_map = {
+        "cdc-estoque": "CDC Estoque",
+        "cdc-usuarios": "CDC Usuários",
+        "cdc-usuários": "CDC Usuários",
+        "cdc-integracoes": "CDC Integrações",
+        "cdc-integrações": "CDC Integrações",
+        "stock": "CDC Estoque",
+        "users": "CDC Usuários",
+        "integrations": "CDC Integrações",
+        "estoque": "CDC Estoque",
+        "usuários": "CDC Usuários",
+        "integrações": "CDC Integrações"
+    }
+
+    lower_name = str(name).lower().strip()
+    if lower_name in slug_map:
+        target_name = slug_map[lower_name]
+        if isinstance(p_dict, dict):
+            p_dict["name"] = target_name
+            page = json.dumps(p_dict)
+        else:
+            page = json.dumps({"name": target_name})
+
+    from frappe.desk.desktop import get_desktop_page
+    return get_desktop_page(page)
+
+@frappe.whitelist()
 def validate_workspace_json():
+
     import json
     results = {}
     workspaces = frappe.db.get_all("Workspace", fields=["name", "label", "title", "content", "is_hidden"])
@@ -47,17 +87,18 @@ def run_stage_6_diagnostics():
         diag["sub_stage_6_2_sidebar_routes"] = {"status": "FAILED", "error": str(e)}
         diag["overall_stage_6_status"] = "FAILED"
 
-    # 6.3: Desktop Pages Loader (Stock, Users, Integrations)
+    # 6.3: Desktop Pages Loader (CDC Estoque, CDC Usuários, CDC Integrações)
     try:
         from frappe.desk.desktop import get_desktop_page
-        for page_name in ["Stock", "Users", "Integrations"]:
+        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Integrações"]:
             page_json = json.dumps({"name": page_name})
-            res = get_desktop_page(page_json)
+            res = custom_get_desktop_page(page_json)
             diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
     except Exception as e:
         diag["sub_stage_6_3_desktop_pages"]["error"] = str(e)
         diag["sub_stage_6_3_desktop_pages"]["status"] = "FAILED"
         diag["overall_stage_6_status"] = "FAILED"
+
 
     # 6.4: API de Estoque
     try:
