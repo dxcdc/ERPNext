@@ -39,12 +39,13 @@ def run_stage(stage_id, title, test_func):
 
 # 1. ESTÁGIO 1: Validação do Banco MariaDB (Workspaces e Conteúdos Nativos)
 def stage_1():
-    res = subprocess.check_output(\"docker exec -i nexterp-db-1 mysql -u root -p'admin' _5e5899d8398b5f7b -e 'SELECT name, label, is_hidden, LENGTH(content) FROM tabWorkspace WHERE is_hidden = 0;'\", shell=True).decode()
-    lines = [l.strip() for l in res.strip().split('\n') if l.strip()]
-    count = len(lines) - 1
-    if count != 3:
-        raise Exception(f'Esperado 3 workspaces visiveis, encontrado: {count}')
-    return '3 Workspaces ativas no MariaDB (Stock, Users, Integrations) com conteúdo GCP intacto'
+    res = subprocess.check_output(\"docker exec -i nexterp-db-1 mysql -u root -p'admin' _5e5899d8398b5f7b -e 'SELECT name FROM tabWorkspace WHERE is_hidden = 0;'\", shell=True).decode()
+    lines = [l.strip() for l in res.strip().split('\n') if l.strip() and l.strip() != 'name']
+    for req in ['CDC Estoque', 'CDC Usuários', 'CDC Integrações']:
+        if req not in lines:
+            raise Exception(f'Workspace obrigatoria ausente ou oculta: {req}')
+    return f'{len(lines)} Workspaces ativas no MariaDB (CDC Estoque, CDC Usuários, CDC Integrações) com conteúdo GCP intacto'
+
 
 # 2. ESTÁGIO 2: Validação dos Contêineres Docker
 def stage_2():

@@ -60,6 +60,8 @@ resource "null_resource" "workspace_sanitization" {
         ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Integrações', 'CDC Integrações', 3.0, 'Integrations', 'share-2', 1, 0, '[{\"id\":\"hQ-2qgq-0c\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\'font-size: 18px; letter-spacing: 0.18px;\\'><b>Integrations</b><br></span>\",\"col\":12}},{\"id\":\"y_1n0pT5E2\",\"type\":\"card\",\"data\":{\"card_name\":\"Integrations\",\"col\":4}},{\"id\":\"4pX_9oTq0W\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]');
 
         UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
+        UPDATE tabWorkspace SET is_hidden = 0 WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
+
 
         UPDATE \`tabWorkspace Shortcut\` SET parent = 'CDC Estoque' WHERE parent = 'Stock';
         UPDATE \`tabWorkspace Link\` SET parent = 'CDC Estoque' WHERE parent = 'Stock';

@@ -337,12 +337,44 @@
   margin-bottom: 24px;
 }
 
-#cdc-stock-exec-dashboard ~ .ce-block,
-#cdc-stock-exec-dashboard ~ .widget,
-#cdc-stock-exec-dashboard ~ .widget-group,
-#cdc-stock-exec-dashboard ~ .widget-box,
-#cdc-stock-exec-dashboard ~ div:not(#cdc-stock-exec-dashboard) {
-  display: none !important;
+/* ESTILIZAÇÃO DO TEMA CDC PARA A PÁGINA /app/cdc-estoque */
+.layout-main-section {
+  padding: 16px 24px !important;
+}
+
+/* Cards e Widgets da Workspace */
+.widget-group, .widget {
+  border-radius: 12px !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.widget-group:hover, .widget:hover {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Atalhos / Shortcuts estilo CDC */
+.widget-shortcut {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  transition: all 0.2s ease !important;
+}
+
+.widget-shortcut:hover {
+  border-color: #2563eb !important;
+  background: #f8fafc !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12) !important;
+}
+
+/* Cabeçalhos de Seções */
+.widget-head, .widget-title {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px !important;
 }
 
 .cdc-stacked-bar {
@@ -357,3 +389,4 @@
 .cdc-stacked-bar-segment {
   height: 100%;
 }
+

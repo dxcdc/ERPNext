@@ -205,15 +205,16 @@
             return false;
         }
 
-        if (mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') return true;
+        if (mainRoute === 'cdc-estoque' || mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') return true;
 
         if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
-            if (subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute || subRoute.indexOf('cdc') !== -1) return true;
+            if (subRoute === 'cdc-estoque' || subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute || subRoute.indexOf('cdc') !== -1) return true;
         }
 
         var href = (window.location.href || '').toLowerCase();
-        return href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/workspace/stock') !== -1;
+        return href.indexOf('/app/cdc-estoque') !== -1 || href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/workspace/stock') !== -1;
     }
+
 
     // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
     function isIntegrationPage() {
@@ -1445,7 +1446,7 @@
 
     // PURGA AUTOMÁTICA DE CACHE LEGADO DE WORKSPACES NO NAVEGADOR DO USUÁRIO
     function purgeLegacyBrowserWorkspaceCache() {
-        var currentBuildTag = '20260731_v90';
+        var currentBuildTag = '20260731_v100';
         var storedTag = localStorage.getItem('cdc_theme_version');
 
         if (storedTag !== currentBuildTag) {
@@ -1455,10 +1456,11 @@
                 localStorage.removeItem('frappe:boot');
                 sessionStorage.clear();
                 localStorage.setItem('cdc_theme_version', currentBuildTag);
-                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v90).');
+                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v100).');
             } catch(e) {}
         }
     }
+
 
 
 
