@@ -48,3 +48,8 @@ extractor/.git/
 # Vendor Theme References
 temas/
 
+# Backups GCP
+bkp gcp/
+bkp_gcp/
+
+
