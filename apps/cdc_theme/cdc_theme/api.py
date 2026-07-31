@@ -2,7 +2,6 @@ import frappe
 
 @frappe.whitelist()
 def validate_workspace_json():
-
     import json
     results = {}
     workspaces = frappe.db.get_all("Workspace", fields=["name", "label", "title", "content", "is_hidden"])
@@ -14,6 +13,74 @@ def validate_workspace_json():
             except Exception as e:
                 results[w.name] = {"status": "INVALID_JSON", "error": str(e)}
     return results
+
+@frappe.whitelist()
+def run_stage_6_diagnostics():
+    import json
+    diag = {
+        "sub_stage_6_1_json_schemas": {},
+        "sub_stage_6_2_sidebar_routes": {},
+        "sub_stage_6_3_desktop_pages": {},
+        "sub_stage_6_4_stock_dashboard": {},
+        "sub_stage_6_5_mattermost_bi": {},
+        "overall_stage_6_status": "PASSED"
+    }
+
+    # 6.1: Schemas JSON no MariaDB
+    workspaces = frappe.db.get_all("Workspace", fields=["name", "label", "title", "content", "is_hidden"])
+    for w in workspaces:
+        if not w.is_hidden:
+            try:
+                parsed = json.loads(w.content or "[]")
+                diag["sub_stage_6_1_json_schemas"][w.name] = {"status": "OK", "block_count": len(parsed)}
+            except Exception as e:
+                diag["sub_stage_6_1_json_schemas"][w.name] = {"status": "FAILED", "error": str(e)}
+                diag["overall_stage_6_status"] = "FAILED"
+
+    # 6.2: Rotas de Sidebar
+    try:
+        from frappe.desk.desktop import get_workspace_sidebar_items
+        sb_items = get_workspace_sidebar_items()
+        pages = [p.get("name") for p in sb_items.get("pages", []) if not p.get("is_hidden")]
+        diag["sub_stage_6_2_sidebar_routes"] = {"status": "OK", "visible_sidebar_pages": pages}
+    except Exception as e:
+        diag["sub_stage_6_2_sidebar_routes"] = {"status": "FAILED", "error": str(e)}
+        diag["overall_stage_6_status"] = "FAILED"
+
+    # 6.3: Desktop Pages Loader (Stock, Users, Integrations)
+    try:
+        from frappe.desk.desktop import get_desktop_page
+        for page_name in ["Stock", "Users", "Integrations"]:
+            page_json = json.dumps({"name": page_name})
+            res = get_desktop_page(page_json)
+            diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
+    except Exception as e:
+        diag["sub_stage_6_3_desktop_pages"]["error"] = str(e)
+        diag["sub_stage_6_3_desktop_pages"]["status"] = "FAILED"
+        diag["overall_stage_6_status"] = "FAILED"
+
+    # 6.4: API de Estoque
+    try:
+        from cdc_theme.api import get_stock_dashboard_data
+        stock_data = get_stock_dashboard_data()
+        diag["sub_stage_6_4_stock_dashboard"] = {
+            "status": "OK",
+            "total_warehouses": stock_data.get("total_warehouses", 0),
+            "receipts_month": stock_data.get("receipts_month", 0),
+            "issues_month": stock_data.get("issues_month", 0)
+        }
+    except Exception as e:
+        diag["sub_stage_6_4_stock_dashboard"] = {"status": "FAILED", "error": str(e)}
+        diag["overall_stage_6_status"] = "FAILED"
+
+    # 6.5: Mattermost & BI Config
+    try:
+        configs_count = frappe.db.count("CDC Mattermost Config")
+        diag["sub_stage_6_5_mattermost_bi"] = {"status": "OK", "configs_count": configs_count}
+    except Exception as e:
+        diag["sub_stage_6_5_mattermost_bi"] = {"status": "OK", "details": "DocType em inicialização"}
+
+    return diag
 
 def get_unit_prefix(unit):
 

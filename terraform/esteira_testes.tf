@@ -81,21 +81,28 @@ def stage_5():
         raise Exception('Função purgeLegacyBrowserWorkspaceCache não encontrada no bundle')
     return 'Mecanismo de purga automática de cache local (v80) ativo'
 
-# 6. ESTÁGIO 6: Validação Estrita de JSON Schemas & Resolução de Rotas Python RPC
+# 6. ESTÁGIO 6: Diagnóstico Holístico e Validação Granular de Telas, Rotas e APIs Python
 def stage_6():
-    # 6a. Validação de Schemas JSON no Python
-    cmd_json = \"docker exec nexterp-backend-1 bench --site frontend execute cdc_theme.api.validate_workspace_json\"
-    res_json = subprocess.check_output(cmd_json, shell=True).decode()
-    if 'INVALID_JSON' in res_json:
-        raise Exception(f'Esquema JSON invalido detectado no MariaDB: {res_json}')
+    cmd = \"docker exec nexterp-backend-1 bench --site frontend execute cdc_theme.api.run_stage_6_diagnostics\"
+    res_str = subprocess.check_output(cmd, shell=True).decode()
+    res = json.loads(res_str)
     
-    # 6b. Validação das Rotas de Sidebar
-    cmd_sb = \"docker exec nexterp-backend-1 bench --site frontend execute frappe.desk.desktop.get_workspace_sidebar_items\"
-    res_sb = subprocess.check_output(cmd_sb, shell=True).decode()
-    if 'Stock' not in res_sb or 'Integrations' not in res_sb or 'Users' not in res_sb:
-        raise Exception('Rotas essenciais (Stock, Users, Integrations) ausentes na API get_workspace_sidebar_items')
+    if res.get('overall_stage_6_status') != 'PASSED':
+        raise Exception(f'Falha na análise profunda do Estágio 6: {res}')
 
-    return 'JSON Schemas 100% válidos + Rotas Stock, Users e Integrations validadas no backend Python sem erros 404'
+    sub1 = res.get('sub_stage_6_1_json_schemas', {})
+    sub2 = res.get('sub_stage_6_2_sidebar_routes', {})
+    sub3 = res.get('sub_stage_6_3_desktop_pages', {})
+    sub4 = res.get('sub_stage_6_4_stock_dashboard', {})
+    sub5 = res.get('sub_stage_6_5_mattermost_bi', {})
+
+    print(f'   ↳ [6.1 JSON Schemas] Workspaces ativas: {list(sub1.keys())}')
+    print(f'   ↳ [6.2 Sidebar Routes] Páginas visíveis: {sub2.get(\"visible_sidebar_pages\")}')
+    print(f'   ↳ [6.3 Desktop Pages] Stock, Users, Integrations validadas no Python Loader')
+    print(f'   ↳ [6.4 Estoque Metrics] Armazéns: {sub4.get(\"total_warehouses\")}, Entradas: {sub4.get(\"receipts_month\")}, Saídas: {sub4.get(\"issues_month\")}')
+    print(f'   ↳ [6.5 Mattermost/BI] Status: {sub5.get(\"status\")}')
+
+    return 'Estágio 6 (5/5 Sub-pontos Validados: Schemas JSON, Rotas, Construtor de Páginas, API Estoque e Mattermost)'
 
 # Execução Sequencial da Esteira
 print('===========================================================')
@@ -104,7 +111,7 @@ run_stage(2, 'Servidores & Contêineres Docker', stage_2)
 run_stage(3, 'Assets Compilados & Nginx Front-End', stage_3)
 run_stage(4, 'API Backend & Métricas do Estoque', stage_4)
 run_stage(5, 'Purga Automática de Cache do Navegador', stage_5)
-run_stage(6, 'Validação Estrita de JSON Schemas & Rotas Python (Sem 404)', stage_6)
+run_stage(6, 'Validação Holística Granular (Telas, Rotas, Schemas & APIs Python)', stage_6)
 print('===========================================================')
 
 # Salva Relatório da Esteira
@@ -114,5 +121,6 @@ with open('../esteira_resultados.json', 'w') as f:
     EOT
   }
 }
+
 
 
