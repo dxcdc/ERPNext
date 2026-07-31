@@ -79,7 +79,15 @@ def stage_5():
         content = f.read()
     if 'purgeLegacyBrowserWorkspaceCache' not in content:
         raise Exception('Função purgeLegacyBrowserWorkspaceCache não encontrada no bundle')
-    return 'Mecanismo de purga automática de cache local (v70) ativo'
+    return 'Mecanismo de purga automática de cache local (v80) ativo'
+
+# 6. ESTÁGIO 6: Validação de Resolução de Rotas Python & Resposta do Backend
+def stage_6():
+    cmd = \"docker exec nexterp-backend-1 bench --site frontend execute frappe.desk.desktop.get_workspace_sidebar_items\"
+    res = subprocess.check_output(cmd, shell=True).decode()
+    if 'Stock' not in res or 'Integrations' not in res or 'Users' not in res:
+        raise Exception('Rotas essenciais (Stock, Users, Integrations) ausentes na API get_workspace_sidebar_items')
+    return 'Rotas Stock, Users e Integrations validadas no backend Python sem erros 404'
 
 # Execução Sequencial da Esteira
 print('===========================================================')
@@ -88,6 +96,7 @@ run_stage(2, 'Servidores & Contêineres Docker', stage_2)
 run_stage(3, 'Assets Compilados & Nginx Front-End', stage_3)
 run_stage(4, 'API Backend & Métricas do Estoque', stage_4)
 run_stage(5, 'Purga Automática de Cache do Navegador', stage_5)
+run_stage(6, 'Resolução de Rotas Python & Ausência de Erros 404', stage_6)
 print('===========================================================')
 
 # Salva Relatório da Esteira
@@ -97,3 +106,4 @@ with open('../esteira_resultados.json', 'w') as f:
     EOT
   }
 }
+

@@ -1445,7 +1445,7 @@
 
     // PURGA AUTOMÁTICA DE CACHE LEGADO DE WORKSPACES NO NAVEGADOR DO USUÁRIO
     function purgeLegacyBrowserWorkspaceCache() {
-        var currentBuildTag = '20260731_v70';
+        var currentBuildTag = '20260731_v80';
         var storedTag = localStorage.getItem('cdc_theme_version');
 
         if (storedTag !== currentBuildTag) {
@@ -1455,10 +1455,11 @@
                 localStorage.removeItem('frappe:boot');
                 sessionStorage.clear();
                 localStorage.setItem('cdc_theme_version', currentBuildTag);
-                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v70).');
+                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v80).');
             } catch(e) {}
         }
     }
+
 
     $(document).ready(function() {
         purgeLegacyBrowserWorkspaceCache();
