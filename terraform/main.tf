@@ -49,7 +49,7 @@ resource "null_resource" "workspace_sanitization" {
 
   provisioner "local-exec" {
     command = <<EOT
-      echo "🗺️ Garantindo Workspaces com rótulos e chaves nativas do CDC (CDC Estoque, CDC Usuários, CDC Integrações)..."
+      echo "🗺️ Garantindo Workspaces e Tabelas-Filhas com rótulos e chaves nativas do CDC (CDC Estoque, CDC Usuários, CDC Integrações)..."
       docker exec -i nexterp-db-1 mysql -u root -p'${var.db_password}' "${var.db_name}" -e "
         DELETE FROM tabWorkspace WHERE name IN ('Stock', 'Users', 'Integrations', 'cdc-estoque', 'cdc-usuarios', 'cdc-integracoes', 'cdc-integrações');
         DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
@@ -60,12 +60,24 @@ resource "null_resource" "workspace_sanitization" {
         ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Integrações', 'CDC Integrações', 3.0, 'Integrations', 'share-2', 1, 0, '[{\"id\":\"hQ-2qgq-0c\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\'font-size: 18px; letter-spacing: 0.18px;\\'><b>Integrations</b><br></span>\",\"col\":12}},{\"id\":\"y_1n0pT5E2\",\"type\":\"card\",\"data\":{\"card_name\":\"Integrations\",\"col\":4}},{\"id\":\"4pX_9oTq0W\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]');
 
         UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações');
+
+        UPDATE \`tabWorkspace Shortcut\` SET parent = 'CDC Estoque' WHERE parent = 'Stock';
+        UPDATE \`tabWorkspace Link\` SET parent = 'CDC Estoque' WHERE parent = 'Stock';
+        UPDATE \`tabWorkspace Chart\` SET parent = 'CDC Estoque' WHERE parent = 'Stock';
+        UPDATE \`tabWorkspace Number Card\` SET parent = 'CDC Estoque' WHERE parent = 'Stock';
+
+        UPDATE \`tabWorkspace Shortcut\` SET parent = 'CDC Usuários' WHERE parent = 'Users';
+        UPDATE \`tabWorkspace Link\` SET parent = 'CDC Usuários' WHERE parent = 'Users';
+
+        UPDATE \`tabWorkspace Link\` SET parent = 'CDC Integrações' WHERE parent = 'Integrations';
+
         UPDATE tabUser SET desk_theme = 'Light';
       "
       docker exec nexterp-backend-1 bench --site ${var.site_name} clear-cache
     EOT
   }
 }
+
 
 
 

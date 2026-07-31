@@ -121,7 +121,21 @@ def run_stage_6_diagnostics():
     except Exception as e:
         diag["sub_stage_6_5_mattermost_bi"] = {"status": "OK", "details": "DocType em inicialização"}
 
+    # 6.6: Child Tables Integrity (Shortcuts, Links, Charts, Number Cards)
+    try:
+        sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", ["CDC Estoque", "CDC Usuários", "CDC Integrações"]]})
+        link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", ["CDC Estoque", "CDC Usuários", "CDC Integrações"]]})
+        diag["sub_stage_6_6_child_tables"] = {
+            "status": "OK",
+            "shortcuts_count": sc_count,
+            "links_count": link_count
+        }
+    except Exception as e:
+        diag["sub_stage_6_6_child_tables"] = {"status": "FAILED", "error": str(e)}
+        diag["overall_stage_6_status"] = "FAILED"
+
     return diag
+
 
 def get_unit_prefix(unit):
 

@@ -95,6 +95,7 @@ def stage_6():
     sub3 = res.get('sub_stage_6_3_desktop_pages', {})
     sub4 = res.get('sub_stage_6_4_stock_dashboard', {})
     sub5 = res.get('sub_stage_6_5_mattermost_bi', {})
+    sub6 = res.get('sub_stage_6_6_child_tables', {})
 
     visible_pages = sub2.get('visible_sidebar_pages', [])
     for req_page in ['CDC Estoque', 'CDC Usuários', 'CDC Integrações']:
@@ -106,8 +107,10 @@ def stage_6():
     print(f'   ↳ [6.3 Desktop Pages Loader] CDC Estoque, CDC Usuários, CDC Integrações validadas sem 404')
     print(f'   ↳ [6.4 Estoque Metrics] Armazéns: {sub4.get(\"total_warehouses\")}, Entradas: {sub4.get(\"receipts_month\")}, Saídas: {sub4.get(\"issues_month\")}')
     print(f'   ↳ [6.5 Mattermost/BI] Status: {sub5.get(\"status\")}')
+    print(f'   ↳ [6.6 Child Tables Integrity] Shortcuts associados: {sub6.get(\"shortcuts_count\")}, Links associados: {sub6.get(\"links_count\")}')
 
-    return 'Estágio 6 (5/5 Sub-pontos Validados: Prefixo CDC Obrigatorio em Schemas, Rotas, Construtor, API Estoque e Mattermost)'
+    return 'Estágio 6 (6/6 Sub-pontos Validados: Schemas JSON, Rotas, Construtor, API Estoque, Mattermost e Tabelas-Filhas de Componentes)'
+
 
 # Execução Sequencial da Esteira
 print('===========================================================')
