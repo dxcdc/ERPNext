@@ -68,3 +68,22 @@ As 56 pendências foram sincronizadas no laboratório às 21:08, depois da gera�
 ## Critério de descarte
 
 Após a coleta, os containers, a rede e os volumes com prefixo `nexterp-repro` devem ser removidos. Os resultados deste documento e os commits da correção permanecem no repositório; nenhum dado sensível do backup ou do estado Terraform deve ser versionado.
+
+## Reteste após as correções
+
+O ensaio foi repetido em um segundo namespace descartável, `nexterp-retest`, na porta 8087, partindo novamente de volumes vazios e do commit corrigido `b7076bc`.
+
+A primeira tentativa desse reteste revelou uma condição de corrida adicional: durante a criação paralela dos containers, mais de um serviço tentou preencher o volume Docker `assets`, causando `failed to create symlink ... file exists`. A execução anterior havia passado por uma ordenação favorável e, portanto, ainda não comprovava determinismo.
+
+A receita passou a inicializar banco, Redis e configurador primeiro. Assim, somente o configurador prepara os volumes compartilhados; os demais serviços são criados depois dessa etapa. Com essa correção:
+
+- os 9 recursos Terraform foram aplicados integralmente;
+- as 8 etapas da esteira foram aprovadas;
+- o plano subsequente retornou `No changes` e código 0;
+- as versões permaneceram idênticas;
+- as seis tabelas centrais de estoque apresentaram contagens e checksums idênticos;
+- as APIs de estoque e usuários foram semanticamente idênticas;
+- não houve saldo negativo, bin órfão, lançamento submetido sem itens ou achado alto;
+- a divergência das 56 pendências permaneceu, pelo mesmo motivo temporal já documentado.
+
+O reteste mantém a fidelidade global em **92%**, pois aumentou a confiança na reprodutibilidade da infraestrutura, mas não alterou a lacuna de continuidade do estado derivado da ONGSYS. Para esse indicador subir, a sincronização segura pós-restauração precisa fazer parte da receita ou o dump deve ser capturado depois dela.

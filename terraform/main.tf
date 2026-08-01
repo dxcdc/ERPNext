@@ -13,6 +13,13 @@ resource "null_resource" "docker_check" {
     command     = <<EOT
       set -euo pipefail
       cd ..
+      echo "⏳ Inicializando volumes compartilhados por um único serviço..."
+      docker compose up -d db redis-cache redis-queue configurator
+      configurator_status=$(docker wait nexterp-configurator-1)
+      if [ "$configurator_status" != "0" ]; then
+        docker logs nexterp-configurator-1 >&2
+        exit "$configurator_status"
+      fi
       docker compose up -d
 
       echo "⏳ Aguardando MariaDB aceitar conexões autenticadas..."
@@ -27,12 +34,7 @@ resource "null_resource" "docker_check" {
         sleep 1
       done
 
-      echo "⏳ Aguardando configuração compartilhada e criação do site..."
-      configurator_status=$(docker wait nexterp-configurator-1)
-      if [ "$configurator_status" != "0" ]; then
-        docker logs nexterp-configurator-1 >&2
-        exit "$configurator_status"
-      fi
+      echo "⏳ Aguardando criação do site..."
       site_status=$(docker wait nexterp-create-site-1)
       if [ "$site_status" != "0" ]; then
         docker logs nexterp-create-site-1 >&2
