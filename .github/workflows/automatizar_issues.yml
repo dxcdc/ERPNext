@@ -10,6 +10,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: next-erp-issue-reconciliation
+  cancel-in-progress: false
+
 jobs:
   create-issues:
     name: Criar Issues de Governança e Infraestrutura
@@ -43,7 +47,9 @@ jobs:
 
             echo "--------------------------------------------------"
             echo "Verificando se a issue '$title' já existe..."
-            existing=$(gh issue list --search "$search_term" --json title --jq '.[] | .title' | head -n 1)
+            existing=$(gh issue list --state all --limit 100 --json title \
+              | jq -r --arg expected "$title" '.[] | select(.title == $expected) | .title' \
+              | head -n 1)
 
             if [ -n "$existing" ]; then
               echo "=> Issue encontrada: '$existing'. Pulando criação para evitar duplicidade."
@@ -56,6 +62,19 @@ jobs:
               echo "=> Issue criada com sucesso!"
             fi
           }
+
+          close_duplicate_issues() {
+            echo "Reconciliando Issues duplicadas por título exato..."
+            gh issue list --state open --limit 100 --json number,title,createdAt \
+              | jq -r 'sort_by(.createdAt) | group_by(.title)[] | select(length > 1) | .[1:][] | [.number, .title] | @tsv' \
+              | while IFS=$'\t' read -r number title; do
+                  gh issue close "$number" \
+                    --comment "Fechada automaticamente como duplicata. A Issue original mais antiga com o mesmo título foi preservada."
+                  echo "Issue duplicada #$number fechada: $title"
+                done
+          }
+
+          close_duplicate_issues
 
           # Issue 1: Conteinerização do Extrator
           BODY1=$(cat << 'EOF'
