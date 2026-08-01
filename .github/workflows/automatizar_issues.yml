@@ -65,8 +65,8 @@ jobs:
 
           close_duplicate_issues() {
             echo "Reconciliando Issues duplicadas por título exato..."
-            gh issue list --state open --limit 100 --json number,title,createdAt \
-              | jq -r 'sort_by(.createdAt) | group_by(.title)[] | select(length > 1) | .[1:][] | [.number, .title] | @tsv' \
+            gh issue list --state all --limit 100 --json number,title,createdAt,state \
+              | jq -r 'sort_by(.createdAt) | group_by(.title)[] | select(length > 1) | .[1:][] | select(.state == "OPEN") | [.number, .title] | @tsv' \
               | while IFS=$'\t' read -r number title; do
                   gh issue close "$number" \
                     --comment "Fechada automaticamente como duplicata. A Issue original mais antiga com o mesmo título foi preservada."
