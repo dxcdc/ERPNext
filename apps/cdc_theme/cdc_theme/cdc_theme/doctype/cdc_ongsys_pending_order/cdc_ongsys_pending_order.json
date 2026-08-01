@@ -1,0 +1,111 @@
+{
+ "actions": [],
+ "autoname": "field:ongsys_order_id",
+ "creation": "2026-07-31 23:30:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "ongsys_order_id",
+  "title",
+  "status",
+  "order_type",
+  "order_date",
+  "last_status_at",
+  "items_count",
+  "total_quantity",
+  "cost_centers",
+  "active",
+  "last_synced_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "ongsys_order_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "ID do pedido ONGSYS",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Título"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Estado no ONGSYS",
+   "reqd": 1
+  },
+  {
+   "default": "Produto",
+   "fieldname": "order_type",
+   "fieldtype": "Data",
+   "label": "Tipo"
+  },
+  {
+   "fieldname": "order_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Data do pedido"
+  },
+  {
+   "fieldname": "last_status_at",
+   "fieldtype": "Datetime",
+   "label": "Última atualização no ONGSYS"
+  },
+  {
+   "fieldname": "items_count",
+   "fieldtype": "Int",
+   "label": "Itens"
+  },
+  {
+   "fieldname": "total_quantity",
+   "fieldtype": "Float",
+   "label": "Quantidade total"
+  },
+  {
+   "fieldname": "cost_centers",
+   "fieldtype": "Small Text",
+   "label": "Centros de custo"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Aguardando conclusão"
+  },
+  {
+   "fieldname": "last_synced_at",
+   "fieldtype": "Datetime",
+   "label": "Última sincronização"
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-31 23:30:00",
+ "modified_by": "Administrator",
+ "module": "cdc_theme",
+ "name": "CDC ONGSYS Pending Order",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "order_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

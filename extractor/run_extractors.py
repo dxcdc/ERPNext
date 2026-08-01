@@ -5,16 +5,21 @@ import subprocess
 import sys
 import os
 import time
+from pathlib import Path
 
-SCRIPTS = [
+CATALOG_SCRIPTS = [
     "1_armazem_v2.py",
     "2_Extrator_grupo_v2.py",
     "3_extratorUnidademedida.py",
     "4_Extrator_produtos_v2.py",
+]
+HOURLY_SCRIPTS = [
+    "5_sync_ongsys_pending.py",
     "5_extrator_requisicoes_v2.py",
 ]
+CATALOG_INTERVAL_SECONDS = 24 * 60 * 60
 
-def run_script(script_name, env_name):
+def run_script(script_name, env_name, force_full=False):
     """Executa um script Python individualmente, passando o env como parâmetro e variável de ambiente."""
     print(f"--- Iniciando {script_name} (env={env_name}) ---")
     start_time = time.time()
@@ -24,8 +29,11 @@ def run_script(script_name, env_name):
     env_vars["APP_ENV"] = env_name
 
     try:
-        result = subprocess.run(
-            [sys.executable, script_name, env_name],  # também passa como argumento
+        command = [sys.executable, script_name, env_name]
+        if force_full and script_name.startswith("5_"):
+            command.append("--full")
+        subprocess.run(
+            command,
             check=True,
             capture_output=False,
             text=True,
@@ -43,27 +51,35 @@ def run_script(script_name, env_name):
         return False
 
 def main():
-    if len(sys.argv) > 1:
-        env_name = sys.argv[1]
-    else:
-        env_name = "dev"
+    positional = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    env_name = positional[0] if positional else "dev"
+    force_full = "--full" in sys.argv
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(base_dir)
 
-    print(f"Iniciando execução sequencial de {len(SCRIPTS)} extratores...")
+    catalog_marker = Path(base_dir) / ".last_catalog_sync"
+    catalog_due = force_full or not catalog_marker.exists() or (
+        time.time() - catalog_marker.stat().st_mtime >= CATALOG_INTERVAL_SECONDS
+    )
+    scripts = (CATALOG_SCRIPTS if catalog_due else []) + HOURLY_SCRIPTS
+    print(f"Iniciando execução sequencial de {len(scripts)} extratores...")
     print(f"Diretório de trabalho: {base_dir}")
-    print(f"Ambiente (env): {env_name}\n")
+    print(f"Ambiente (env): {env_name}")
+    print(f"Catálogos: {'sincronização diária' if catalog_due else 'ignorados nesta janela'}\n")
 
-    for script in SCRIPTS:
+    for script in scripts:
         if os.path.exists(script):
-            success = run_script(script, env_name)
+            success = run_script(script, env_name, force_full=force_full)
             if not success:
                 print("Interrompendo a sequência devido a erro no script anterior.")
                 sys.exit(1)
         else:
             print(f"!!! ARQUIVO NÃO ENCONTRADO: {script} !!!")
             sys.exit(1)
+
+    if catalog_due:
+        catalog_marker.touch()
 
     print("Todos os extratores foram executados com sucesso!")
 

@@ -1,143 +1,240 @@
-from common import Common
-from typing import Dict
-import pandas as pd
-from typing import Optional, Dict
+#!/usr/bin/env python
+"""Importa pedidos ONGSYS finalizados com janela rápida e auditoria diária."""
+
+import argparse
+import csv
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
-api = Common()
-
-
-## pegar o ano atual
-anoAtual = pd.Timestamp.now().year
-## pegue a menor e maior data do ano atual no formato yyyy-mm-dd
-menorData = f"{anoAtual}-01-01"
-maiorData = f"{anoAtual}-12-31"
-
-retorno = api.erp_request("GET", "Fiscal Year")
-
-for fy in retorno.json().get("data", []):
-    existe = 0 
-    if fy.get("name") == str(anoAtual):
-        existe = 1
-        break
-
-if existe != 1:
-    payload = {
-        "year": anoAtual,
-        "year_start_date": menorData,
-        "year_end_date": maiorData,
-        "disabled": 0,
-        "companies": [{"company": "CDC"}]
-    }
-    resp_create = api.erp_request("POST", "Fiscal Year", payload=payload).text
-
-# # Criar
-#
-# # Se o seu helper usar 'data=' ao invés de 'json=', troque para: data=payload
-# print(resp_create)
-
-
-# pedidos = api.erp_request("GET", "Stock Entry/MAT-STE-2025-00010").text
-
-
-custom_field_payload_cab_texto_multi = {
-  "dt": "Stock Entry",
-  "fieldname": "idpedido_ongsys",
-  "label": "Texto Multi (CAB)",
-  "fieldtype": "Small Text", 
-  "insert_after": "posting_date",
-  "in_list_view": 0,
-  "in_standard_filter": 0,
-  "reqd": 0
-}
-
-
-resp = api.erp_request("post","Custom%20Field", payload=custom_field_payload_cab_texto_multi)
-
-
-custom_field_payload_cab_texto_multi = {
-  "dt": "Stock Entry",
-  "fieldname": "titulo_ongsys",
-  "label": "Texto Multi (CAB)",
-  "fieldtype": "Small Text", 
-  "insert_after": "posting_date",
-  "in_list_view": 0,
-  "in_standard_filter": 0,
-  "reqd": 0
-}
-
-
-resp = api.erp_request("post","Custom%20Field", payload=custom_field_payload_cab_texto_multi)
-
+from common import Common
 
 
 COMPANY_NAME = "CDC"
-
-lista_todos_pedidos = api.get_all_ongsys("pedidos")
-
-
-file_path = "centro_de_custo_armazen.csv"
-df = pd.read_csv(file_path, sep=";", dtype=str, encoding="latin-1")
-
-df_dict = dict(
-    zip(
-        df["centro_custo"].astype(str).str.strip(),
-        df["armazem"].astype(str).str.strip()
-    )
-)
+FINAL_STATUS = "Ordem finalizada"
+STATE_DOCTYPE = "CDC ONGSYS Sync State"
+FAST_WINDOW_PAGES = 3
+FULL_IMPORT_INTERVAL_HOURS = 24
+ORDER_MAX_AGE_DAYS = 30
 
 
-lista_pedidos_finalizados = [
-    pedido for pedido in lista_todos_pedidos
-    if pedido.get("tipoPedido") == "Produto"
-    and pedido.get("statusPedido") == "Ordem finalizada"
-]
+def parse_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return parsed.replace(tzinfo=None)
 
 
-# 1. Calcula a data de 60 dias atrás
-data_limite = datetime.now() - timedelta(days=30)
+def require_response(response, operation: str, accepted=(200,)):
+    if response.status_code not in accepted:
+        detail = (response.text or "")[:300]
+        raise RuntimeError(f"{operation}: HTTP {response.status_code} {detail}")
+    return response
 
-# 2. Filtra a lista assumindo que cada pedido é um dicionário com a chave 'data'
-pedidos_ultimos_2_meses = [
-    pedido for pedido in lista_pedidos_finalizados 
-    if datetime.fromisoformat(pedido['dataPedido'] )  >= data_limite
-]
 
-for pedido in pedidos_ultimos_2_meses:
-    logs = pedido.get("logs", [])
-   
-    primeiro_log = sorted(logs, key=lambda x: x['data'],reverse=True)[0]
-    try:
-        idpedido = str(pedido.get("idPedido"))
-        payload_lancamento = {"doctype": "Stock Entry", "stock_entry_type": "Entrada de Material", "posting_date": primeiro_log.get("data"), "set_posting_time" : 1, "docstatus": 1,"idpedido_ongsys": idpedido ,"titulo_ongsys" : pedido.get("titulo"), "company": COMPANY_NAME,"items": []}
+def fetch_page(api: Common, page: int) -> Optional[List[Dict[str, Any]]]:
+    response = api.ongsys_request("GET", "pedidos", page_number=page, timeout=90)
+    if response.status_code == 422:
+        return None
+    require_response(response, f"Consulta ONGSYS página {page}")
+    return response.json().get("data") or None
 
-        retorno = api.erp_request("GET", "Stock Entry", params={"filters": f'[[ "idpedido_ongsys", "=", "{idpedido}" ]]'})
-        if retorno.json().get("data"):
-         #   print(f"Pedido {pedido.get('idPedido')} já existe no ERPNext. Pulando...")
+
+def discover_last_page(api: Common, hint: int = 0) -> int:
+    if hint > 0:
+        page = hint
+        while page > 1 and fetch_page(api, page) is None:
+            page -= 1
+        while fetch_page(api, page + 1) is not None:
+            page += 1
+        return page
+    low, high = 1, 2
+    if fetch_page(api, low) is None:
+        return 0
+    while fetch_page(api, high) is not None:
+        low, high = high, high * 2
+    while low + 1 < high:
+        middle = (low + high) // 2
+        if fetch_page(api, middle) is None:
+            high = middle
+        else:
+            low = middle
+    return low
+
+
+def fetch_pages(api: Common, pages: List[int]) -> List[Dict[str, Any]]:
+    orders: Dict[str, Dict[str, Any]] = {}
+    for page in pages:
+        records = fetch_page(api, page)
+        if records is None:
+            raise RuntimeError(f"Página esperada {page} não retornada pelo ONGSYS")
+        for order in records:
+            order_id = order.get("idPedido")
+            if order_id is not None:
+                orders[str(order_id)] = order
+    return list(orders.values())
+
+
+def get_state(api: Common):
+    encoded = quote(STATE_DOCTYPE, safe="")
+    resource = f"{encoded}/{encoded}"
+    response = require_response(api.erp_request("GET", resource), "Consulta do checkpoint")
+    return response.json().get("data", {}), resource
+
+
+def should_run_full(state: Dict[str, Any], force_full: bool) -> bool:
+    if force_full:
+        return True
+    last_full = parse_datetime(state.get("last_import_full_at"))
+    return not last_full or datetime.now() - last_full >= timedelta(hours=FULL_IMPORT_INTERVAL_HOURS)
+
+
+def load_warehouse_map() -> Dict[str, str]:
+    mapping_path = Path(__file__).with_name("centro_de_custo_armazen.csv")
+    with mapping_path.open(encoding="latin-1", newline="") as stream:
+        rows = csv.DictReader(stream, delimiter=";")
+        return {
+            str(row["centro_custo"]).strip(): str(row["armazem"]).strip()
+            for row in rows
+        }
+
+
+def ensure_fiscal_year(api: Common) -> None:
+    year = datetime.now().year
+    response = require_response(api.erp_request("GET", "Fiscal Year"), "Consulta do ano fiscal")
+    if any(str(row.get("name")) == str(year) for row in response.json().get("data", [])):
+        return
+    payload = {
+        "year": year,
+        "year_start_date": f"{year}-01-01",
+        "year_end_date": f"{year}-12-31",
+        "disabled": 0,
+        "companies": [{"company": COMPANY_NAME}],
+    }
+    require_response(api.erp_request("POST", "Fiscal Year", payload=payload), "Criação do ano fiscal", (200, 201))
+
+
+def latest_log_date(order: Dict[str, Any]):
+    dates = [log.get("data") for log in order.get("logs", []) if log.get("data")]
+    return max(dates) if dates else order.get("dataPedido")
+
+
+def build_items(order: Dict[str, Any], warehouses: Dict[str, str]) -> List[Dict[str, Any]]:
+    items = []
+    unmapped = []
+    for item in order.get("itensPedido") or []:
+        try:
+            quantity = float(item.get("quantidade") or 0)
+        except (TypeError, ValueError):
+            quantity = 0
+        if quantity < 0.01:
             continue
+        cost_center = str(item.get("centroCusto") or "").strip()
+        warehouse = warehouses.get(cost_center)
+        if not warehouse:
+            unmapped.append(cost_center or "sem centro de custo")
+            continue
+        items.append({
+            "item_code": str(item.get("idProduto")),
+            "qty": quantity,
+            "t_warehouse": f"{warehouse} - C",
+        })
+    if unmapped:
+        raise ValueError("centros de custo não mapeados: " + ", ".join(sorted(set(unmapped))))
+    if not items:
+        raise ValueError("nenhum item válido para lançamento")
+    return items
 
-        for item in pedido.get("itensPedido", []):
-            centrocusto = item.get("centroCusto")
-            if df_dict.get(centrocusto) is None:
-            #    print(f"Pedido {pedido.get('idPedido')} - Centro de custo {centrocusto} não mapeado. Pulando item...")
+
+def order_exists(api: Common, order_id: str) -> bool:
+    filters = f'[["idpedido_ongsys","=","{order_id}"]]'
+    response = require_response(
+        api.erp_request("GET", "Stock Entry", params={"filters": filters, "limit_page_length": 1}),
+        f"Verificação de duplicidade do pedido {order_id}",
+    )
+    return bool(response.json().get("data"))
+
+
+def import_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict[str, str]):
+    cutoff = datetime.now() - timedelta(days=ORDER_MAX_AGE_DAYS)
+    eligible = []
+    for order in orders:
+        order_date = parse_datetime(order.get("dataPedido"))
+        if (
+            order.get("tipoPedido") == "Produto"
+            and order.get("statusPedido") == FINAL_STATUS
+            and order_date
+            and order_date >= cutoff
+        ):
+            eligible.append(order)
+
+    created = skipped = 0
+    errors = []
+    for order in eligible:
+        order_id = str(order.get("idPedido"))
+        try:
+            if order_exists(api, order_id):
+                skipped += 1
                 continue
-            if float(item.get("quantidade", 0)) < 0.01:
-           #     print(f"Pedido {pedido.get('idPedido')} - Item {item.get('idProduto')} ignorado (quantidade 0).")
-                continue
+            payload = {
+                "doctype": "Stock Entry",
+                "stock_entry_type": "Entrada de Material",
+                "posting_date": latest_log_date(order),
+                "set_posting_time": 1,
+                "docstatus": 1,
+                "idpedido_ongsys": order_id,
+                "titulo_ongsys": order.get("titulo"),
+                "company": COMPANY_NAME,
+                "items": build_items(order, warehouses),
+            }
+            response = api.erp_request("POST", "Stock Entry", payload=payload)
+            if response.status_code not in (200, 201):
+                # Uma execução concorrente pode ter criado o pedido após a consulta.
+                if order_exists(api, order_id):
+                    skipped += 1
+                    continue
+                require_response(response, f"Criação do pedido {order_id}", (200, 201))
+            created += 1
+        except Exception as exc:
+            errors.append(f"pedido {order_id}: {exc}")
+    if errors:
+        raise RuntimeError(f"{len(errors)} pedido(s) não importado(s): " + " | ".join(errors[:10]))
+    return created, skipped, len(eligible)
 
-            payload_lancamento["items"].append({
-                "item_code": str(item.get("idProduto")),
-                "qty": item.get("quantidade"),
-                "t_warehouse": df_dict.get(centrocusto)+ " - C"
-            })
-        response = api.erp_request("POST", "Stock Entry", payload=payload_lancamento)
-       # print(f"Pedido {pedido.get('idPedido')} - Status: {response.status_code}")
 
-        # if pedido.get("idPedido") == "27" or pedido.get("idpedido") == "374":
-        #     print(response.text)
-            
-    except Exception as e:
-        print(f"Erro ao processar pedido {pedido.get('idPedido')}: {e}")
+def main(force_full: bool = False) -> None:
+    api = Common()
+    ensure_fiscal_year(api)
+    state, state_resource = get_state(api)
+    last_page = discover_last_page(api, int(state.get("last_page") or 0))
+    if not last_page:
+        raise RuntimeError("ONGSYS não retornou páginas de pedidos")
+    full = should_run_full(state, force_full)
+    pages = list(range(1, last_page + 1)) if full else list(
+        range(max(1, last_page - FAST_WINDOW_PAGES + 1), last_page + 1)
+    )
+    orders = fetch_pages(api, pages)
+    created, skipped, eligible = import_orders(api, orders, load_warehouse_map())
+    now = datetime.now().isoformat(timespec="seconds")
+    payload = {
+        "last_page": last_page,
+        "last_import_fast_at": now,
+        "last_import_mode": "Completa" if full else "Rápida",
+        "last_import_pages": len(pages),
+        "last_success_at": now,
+    }
+    if full:
+        payload["last_import_full_at"] = now
+    require_response(api.erp_request("PUT", state_resource, payload=payload), "Atualização do checkpoint", (200, 201))
+    print(
+        f"Importação {'completa' if full else 'rápida'}: páginas {pages[0]}–{pages[-1]}, "
+        f"{eligible} finalizados elegíveis, {created} criados e {skipped} já existentes"
+    )
 
-   
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--full", action="store_true", help="Força auditoria de todas as páginas")
+    arguments, _ = parser.parse_known_args()
+    main(force_full=arguments.full)

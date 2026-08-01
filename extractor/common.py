@@ -5,6 +5,7 @@ import os
 import json
 import time
 import logging
+import hashlib
 import requests
 from typing import Any, Dict, List, Optional
 from requests.auth import HTTPBasicAuth
@@ -17,6 +18,7 @@ class Common:
     DEFAULT_UOM: str = "Unidade"
     MAX_WAIT_CREATE: int = 60  # Espera máxima para confirmação de criação
     VERIFY_INTERVAL: int = 3   # Intervalo para verificar a criação
+    ONGSYS_TIMEOUT: int = 90   # Produção pode levar mais de 60 s para responder
 
     def __init__(self) -> None:
         # Carregar configurações do arquivo JSON
@@ -90,7 +92,7 @@ class Common:
         *,
         page_number: Optional[int] = None,  # controla apenas pageNumber (opcional)
         payload: Optional[Dict[str, Any]] = None,
-        timeout: int = 30,
+        timeout: int = ONGSYS_TIMEOUT,
     ) -> requests.Response:
         """
         Requisição genérica ao ONGSYS.
@@ -124,6 +126,8 @@ class Common:
     def get_all_ongsys(self, doctype: str) -> List[Dict[str, Any]]:
         pagina = 1
         all_records = []
+        seen_pages = set()
+        seen_record_ids = set()
         while True:
             resp = self.ongsys_request("GET", doctype, page_number=pagina)
             if resp.status_code == 422:
@@ -135,6 +139,25 @@ class Common:
             records = data.get('data', [])
             if not records:
                 break
-            all_records.extend(records)
+            fingerprint = hashlib.sha256(
+                json.dumps(records, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            ).hexdigest()
+            if fingerprint in seen_pages:
+                self._logger.warning(
+                    "ONGSYS repetiu integralmente a página %s de %s; paginação encerrada sem duplicar dados.",
+                    pagina,
+                    doctype,
+                )
+                break
+            seen_pages.add(fingerprint)
+
+            for record in records:
+                record_id = record.get("idPedido") if doctype == "pedidos" else record.get("idProduto")
+                if record_id is not None:
+                    dedupe_key = str(record_id)
+                    if dedupe_key in seen_record_ids:
+                        continue
+                    seen_record_ids.add(dedupe_key)
+                all_records.append(record)
             pagina += 1
         return all_records

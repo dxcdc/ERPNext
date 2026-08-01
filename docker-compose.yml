@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   backend:
     image: frappe/erpnext:v15.88.1
@@ -17,6 +15,7 @@ services:
       DB_PORT: "3306"
       MYSQL_ROOT_PASSWORD: admin
       MARIADB_ROOT_PASSWORD: admin
+      PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
 
   configurator:
     image: frappe/erpnext:v15.88.1
@@ -145,9 +144,11 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
+      PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
 
   queue-short:
     image: frappe/erpnext:v15.88.1
@@ -164,9 +165,11 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
+      PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
 
   redis-queue:
     image: redis:6.2-alpine
@@ -199,6 +202,9 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
 
   websocket:
     image: frappe/erpnext:v15.88.1

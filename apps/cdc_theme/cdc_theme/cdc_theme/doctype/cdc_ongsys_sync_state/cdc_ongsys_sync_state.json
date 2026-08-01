@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "creation": "2026-07-31 23:55:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "last_page",
+  "last_fast_sync_at",
+  "last_full_sync_at",
+  "last_success_at",
+  "last_mode",
+  "pages_fetched",
+  "last_import_fast_at",
+  "last_import_full_at",
+  "last_import_mode",
+  "last_import_pages"
+ ],
+ "fields": [
+  {
+   "fieldname": "last_page",
+   "fieldtype": "Int",
+   "label": "Última página conhecida"
+  },
+  {
+   "fieldname": "last_fast_sync_at",
+   "fieldtype": "Datetime",
+   "label": "Última sincronização rápida"
+  },
+  {
+   "fieldname": "last_full_sync_at",
+   "fieldtype": "Datetime",
+   "label": "Última varredura completa"
+  },
+  {
+   "fieldname": "last_success_at",
+   "fieldtype": "Datetime",
+   "label": "Último sucesso"
+  },
+  {
+   "fieldname": "last_mode",
+   "fieldtype": "Select",
+   "label": "Último modo",
+   "options": "Rápida\nCompleta"
+  },
+  {
+   "fieldname": "pages_fetched",
+   "fieldtype": "Int",
+   "label": "Páginas consultadas"
+  },
+  {
+   "fieldname": "last_import_fast_at",
+   "fieldtype": "Datetime",
+   "label": "Última importação rápida"
+  },
+  {
+   "fieldname": "last_import_full_at",
+   "fieldtype": "Datetime",
+   "label": "Última auditoria completa de importação"
+  },
+  {
+   "fieldname": "last_import_mode",
+   "fieldtype": "Select",
+   "label": "Último modo de importação",
+   "options": "Rápida\nCompleta"
+  },
+  {
+   "fieldname": "last_import_pages",
+   "fieldtype": "Int",
+   "label": "Páginas consultadas na importação"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-31 23:55:00",
+ "modified_by": "Administrator",
+ "module": "cdc_theme",
+ "name": "CDC ONGSYS Sync State",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "states": []
+}

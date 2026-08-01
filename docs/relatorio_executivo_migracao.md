@@ -1,5 +1,7 @@
 # Relatório de Mapeamento, Coleta e Homologação (Fases 1 a 3)
 
+> **Nota de revisão — 01/08/2026:** este relatório registra uma fase anterior do projeto. Expressões como “réplica idêntica” e “100% saudável” não representam mais o critério de aprovação. A avaliação vigente está em `prontidao_migracao.md` e exige também permissões, integrações, recuperação, observabilidade e validação manual.
+
 Este relatório consolida todas as etapas técnicas executadas no projeto de migração e reestruturação do NextERP (GCP ➡️ Hostinger VPS), traduzidas para uma linguagem executiva e acessível a gestores. Ele serve como registro histórico de engenharia reversa, análise de incidentes de homologação e guia de melhoria contínua.
 
 ---
@@ -86,7 +88,7 @@ Os arquivos de backup e as pastas de scripts foram copiados para uma área tempo
 
 ## 4. Fase 3: Homologação no Laboratório Local (openSUSE)
 
-Para garantir que nada falhasse na migração real, montamos uma réplica idêntica do ERPNext no computador local de desenvolvimento. Durante essa simulação, identificamos e corrigimos três problemas críticos que teriam causado a queda do sistema se tivéssemos ido direto para a Hostinger:
+Para reduzir riscos da migração real, montamos uma réplica funcional do ERPNext no computador local de desenvolvimento. Ela preserva os dados principais, mas contém evoluções locais e ainda depende de validações operacionais. Durante essa simulação, identificamos e corrigimos três problemas críticos:
 
 ### 4.1 Ocorrência 01: Conflito de Portas de Rede (Nginx Proxy Manager)
 *   **Sintoma (O que aconteceu)**: O sistema local não conseguia abrir a tela inicial porque a porta de rede `8080` já estava sendo usada por outro aplicativo do computador.
@@ -104,7 +106,7 @@ Para garantir que nada falhasse na migração real, montamos uma réplica idênt
 *   **Solução Aplicada**: Acessamos o banco de dados e redefinimos a senha interna para coincidir com a chave oficial. A conexão foi reestabelecida imediatamente.
 
 ### 4.4 Execução Bem-Sucedida dos Extratores
-Após as correções, executamos o pipeline do integrador de dados. Todos os 5 scripts rodaram sequencialmente com **sucesso absoluto (Código de Saída 0)**, comprovando que o banco de dados restaurado está 100% saudável.
+Após as correções, executamos o pipeline do integrador de dados. Os scripts terminaram com código de saída 0, comprovando aquela execução específica. Isso não substitui o ciclo ONGSYS controlado, o ensaio de recuperação nem a validação continuada.
 
 <p align="center" style="text-align: center; margin: 25px 0;"><img src="/home/vier/Documentos/Code/CDC/NextERP/docs/images/abordagem_infografico.png" style="max-width: 85%; width: 450px; height: auto; display: block; margin: 0 auto;" alt="Infográfico do Fluxo de Homologação" /></p>
 <p align="center"><em>Figura 1: Infográfico Passo a Passo do Fluxo de Homologação Executado no Laboratório Local.</em></p>

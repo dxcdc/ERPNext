@@ -18,6 +18,13 @@ VENV_DIR="$PROJECT_DIR/venv"
 REQ_FILE="$PROJECT_DIR/requirements.txt"
 PYTHON_BIN="python3"   # ajusta se precisar
 
+# Impede duas execuções simultâneas do cron.
+exec 9>"$PROJECT_DIR/.run_job.lock"
+if ! flock -n 9; then
+  echo "[INFO] Outra sincronização ainda está em execução. Encerrando sem sobreposição."
+  exit 0
+fi
+
 echo "==================== INÍCIO RUN_JOB.SH ===================="
 echo "Data/Hora: $(date)"
 echo "Projeto   : $PROJECT_DIR"
@@ -55,18 +62,23 @@ else
 fi
 
 ###############################################################################
-# 3. Ativar venv e instalar/atualizar bibliotecas
+# 3. Ativar venv e instalar bibliotecas somente quando requirements mudar
 ###############################################################################
 echo "[INFO] Ativando venv..."
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
-echo "[INFO] Atualizando pip..."
-pip install --upgrade pip >/dev/null 2>&1 || echo "[WARN] Não foi possível atualizar pip (verifique depois)."
-
-echo "[INFO] Instalando dependências do requirements.txt..."
-pip install -r "$REQ_FILE"
-echo "[OK] Dependências instaladas/atualizadas."
+REQ_HASH="$(sha256sum "$REQ_FILE" | awk '{print $1}')"
+REQ_MARKER="$VENV_DIR/.requirements.sha256"
+INSTALLED_HASH="$(cat "$REQ_MARKER" 2>/dev/null || true)"
+if [ "$REQ_HASH" != "$INSTALLED_HASH" ]; then
+  echo "[INFO] requirements.txt alterado. Instalando dependências fixadas..."
+  pip install -r "$REQ_FILE"
+  printf '%s\n' "$REQ_HASH" > "$REQ_MARKER"
+  echo "[OK] Dependências instaladas."
+else
+  echo "[INFO] Dependências já estão alinhadas; instalação ignorada."
+fi
 
 ###############################################################################
 # 4. Tornar o run_extractors.py executável (por segurança)

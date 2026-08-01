@@ -22,6 +22,7 @@ credentials/
 # Logs de Execução
 *.log
 cron_log.txt
+shadow_reconciliation.json
 
 # Dependências e Caches locais (se houver)
 node_modules/
@@ -51,5 +52,4 @@ temas/
 # Backups GCP
 bkp gcp/
 bkp_gcp/
-
 

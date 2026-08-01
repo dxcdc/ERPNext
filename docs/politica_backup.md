@@ -1,11 +1,13 @@
-# Política de Backup e Restauração
+# Política-alvo de Backup e Restauração
 
-Este documento define as regras, a frequência, o escopo, as ferramentas e o plano de recuperação de desastres (Disaster Recovery) para a infraestrutura do NextERP, incluindo a integração de notificações operacionais do Mattermost.
+Este documento define o estado desejado para backup e recuperação do NextERP. Ele não deve ser interpretado como comprovação de que a produção atual já cumpre todos os controles.
+
+> **Situação observada em 01/08/2026:** a GCP gera dois dumps SQL por dia e mantém oito cópias no Google Drive. O processo automático não inclui arquivos públicos/privados nem envia o `site_config.json`. Ainda não existe ensaio completo com RPO e RTO medidos. Consulte `prontidao_migracao.md`.
 
 ---
 
 ## Estratégia 3-2-1
-Seguimos rigorosamente a política de tolerância a falhas **3-2-1**:
+A meta é adotar a política de tolerância a falhas **3-2-1**:
 1. **3 Cópias dos dados**: 1 cúpula em produção ativa, 1 backup local criptografado na VPS, e 1 cópia offsite enviada para um Object Storage em provedor de nuvem independente.
 2. **2 Tipos de mídia**: Armazenamento primário em disco SSD no host de produção (Hostinger) e Object Storage externo.
 3. **1 Cópia externa**: Backup armazenado fora da rede física e do provedor Hostinger.

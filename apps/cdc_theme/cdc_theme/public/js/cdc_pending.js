@@ -1,0 +1,185 @@
+(function() {
+    'use strict';
+
+    var observer;
+    var loading = false;
+    var routeGeneration = 0;
+    var selectedProject = sessionStorage.getItem('cdc_pending_project') || 'All';
+    var selectedWarehouse = sessionStorage.getItem('cdc_pending_warehouse') || 'All';
+
+    function normalizeRoute(value) {
+        return decodeURIComponent(String(value || ''))
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, '-');
+    }
+
+    function isPendingRoute() {
+        var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
+        if (route && route.length) {
+            var parts = route.map(normalizeRoute);
+            return parts.some(function(part) {
+                return part === 'cdc-pendencias' || part === 'pendencias';
+            });
+        }
+        return normalizeRoute(window.location.pathname).indexOf('/app/cdc-pendencias') !== -1;
+    }
+
+    function removePendingDashboard() {
+        var dashboard = document.getElementById('cdc-pending-dashboard');
+        if (dashboard) dashboard.remove();
+    }
+
+    function escapeHTML(value) {
+        var el = document.createElement('div');
+        el.textContent = value === null || value === undefined || value === '' ? '—' : String(value);
+        return el.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function ageInDays(value) {
+        if (!value) return '—';
+        var date = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(date.getTime())) return '—';
+        return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000)) + ' dias';
+    }
+
+    function ageDaysValue(value) {
+        if (!value) return 0;
+        var date = new Date(String(value).replace(' ', 'T'));
+        return Number.isNaN(date.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+    }
+
+    function render() {
+        if (!isPendingRoute()) {
+            removePendingDashboard();
+            return;
+        }
+        if (loading) return;
+        var body = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
+        if (!body) return;
+        var dashboard = document.getElementById('cdc-pending-dashboard') || document.createElement('section');
+        dashboard.id = 'cdc-pending-dashboard';
+        if (!dashboard.parentNode) body.insertBefore(dashboard, body.firstChild);
+        if (dashboard.dataset.loaded === '1') return;
+        loading = true;
+        var requestGeneration = routeGeneration;
+        dashboard.innerHTML = '<div class="cdc-pending-state">Carregando pendências do espelho ONGSYS...</div>';
+
+        frappe.call({
+            method: 'cdc_theme.api.get_ongsys_pending_orders',
+            args: {
+                selected_project: selectedProject,
+                selected_warehouse: selectedWarehouse
+            },
+            callback: function(response) {
+                loading = false;
+                if (requestGeneration !== routeGeneration || !isPendingRoute() || !dashboard.isConnected) {
+                    removePendingDashboard();
+                    return;
+                }
+                var data = response && response.message;
+                if (!data) {
+                    dashboard.innerHTML = '<div class="cdc-pending-state is-error">Não foi possível consultar as pendências.</div>';
+                    return;
+                }
+                var summary = data.summary || {};
+                var orders = data.orders || [];
+                var filters = data.filters || {};
+                selectedProject = filters.selected_project || 'All';
+                selectedWarehouse = filters.selected_warehouse || 'All';
+                var projectOptions = filters.projects || [];
+                var visibleWarehouses = [];
+                projectOptions.forEach(function(option) {
+                    if (selectedProject === 'All' || option.value === selectedProject) {
+                        visibleWarehouses = visibleWarehouses.concat(option.warehouses || []);
+                    }
+                });
+                var projectOptionsHTML = '<option value="All">Todos os Projetos</option>' + projectOptions.map(function(option) {
+                    return `<option value="${escapeHTML(option.value)}" ${option.value === selectedProject ? 'selected' : ''}>${escapeHTML(option.label)}</option>`;
+                }).join('');
+                var warehouseOptionsHTML = '<option value="All">Todos os Armazéns</option>' + visibleWarehouses.map(function(warehouse) {
+                    return `<option value="${escapeHTML(warehouse)}" ${warehouse === selectedWarehouse ? 'selected' : ''}>${escapeHTML(warehouse.replace(' - C', ''))}</option>`;
+                }).join('');
+                var rows = orders.map(function(order) {
+                    return `<tr data-search="${escapeHTML([order.ongsys_order_id, order.title, order.status, order.project, order.warehouse, order.cost_centers].join(' ').toLowerCase())}">
+                        <td data-sort="${escapeHTML(order.ongsys_order_id)}"><strong>#${escapeHTML(order.ongsys_order_id)}</strong></td>
+                        <td data-sort="${escapeHTML(order.title)}">${escapeHTML(order.title)}</td>
+                        <td data-sort="${escapeHTML(order.status)}"><span class="cdc-pending-status">${escapeHTML(order.status)}</span></td>
+                        <td data-sort="${escapeHTML(order.order_date)}">${escapeHTML(order.order_date)}</td>
+                        <td data-sort="${ageDaysValue(order.order_date)}">${ageInDays(order.order_date)}</td>
+                        <td data-sort="${escapeHTML(order.items_count)}">${escapeHTML(order.items_count)}</td>
+                        <td data-sort="${escapeHTML(order.total_quantity)}">${escapeHTML(order.total_quantity)}</td>
+                        <td data-sort="${escapeHTML(order.cost_centers)}">${escapeHTML(order.cost_centers)}</td>
+                    </tr>`;
+                }).join('');
+                dashboard.dataset.loaded = '1';
+                dashboard.innerHTML = `
+                    ${typeof window._cdc_get_breadcrumb_html === 'function' ? window._cdc_get_breadcrumb_html('Pendências') : ''}
+                    <div class="cdc-pending-heading"><div><h2>Pendências ONGSYS</h2><p>Pedidos de Produto aguardando conclusão, sem movimentação antecipada de estoque.</p></div><small>Última sincronização: ${escapeHTML(data.last_synced_at)}</small></div>
+                    <div class="cdc-linked-filters" aria-label="Filtros de pendências">
+                        <label><span>Projeto</span><select id="cdc-pending-project-filter">${projectOptionsHTML}</select></label>
+                        <label><span>Armazém</span><select id="cdc-pending-warehouse-filter">${warehouseOptionsHTML}</select></label>
+                    </div>
+                    <div class="cdc-pending-metrics">
+                        <article><span>Pedidos pendentes</span><strong>${summary.total || 0}</strong></article>
+                        <article><span>Itens envolvidos</span><strong>${summary.items || 0}</strong></article>
+                        <article><span>Quantidade aguardando</span><strong>${summary.quantity || 0}</strong></article>
+                    </div>
+                    <div class="cdc-pending-table-card">
+                        <div class="cdc-pending-table-header"><div><h3>Aguardando conclusão</h3><p>Cancelados e ordens finalizadas não aparecem nesta lista.</p></div><input id="cdc-pending-search" type="search" aria-label="Buscar pedidos pendentes" placeholder="Buscar ID, título, estado ou centro de custo"></div>
+                        <div class="cdc-table-scroll-top cdc-pending-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
+                        <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="cdc-pending-empty">Nenhuma pendência encontrada para os filtros selecionados.</td></tr>'}</tbody></table></div>
+                    </div>`;
+                if (typeof window._cdc_setup_sortable_table === 'function') {
+                    window._cdc_setup_sortable_table(dashboard, '.cdc-pending-table-scroll-top', '.cdc-pending-table-scroll', '.cdc-pending-table');
+                }
+                var search = document.getElementById('cdc-pending-search');
+                if (search) search.addEventListener('input', function() {
+                    var term = this.value.trim().toLowerCase();
+                    dashboard.querySelectorAll('tbody tr[data-search]').forEach(function(row) {
+                        row.hidden = term && row.dataset.search.indexOf(term) === -1;
+                    });
+                });
+                var projectFilter = document.getElementById('cdc-pending-project-filter');
+                if (projectFilter) projectFilter.addEventListener('change', function() {
+                    selectedProject = this.value;
+                    selectedWarehouse = 'All';
+                    sessionStorage.setItem('cdc_pending_project', selectedProject);
+                    sessionStorage.setItem('cdc_pending_warehouse', 'All');
+                    dashboard.dataset.loaded = '0';
+                    render();
+                });
+                var warehouseFilter = document.getElementById('cdc-pending-warehouse-filter');
+                if (warehouseFilter) warehouseFilter.addEventListener('change', function() {
+                    selectedWarehouse = this.value;
+                    sessionStorage.setItem('cdc_pending_warehouse', selectedWarehouse);
+                    dashboard.dataset.loaded = '0';
+                    render();
+                });
+                if (observer) observer.disconnect();
+            },
+            error: function() { loading = false; }
+        });
+    }
+
+    function start() {
+        routeGeneration += 1;
+        if (observer) observer.disconnect();
+        observer = null;
+        if (!isPendingRoute() || !document.body) {
+            loading = false;
+            removePendingDashboard();
+            return;
+        }
+        observer = new MutationObserver(render);
+        observer.observe(document.body, {childList: true, subtree: true});
+        render();
+        window.setTimeout(function() { if (observer) observer.disconnect(); }, 15000);
+    }
+
+    document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', start, {once: true}) : start();
+    window.addEventListener('hashchange', start);
+    document.addEventListener('page-change', start);
+    if (window.frappe && frappe.router && frappe.router.on) frappe.router.on('change', start);
+})();

@@ -22,6 +22,12 @@ variable "site_name" {
   description = "Nome do site Frappe"
 }
 
+variable "restore_backup" {
+  type        = bool
+  default     = false
+  description = "Autoriza explicitamente a restauração destrutiva do dump. Use -var=restore_backup=true somente quando desejar substituir a base local."
+}
+
 variable "gcp_backup_path" {
   type        = string
   default     = "bkp gcp/gcp-prod-database-latest.sql.gz"
@@ -38,4 +44,10 @@ variable "gcp_private_files_path" {
   type        = string
   default     = "bkp gcp/gcp-prod-private-files.tar"
   description = "Caminho do arquivo de arquivos privados exportado da GCP"
+}
+
+variable "gcp_site_config_path" {
+  type        = string
+  default     = "bkp gcp/gcp-prod-site-config.json"
+  description = "Configuração do site de produção usada somente para recuperar a chave de criptografia"
 }

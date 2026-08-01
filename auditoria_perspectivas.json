@@ -1,0 +1,32 @@
+{
+  "summary": {
+    "generated_at": "2026-08-01T01:38:22-0300",
+    "findings": 1,
+    "by_severity": {
+      "HIGH": 0,
+      "MEDIUM": 1,
+      "LOW": 0
+    },
+    "integrity_checks": {
+      "orphan_bins": 0,
+      "negative_bins": 0,
+      "submitted_without_items": 0,
+      "invalid_pending": 0
+    },
+    "api_timings_seconds_including_bench_startup": {
+      "stock": 2.927,
+      "users": 2.427,
+      "pending": 2.392
+    }
+  },
+  "findings": [
+    {
+      "category": "data_quality",
+      "severity": "MEDIUM",
+      "code": "WAREHOUSE-ENCODING",
+      "title": "Armazém com codificação corrompida",
+      "evidence": "1 registro(s) de Warehouse contêm caracteres de mojibake.",
+      "recommendation": "Consolidar o registro sem uso com o nome Unicode correto após backup."
+    }
+  ]
+}

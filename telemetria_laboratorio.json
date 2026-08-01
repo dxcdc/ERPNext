@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-07-31 20:34:05",
+  "metrics": {
+    "total_duration_seconds": 4.54
+  },
+  "checks": {
+    "workspaces_cdc": {
+      "status": "OK",
+      "raw_rows": [
+        "CDC Estoque\tCDC Estoque\t0\t919",
+        "CDC Integra\u00e7\u00f5es\tCDC Integra\u00e7\u00f5es\t0\t302",
+        "CDC Pend\u00eancias\tCDC Pend\u00eancias\t0\t183",
+        "CDC Usu\u00e1rios\tCDC Usu\u00e1rios\t0\t480"
+      ],
+      "count": 4
+    },
+    "http_js_assets": {
+      "status": "OK",
+      "code": 200
+    },
+    "stock_api": {
+      "status": "OK",
+      "data_present": true
+    }
+  }
+}

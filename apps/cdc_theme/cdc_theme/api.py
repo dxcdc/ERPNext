@@ -1,4 +1,21 @@
+import calendar
+
 import frappe
+from frappe.utils import add_days, add_months, get_first_day, getdate, today
+
+
+def _require_system_manager():
+    """Restringe operacoes administrativas mesmo para usuarios autenticados."""
+    frappe.only_for("System Manager")
+
+
+def _require_read_permission(doctype):
+    """Aplica a matriz nativa de permissoes antes de retornar dados agregados."""
+    if not frappe.has_permission(doctype, "read"):
+        frappe.throw(
+            f"Sem permissão para consultar {doctype}",
+            frappe.PermissionError,
+        )
 
 @frappe.whitelist()
 def custom_get_desktop_page(page):
@@ -19,12 +36,16 @@ def custom_get_desktop_page(page):
         "cdc-usuários": "CDC Usuários",
         "cdc-integracoes": "CDC Integrações",
         "cdc-integrações": "CDC Integrações",
+        "cdc-pendencias": "CDC Pendências",
+        "cdc-pendências": "CDC Pendências",
         "stock": "CDC Estoque",
         "users": "CDC Usuários",
         "integrations": "CDC Integrações",
         "estoque": "CDC Estoque",
         "usuários": "CDC Usuários",
-        "integrações": "CDC Integrações"
+        "integrações": "CDC Integrações",
+        "pendencias": "CDC Pendências",
+        "pendências": "CDC Pendências",
     }
 
     lower_name = str(name).lower().strip()
@@ -41,7 +62,7 @@ def custom_get_desktop_page(page):
 
 @frappe.whitelist()
 def validate_workspace_json():
-
+    _require_system_manager()
     import json
     results = {}
     workspaces = frappe.db.get_all("Workspace", fields=["name", "label", "title", "content", "is_hidden"])
@@ -56,6 +77,7 @@ def validate_workspace_json():
 
 @frappe.whitelist()
 def run_stage_6_diagnostics():
+    _require_system_manager()
     import json
     diag = {
         "sub_stage_6_1_json_schemas": {},
@@ -87,10 +109,10 @@ def run_stage_6_diagnostics():
         diag["sub_stage_6_2_sidebar_routes"] = {"status": "FAILED", "error": str(e)}
         diag["overall_stage_6_status"] = "FAILED"
 
-    # 6.3: Desktop Pages Loader (CDC Estoque, CDC Usuários, CDC Integrações)
+    # 6.3: Desktop Pages Loader das workspaces CDC
     try:
         from frappe.desk.desktop import get_desktop_page
-        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Integrações"]:
+        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências"]:
             page_json = json.dumps({"name": page_name})
             res = custom_get_desktop_page(page_json)
             diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
@@ -123,8 +145,9 @@ def run_stage_6_diagnostics():
 
     # 6.6: Child Tables Integrity (Shortcuts, Links, Charts, Number Cards)
     try:
-        sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", ["CDC Estoque", "CDC Usuários", "CDC Integrações"]]})
-        link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", ["CDC Estoque", "CDC Usuários", "CDC Integrações"]]})
+        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências"]
+        sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", cdc_workspaces]})
+        link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", cdc_workspaces]})
         diag["sub_stage_6_6_child_tables"] = {
             "status": "OK",
             "shortcuts_count": sc_count,
@@ -135,6 +158,178 @@ def run_stage_6_diagnostics():
         diag["overall_stage_6_status"] = "FAILED"
 
     return diag
+
+
+CDC_PROJECTS = (
+    "Projeto Atitude II.I", "Institucional / Geral", "Projeto Atitude",
+    "Projeto Bem Viver", "Projeto Cais", "Projeto ATM",
+)
+
+
+def _warehouse_project(warehouse):
+    value = (warehouse or "").upper()
+    if "ATITUDE II.I" in value:
+        return "Projeto Atitude II.I"
+    if "ATITUDE" in value:
+        return "Projeto Atitude"
+    if "BEM VIVER" in value:
+        return "Projeto Bem Viver"
+    if "CAIS" in value:
+        return "Projeto Cais"
+    if "ATM" in value:
+        return "Projeto ATM"
+    return "Institucional / Geral"
+
+
+def _dashboard_filter_options():
+    warehouses = frappe.get_all(
+        "Warehouse", filters={"is_group": 0}, pluck="name", order_by="name asc",
+    )
+    grouped = {project: [] for project in CDC_PROJECTS}
+    for warehouse in warehouses:
+        grouped[_warehouse_project(warehouse)].append(warehouse)
+    return [
+        {"value": project, "label": project, "warehouses": grouped[project]}
+        for project in CDC_PROJECTS
+    ]
+
+
+def _normalize_dashboard_filters(selected_project=None, selected_warehouse=None):
+    project = selected_project if selected_project in CDC_PROJECTS else "All"
+    warehouse = (selected_warehouse or "All").strip()
+    options = _dashboard_filter_options()
+    valid_warehouses = {
+        item for option in options
+        if project == "All" or option["value"] == project
+        for item in option["warehouses"]
+    }
+    if warehouse not in valid_warehouses:
+        warehouse = "All"
+    return project, warehouse, options
+
+
+def _pending_order_location(cost_centers, title=None):
+    code = (cost_centers or "").split(",")[0].strip()
+    code_parts = code.split(".")
+    city_map = {"01": "CAB", "02": "CAR", "03": "JAB", "04": "REC"}
+    service_map = {"001": "ANT", "002": "BREVE", "003": "INT"}
+    if code.startswith("2.17") or "CAIS" in (title or "").upper():
+        return "Projeto Cais", "CAIS OLINDA - C"
+    if len(code_parts) >= 4 and code_parts[0] == "3":
+        city = city_map.get(code_parts[1])
+        service = service_map.get(code_parts[-1])
+        if city and service:
+            return "Projeto Atitude", f"{city} ATITUDE - {service} - C"
+    return "Institucional / Geral", None
+
+
+@frappe.whitelist()
+def get_users_dashboard_data(selected_project=None, selected_warehouse=None):
+    """Retorna indicadores e dados de usuários respeitando as permissões do Frappe."""
+    _require_system_manager()
+
+    selected_project, selected_warehouse, filter_options = _normalize_dashboard_filters(
+        selected_project, selected_warehouse,
+    )
+    user_filters = {"user_type": "System User"}
+    if selected_project != "All" or selected_warehouse != "All":
+        warehouse_permissions = frappe.get_all(
+            "User Permission",
+            filters={"allow": "Warehouse"}, fields=["user", "for_value"],
+        )
+        permitted_users = []
+        for permission in warehouse_permissions:
+            permission_warehouse = permission.for_value or ""
+            if selected_warehouse != "All":
+                exact_match = permission_warehouse == selected_warehouse
+                legacy_atitude_match = (
+                    selected_project == "Projeto Atitude"
+                    and _warehouse_project(permission_warehouse) == selected_project
+                    and get_unit_prefix(permission_warehouse) == get_unit_prefix(selected_warehouse)
+                )
+                if exact_match or legacy_atitude_match:
+                    permitted_users.append(permission.user)
+            elif _warehouse_project(permission_warehouse) == selected_project:
+                permitted_users.append(permission.user)
+        user_filters["name"] = ["in", list(set(permitted_users))]
+
+    users = frappe.get_all(
+        "User",
+        fields=[
+            "name", "full_name", "email", "enabled", "user_type",
+            "role_profile_name", "last_active", "last_login", "user_image",
+        ],
+        filters=user_filters,
+        order_by="full_name asc, name asc",
+        limit_page_length=200,
+    )
+
+    enabled = sum(1 for user in users if user.enabled)
+    return {
+        "summary": {
+            "total": len(users),
+            "enabled": enabled,
+            "disabled": len(users) - enabled,
+            "with_role_profile": sum(1 for user in users if user.role_profile_name),
+        },
+        "users": users,
+        "filters": {"projects": filter_options, "selected_project": selected_project, "selected_warehouse": selected_warehouse},
+    }
+
+
+@frappe.whitelist()
+def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None):
+    """Lista o espelho local de pedidos ONGSYS ainda aguardando conclusão."""
+    doctype = "CDC ONGSYS Pending Order"
+    if not frappe.has_permission(doctype, "read"):
+        frappe.throw("Sem permissão para visualizar pendências ONGSYS", frappe.PermissionError)
+
+    selected_project, selected_warehouse, filter_options = _normalize_dashboard_filters(
+        selected_project, selected_warehouse,
+    )
+    orders = frappe.get_all(
+        doctype,
+        filters={"active": 1},
+        fields=[
+            "name", "ongsys_order_id", "title", "status", "order_type",
+            "order_date", "last_status_at", "items_count", "total_quantity",
+            "cost_centers", "last_synced_at",
+        ],
+        order_by="order_date asc, creation asc",
+        limit_page_length=500,
+    )
+
+    filtered_orders = []
+    for order in orders:
+        project, warehouse = _pending_order_location(order.cost_centers, order.title)
+        order["project"] = project
+        order["warehouse"] = warehouse or "Não identificado"
+        if selected_project != "All" and project != selected_project:
+            continue
+        if selected_warehouse != "All" and warehouse != selected_warehouse:
+            continue
+        filtered_orders.append(order)
+    orders = filtered_orders
+
+    status_counts = {}
+    for order in orders:
+        status = order.status or "Sem estado"
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    return {
+        "summary": {
+            "total": len(orders),
+            "statuses": status_counts,
+            "items": sum(order.items_count or 0 for order in orders),
+            "quantity": sum(order.total_quantity or 0 for order in orders),
+        },
+        "last_synced_at": max(
+            (order.last_synced_at for order in orders if order.last_synced_at),
+            default=None,
+        ),
+        "orders": orders,
+        "filters": {"projects": filter_options, "selected_project": selected_project, "selected_warehouse": selected_warehouse},
+    }
 
 
 def get_unit_prefix(unit):
@@ -153,12 +348,29 @@ def get_unit_prefix(unit):
         return 'REC'
     return unit
 
+def _project_warehouse_clause(field, selected_project):
+    field_value = f"COALESCE({field}, '')"
+    clauses = {
+        "Projeto Atitude II.I": f"{field_value} LIKE '%ATITUDE II.I%'",
+        "Projeto Atitude": f"({field_value} LIKE '%ATITUDE%' AND {field_value} NOT LIKE '%ATITUDE II.I%')",
+        "Projeto Bem Viver": f"{field_value} LIKE '%BEM VIVER%'",
+        "Projeto Cais": f"{field_value} LIKE '%CAIS%'",
+        "Projeto ATM": f"{field_value} LIKE '%ATM%'",
+        "Institucional / Geral": (
+            f"({field_value} NOT LIKE '%ATITUDE%' AND {field_value} NOT LIKE '%BEM VIVER%' "
+            f"AND {field_value} NOT LIKE '%CAIS%' AND {field_value} NOT LIKE '%ATM%')"
+        ),
+    }
+    return clauses.get(selected_project)
+
+
 @frappe.whitelist()
-def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_type='receipt'):
+def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_type='receipt', selected_project=None):
     """
     Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
     entry_type: 'receipt' (Entrada) ou 'issue' (Saída). Padrão: 'receipt'.
     """
+    _require_read_permission("Stock Entry")
     if not period or period == 'undefined':
         period = 'quarter'
     if not entry_type or entry_type == 'undefined':
@@ -170,7 +382,10 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
 
     unit_prefix = get_unit_prefix(selected_unit)
     where_unit = ""
-    if unit_prefix != 'All':
+    project_clause = _project_warehouse_clause(wh_field, selected_project)
+    if project_clause:
+        where_unit = f" AND {project_clause}"
+    elif unit_prefix != 'All':
         unit_keyword = unit_prefix.replace("'", "''")
         where_unit = f" AND ({wh_field} = '{unit_keyword}' OR {wh_field} LIKE '%{unit_keyword}%')"
 
@@ -197,8 +412,11 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         7: "JULHO", 8: "AGO", 9: "SET", 10: "OUT", 11: "NOV", 12: "DEZ"
     }
 
+    current_date = getdate(today())
+    current_month_start = getdate(get_first_day(current_date))
+
     if period == 'month':
-        where_date = "AND se.posting_date >= '2026-07-01'"
+        where_date = f"AND se.posting_date >= '{current_month_start}'"
         query = f"""
             SELECT 
                 FLOOR((DAY(se.posting_date)-1)/7)+1 as sem_num,
@@ -217,8 +435,12 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         """
         rows = frappe.db.sql(query, as_dict=True)
         
-        labels = ["S1", "S2", "S3", "S4", "S5"]
-        grouped_months = [{ "month": "JULHO (MÊS ATUAL)", "weeks": labels }]
+        weeks_in_month = (calendar.monthrange(current_date.year, current_date.month)[1] + 6) // 7
+        labels = [f"S{week}" for week in range(1, weeks_in_month + 1)]
+        grouped_months = [{
+            "month": f"{month_names_pt[current_date.month]} (MÊS ATUAL)",
+            "weeks": labels,
+        }]
         
         project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
         for r in rows:
@@ -249,7 +471,8 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         }
 
     elif period == 'quarter':
-        where_date = "AND se.posting_date >= '2026-05-01'"
+        quarter_start = getdate(add_months(current_month_start, -2))
+        where_date = f"AND se.posting_date >= '{quarter_start}'"
         query = f"""
             SELECT 
                 MONTH(se.posting_date) as mes_num,
@@ -270,14 +493,15 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         """
         rows = frappe.db.sql(query, as_dict=True)
 
-        target_months = [5, 6, 7]
+        target_dates = [getdate(add_months(quarter_start, offset)) for offset in range(3)]
         grouped_months = []
         labels = []
         label_key_map = {}
 
-        for m_num in target_months:
+        for target_date in target_dates:
+            m_num = target_date.month
             m_name = month_names_pt.get(m_num, str(m_num))
-            w_count = 5 if m_num == 6 else 4
+            w_count = (calendar.monthrange(target_date.year, m_num)[1] + 6) // 7
             w_labels = [f"S{w}" for w in range(1, w_count + 1)]
             
             grouped_months.append({
@@ -320,7 +544,9 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
             "datasets": datasets
         }
     else:
-        where_date = "AND se.posting_date >= '2026-02-01'" if period == 'semester' else "AND se.posting_date >= '2025-08-01'"
+        months_back = 5 if period == 'semester' else 11
+        range_start = getdate(add_months(current_month_start, -months_back))
+        where_date = f"AND se.posting_date >= '{range_start}'"
         query = f"""
             SELECT 
                 DATE_FORMAT(se.posting_date, '%Y-%m') as period_key,
@@ -350,7 +576,10 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
                 labels.append(lbl)
                 
         if not labels:
-            labels = ["Mai/26", "Jun/26", "Jul/26"]
+            labels = [
+                f"{month_names_pt[getdate(add_months(current_month_start, offset)).month].title()[:3]}/{str(getdate(add_months(current_month_start, offset)).year)[2:]}"
+                for offset in range(-months_back, 1)
+            ]
 
         grouped_months = [{ "month": "PERÍODO", "weeks": labels }]
         project_map = {p: {lbl: 0 for lbl in labels} for p in projects_list}
@@ -383,32 +612,64 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         }
 
 @frappe.whitelist()
-def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='receipt'):
+def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='receipt', selected_project=None, table_type='all'):
     """
     Retorna métricas dinâmicas para o Painel Executivo do Estoque.
     """
+    _require_read_permission("Stock Entry")
+    _require_read_permission("Warehouse")
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
         
     unit_prefix = get_unit_prefix(selected_unit)
     
-    where_se = "WHERE se.docstatus=1 AND se.posting_date >= '2026-07-01'"
+    current_month_start = get_first_day(today())
+    previous_month_start = get_first_day(add_months(current_month_start, -1))
+    activity_cutoff = add_days(today(), -30)
+    where_se = f"WHERE se.docstatus=1 AND se.posting_date >= '{current_month_start}'"
     where_recent = "WHERE se.docstatus=1"
     where_bin = "WHERE 1=1"
     where_wh = "WHERE w.is_group=0"
-    
-    if unit_prefix != 'All':
+
+    # ERPNext costuma manter o armazém nas linhas de Stock Entry Detail. O
+    # cabeçalho pode ficar vazio, especialmente em transferências e documentos
+    # antigos. Esta expressão preserva os filtros e rótulos nesses dois casos.
+    stock_entry_warehouse = """COALESCE(
+        NULLIF(se.to_warehouse, ''), NULLIF(se.from_warehouse, ''),
+        (SELECT NULLIF(MAX(sed.t_warehouse), '') FROM `tabStock Entry Detail` sed WHERE sed.parent=se.name),
+        (SELECT NULLIF(MAX(sed.s_warehouse), '') FROM `tabStock Entry Detail` sed WHERE sed.parent=se.name),
+        ''
+    )"""
+    project_se_clause = _project_warehouse_clause(stock_entry_warehouse, selected_project)
+    project_bin_clause = _project_warehouse_clause("warehouse", selected_project)
+    project_wh_clause = _project_warehouse_clause("w.name", selected_project)
+
+    if project_se_clause:
+        where_se += f" AND {project_se_clause}"
+        where_recent += f" AND {project_se_clause}"
+        where_bin += f" AND {project_bin_clause}"
+        where_wh += f" AND {project_wh_clause}"
+        selected_unit = 'All'
+    elif unit_prefix != 'All':
         unit_keyword = unit_prefix.replace("'", "''")
-        where_se += f" AND (se.from_warehouse = '{unit_keyword}' OR se.to_warehouse = '{unit_keyword}' OR se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
-        where_recent += f" AND (se.from_warehouse = '{unit_keyword}' OR se.to_warehouse = '{unit_keyword}' OR se.from_warehouse LIKE '%{unit_keyword}%' OR se.to_warehouse LIKE '%{unit_keyword}%')"
+        warehouse_match = f"({stock_entry_warehouse} = '{unit_keyword}' OR {stock_entry_warehouse} LIKE '%{unit_keyword}%')"
+        where_se += f" AND {warehouse_match}"
+        where_recent += f" AND {warehouse_match}"
         where_bin += f" AND (warehouse = '{unit_keyword}' OR warehouse LIKE '%{unit_keyword}%')"
         where_wh += f" AND (w.name = '{unit_keyword}' OR w.name LIKE '%{unit_keyword}%')"
+
+    table_type = table_type if table_type in ('all', 'receipt', 'issue') else 'all'
+    if table_type == 'receipt':
+        where_recent += " AND se.purpose='Material Receipt'"
+    elif table_type == 'issue':
+        where_recent += " AND se.purpose='Material Issue'"
         
     # 1. Contadores dos 4 Cards Numeradores
-    if selected_unit == 'All':
-        receipts_month = frappe.db.count('Stock Entry', {'purpose': 'Material Receipt', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
-        issues_month = frappe.db.count('Stock Entry', {'purpose': 'Material Issue', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
-        transfers_month = frappe.db.count('Stock Entry', {'purpose': 'Material Transfer', 'docstatus': 1, 'posting_date': ['>=', '2026-07-01']})
+    if selected_unit == 'All' and not project_se_clause:
+        month_filters = {'docstatus': 1, 'posting_date': ['>=', current_month_start]}
+        receipts_month = frappe.db.count('Stock Entry', {**month_filters, 'purpose': 'Material Receipt'})
+        issues_month = frappe.db.count('Stock Entry', {**month_filters, 'purpose': 'Material Issue'})
+        transfers_month = frappe.db.count('Stock Entry', {**month_filters, 'purpose': 'Material Transfer'})
     else:
         receipts_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Receipt'")[0][0] or 0
         issues_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Issue'")[0][0] or 0
@@ -416,6 +677,31 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     
     total_qty = frappe.db.sql(f"SELECT SUM(actual_qty) FROM tabBin {where_bin}")[0][0] or 0
     total_items = frappe.db.sql(f"SELECT COUNT(DISTINCT item_code) FROM tabBin {where_bin} AND actual_qty > 0")[0][0] or 0
+
+    total_warehouses = frappe.db.sql(
+        f"SELECT COUNT(DISTINCT w.name) FROM tabWarehouse w {where_wh}"
+    )[0][0] or 0
+    if selected_unit == 'All' and not project_se_clause:
+        active_warehouses = 11
+        inactive_warehouses = max(int(total_warehouses) - active_warehouses, 0)
+    else:
+        active_warehouses = frappe.db.sql(f"""
+            SELECT COUNT(DISTINCT w.name)
+            FROM tabWarehouse w
+            {where_wh}
+              AND EXISTS (
+                SELECT 1 FROM `tabStock Entry` se
+                WHERE se.docstatus = 1
+                  AND se.posting_date >= '{activity_cutoff}'
+                  AND (
+                    se.from_warehouse = w.name OR se.to_warehouse = w.name OR EXISTS (
+                      SELECT 1 FROM `tabStock Entry Detail` sed
+                      WHERE sed.parent=se.name AND (sed.s_warehouse=w.name OR sed.t_warehouse=w.name)
+                    )
+                  )
+              )
+        """)[0][0] or 0
+        inactive_warehouses = max(int(total_warehouses) - int(active_warehouses), 0)
     
     # 2. Categorias - Medidas Puramente por Quantidade de ITENS
     categories = frappe.db.sql(f"""
@@ -504,21 +790,33 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
             "url": target_url
         })
 
-    # 5. Tabela dos 30 Registros Detalhados
+    # 5. Movimentações recentes. Em "Todos", preserva até 30 registros de cada
+    # tipo para que lotes recentes de entradas/transferências não ocultem saídas.
     recent_entries_raw = frappe.db.sql(f"""
-        SELECT 
-            se.name as codigo,
-            se.posting_date,
-            COALESCE(NULLIF(se.to_warehouse, ''), se.from_warehouse, 'Estoque Geral') as warehouse_name,
-            se.purpose,
-            COALESCE((SELECT COUNT(DISTINCT item_code) FROM `tabStock Entry Detail` WHERE parent = se.name), 0) as total_itens,
-            COALESCE((SELECT SUM(qty) FROM `tabStock Entry Detail` WHERE parent = se.name), 0) as total_pecas,
-            COALESCE(u.full_name, u.first_name, se.owner) as usuario
-        FROM `tabStock Entry` se
-        LEFT JOIN `tabUser` u ON se.owner = u.name
-        {where_recent}
-        ORDER BY se.posting_date DESC, se.creation DESC
-        LIMIT 30
+        SELECT
+            codigo, posting_date, warehouse_name, purpose,
+            total_itens, total_pecas, usuario
+        FROM (
+            SELECT
+                se.name as codigo,
+                se.posting_date,
+                se.creation,
+                COALESCE(NULLIF({stock_entry_warehouse}, ''), 'Estoque Geral') as warehouse_name,
+                se.purpose,
+                COALESCE((SELECT COUNT(DISTINCT item_code) FROM `tabStock Entry Detail` WHERE parent = se.name), 0) as total_itens,
+                COALESCE((SELECT SUM(qty) FROM `tabStock Entry Detail` WHERE parent = se.name), 0) as total_pecas,
+                COALESCE(u.full_name, u.first_name, se.owner) as usuario,
+                ROW_NUMBER() OVER (
+                    PARTITION BY se.purpose
+                    ORDER BY se.posting_date DESC, se.creation DESC
+                ) as purpose_rank
+            FROM `tabStock Entry` se
+            LEFT JOIN `tabUser` u ON se.owner = u.name
+            {where_recent}
+        ) recent
+        WHERE purpose_rank <= 30
+        ORDER BY posting_date DESC, creation DESC
+        LIMIT 90
     """, as_dict=True)
     
     recent_entries = []
@@ -561,25 +859,40 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         })
         
     # 6. Indicadores de Ocorrências por Projeto (Material Issue vs Material Receipt)
-    occurrences_data = get_project_weekly_occurrences(period=period, selected_unit=selected_unit, entry_type=entry_type)
+    occurrences_data = get_project_weekly_occurrences(
+        period=period, selected_unit=selected_unit,
+        entry_type=entry_type, selected_project=selected_project,
+    )
 
     unit_display_label = "Todos os Armazéns (46 Armazéns)"
     if selected_unit != 'All':
         unit_display_label = selected_unit.replace(' - C', '').strip()
+    elif selected_project:
+        unit_display_label = selected_project
+
+    previous_counts = frappe.db.sql("""
+        SELECT
+            SUM(purpose='Material Receipt') AS receipts,
+            SUM(purpose='Material Issue') AS issues,
+            SUM(purpose='Material Transfer') AS transfers
+        FROM `tabStock Entry`
+        WHERE docstatus=1 AND posting_date >= %s AND posting_date < %s
+    """, (previous_month_start, current_month_start), as_dict=True)[0]
 
     return {
         "selected_unit": selected_unit,
+        "selected_project": selected_project,
         "unit_display_label": unit_display_label,
         "available_units": available_warehouses,
         "receipts_month": receipts_month,
         "issues_month": issues_month,
         "transfers_month": transfers_month,
-        "total_warehouses": 46,
-        "active_warehouses": 11,
-        "inactive_warehouses": 35,
-        "receipts_last_month": 158,
-        "issues_last_month": 31,
-        "transfers_accumulated": 4,
+        "total_warehouses": int(total_warehouses),
+        "active_warehouses": int(active_warehouses),
+        "inactive_warehouses": int(inactive_warehouses),
+        "receipts_last_month": int(previous_counts.receipts or 0),
+        "issues_last_month": int(previous_counts.issues or 0),
+        "transfers_accumulated": int(previous_counts.transfers or 0),
         "total_qty": round(total_qty, 2),
         "total_items": total_items,
         "categories": top_categories,
@@ -686,6 +999,8 @@ def notify_stock_entry_mattermost(doc, method):
 def test_mattermost_config(config_name):
     """Endpoint do botão Testar Conexão no formulário."""
     doc = frappe.get_doc("CDC Mattermost Config", config_name)
+    if not doc.has_permission("write"):
+        frappe.throw("Sem permissão para testar esta integração", frappe.PermissionError)
     doc.test_connection()
 
 
@@ -695,6 +1010,7 @@ def diagnostico_mattermost():
     Endpoint de diagnóstico para o workspace Integrações.
     Retorna status de todas as configs ativas de Mattermost.
     """
+    _require_system_manager()
     try:
         configs = frappe.get_all(
             "CDC Mattermost Config",
@@ -706,9 +1022,9 @@ def diagnostico_mattermost():
         return {"erro": str(e), "configs": []}
 
     erros_recentes = frappe.db.sql("""
-        SELECT title, error, creation
+        SELECT method AS title, error, creation
         FROM `tabError Log`
-        WHERE title LIKE '%CDC Mattermost%'
+        WHERE method LIKE '%CDC Mattermost%'
         ORDER BY creation DESC
         LIMIT 5
     """, as_dict=True)

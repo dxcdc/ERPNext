@@ -9,12 +9,54 @@
     var currentOccurrencesType = sessionStorage.getItem('cdc_occ_type') || 'all';
     var currentTableTypeFilter = sessionStorage.getItem('cdc_table_type') || 'all';
     var currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
+    var currentUsersProject = sessionStorage.getItem('cdc_users_project') || 'All';
+    var currentUsersWarehouse = sessionStorage.getItem('cdc_users_warehouse') || 'All';
 
     var activeCategoriesMap = {}; // Controle de categorias ativas
     var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
+
+    function getPilotProjectContext() {
+        var slug = decodeURIComponent(window.location.pathname || '').split('/').filter(Boolean)[2] || '';
+        var legacyProject = new URL(window.location.href).searchParams.get('cdc_project');
+        var projects = {
+            'projeto-atitude-ii-i': {name: 'Projeto Atitude II.I', label: 'armazéns do Projeto Atitude II.I'},
+            'institucional-geral': {name: 'Institucional / Geral', label: 'armazéns institucionais e gerais'},
+            'projeto-atitude': {name: 'Projeto Atitude', label: 'armazéns do Projeto Atitude'},
+            'projeto-bem-viver': {name: 'Projeto Bem Viver', label: 'armazéns do Projeto Bem Viver'},
+            'projeto-cais': {name: 'Projeto Cais', label: 'armazéns do Projeto Cais'},
+            'projeto-atm': {name: 'Projeto ATM', label: 'armazéns do Projeto ATM'}
+        };
+        var legacySlugs = {
+            'Projeto Atitude II.I': 'projeto-atitude-ii-i',
+            'Institucional / Geral': 'institucional-geral',
+            'Projeto Atitude': 'projeto-atitude',
+            'Projeto Bem Viver': 'projeto-bem-viver',
+            'Projeto Cais': 'projeto-cais',
+            'Projeto ATM': 'projeto-atm'
+        };
+        return projects[slug || legacySlugs[legacyProject]] || null;
+    }
+
+    function getCDCBreadcrumbHTML(section, detail) {
+        var sections = [
+            {label: 'Estoque', href: '/app/cdc-estoque'},
+            {label: 'Usuários', href: '/app/cdc-usuarios'},
+            {label: 'Integrações', href: '/app/cdc-integracoes'},
+            {label: 'Pendências', href: '/app/cdc-pendencias'}
+        ];
+        var current = sections.find(function(item) { return item.label === section; });
+        var quickLinks = sections.map(function(item) {
+            return `<a href="${item.href}" class="cdc-breadcrumb-menu-link ${item.label === section ? 'is-active' : ''}">${item.label}</a>`;
+        }).join('');
+        return `<nav class="cdc-breadcrumb" aria-label="Navegação CDC">
+            <div class="cdc-breadcrumb-trail"><span>CDC</span><span class="cdc-breadcrumb-separator">/</span><a href="${current.href}">${section}</a>${detail ? `<span class="cdc-breadcrumb-separator">/</span><strong>${detail}</strong>` : ''}</div>
+            <div class="cdc-breadcrumb-menu">${quickLinks}</div>
+        </nav>`;
+    }
+    window._cdc_get_breadcrumb_html = getCDCBreadcrumbHTML;
 
     // PALETA DE CORES POR MÊS E TIPO (ENTRADA / SAÍDA)
     var MONTH_COLORS = ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6']; // Maio (Verde), Junho (Azul), Julho (Laranja), Agosto (Roxo)
@@ -205,40 +247,265 @@
             return false;
         }
 
-        if (mainRoute === 'cdc-estoque' || mainRoute === 'stock' || mainRoute === 'estoque' || mainRoute === 'home' || mainRoute === '') return true;
+        if (mainRoute === 'cdc-estoque' || mainRoute === 'stock' || mainRoute === 'estoque') return true;
 
         if (mainRoute === 'workspaces' || mainRoute === 'workspace') {
-            if (subRoute === 'cdc-estoque' || subRoute === 'stock' || subRoute === 'estoque' || subRoute === 'home' || subRoute === '' || !subRoute || subRoute.indexOf('cdc') !== -1) return true;
+            if (subRoute === 'cdc-estoque' || subRoute === 'stock' || subRoute === 'estoque') return true;
         }
 
         var href = (window.location.href || '').toLowerCase();
-        return href.indexOf('/app/cdc-estoque') !== -1 || href.endsWith('/app') || href.endsWith('/app/') || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/workspace/stock') !== -1;
+        return href.indexOf('/app/cdc-estoque') !== -1 || href.indexOf('/app/stock') !== -1 || href.indexOf('/app/estoque') !== -1 || href.indexOf('/app/workspace/stock') !== -1;
     }
 
 
     // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
     function isIntegrationPage() {
-        var href = (window.location.href || '').toLowerCase();
-        if (href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
-
         var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
         if (route && route.length > 0) {
-            var mainRoute = (route[0] || '').toLowerCase();
-            var subRoute = decodeURIComponent((route[1] || '')).toLowerCase();
-            if (mainRoute === 'integrations' || mainRoute === 'integracoes' || mainRoute === 'integrações') return true;
+            var normalize = function(value) {
+                return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+            };
+            var mainRoute = normalize(route[0]);
+            var subRoute = normalize(route[1]);
+            if (mainRoute === 'cdc-integracoes' || mainRoute === 'integrations' || mainRoute === 'integracoes') return true;
             if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && 
-                (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes' || subRoute.indexOf('integra') !== -1)) {
+                (subRoute === 'cdc-integracoes' || subRoute === 'integrations' || subRoute === 'integracoes')) {
                 return true;
             }
+            return false;
         }
-        return false;
+        var path = decodeURIComponent(window.location.pathname || '').toLowerCase();
+        return path.indexOf('/app/cdc-integracoes') !== -1 || path.indexOf('/app/integrations') !== -1;
     }
+
+    function isUsersWorkspacePage() {
+        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
+        var normalize = function(value) {
+            return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+        };
+        var mainRoute = normalize(route[0]);
+        var subRoute = normalize(route[1]);
+        if (mainRoute === 'cdc-usuarios' || mainRoute === 'users' || mainRoute === 'usuarios') return true;
+        if (mainRoute === 'workspace' || mainRoute === 'workspaces') {
+            return subRoute === 'cdc-usuarios' || subRoute === 'users' || subRoute === 'usuarios';
+        }
+        var href = (window.location.href || '').toLowerCase();
+        return href.indexOf('/app/cdc-usuarios') !== -1 || href.indexOf('/app/cdc-usu%c3%a1rios') !== -1;
+    }
+
+    function escapeCDC(value) {
+        var element = document.createElement('div');
+        element.textContent = value === null || value === undefined || value === '' ? '—' : String(value);
+        return element.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function setupCDCSortableTable(root, topSelector, scrollSelector, tableSelector) {
+        var topScroll = root.querySelector(topSelector);
+        var bottomScroll = root.querySelector(scrollSelector);
+        var table = root.querySelector(tableSelector);
+        if (!topScroll || !bottomScroll || !table) return;
+        var topContent = topScroll.firstElementChild;
+        var syncing = false;
+        var syncWidth = function() { topContent.style.width = table.scrollWidth + 'px'; };
+        window.requestAnimationFrame(syncWidth);
+        topScroll.addEventListener('scroll', function() {
+            if (syncing) return;
+            syncing = true;
+            bottomScroll.scrollLeft = topScroll.scrollLeft;
+            syncing = false;
+        });
+        bottomScroll.addEventListener('scroll', function() {
+            if (syncing) return;
+            syncing = true;
+            topScroll.scrollLeft = bottomScroll.scrollLeft;
+            syncing = false;
+        });
+        table.querySelectorAll('th[data-sort-index]').forEach(function(header) {
+            header.tabIndex = 0;
+            header.setAttribute('role', 'button');
+            header.setAttribute('aria-sort', 'none');
+            var sort = function() {
+                var index = Number(header.dataset.sortIndex);
+                var type = header.dataset.sortType || 'text';
+                var direction = header.dataset.sortDirection === 'asc' ? 'desc' : 'asc';
+                table.querySelectorAll('th[data-sort-index]').forEach(function(item) {
+                    item.dataset.sortDirection = '';
+                    item.setAttribute('aria-sort', 'none');
+                    var indicator = item.querySelector('.cdc-sort-indicator');
+                    if (indicator) indicator.textContent = '↕';
+                });
+                header.dataset.sortDirection = direction;
+                header.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+                var activeIndicator = header.querySelector('.cdc-sort-indicator');
+                if (activeIndicator) activeIndicator.textContent = direction === 'asc' ? '▲' : '▼';
+                var body = table.tBodies[0];
+                var rows = Array.from(body.querySelectorAll('tr[data-search]'));
+                rows.sort(function(a, b) {
+                    var aValue = (a.cells[index].dataset.sort || a.cells[index].textContent || '').trim();
+                    var bValue = (b.cells[index].dataset.sort || b.cells[index].textContent || '').trim();
+                    var result;
+                    if (type === 'number') result = (Number(aValue) || 0) - (Number(bValue) || 0);
+                    else if (type === 'date') result = (Date.parse(aValue) || 0) - (Date.parse(bValue) || 0);
+                    else result = aValue.localeCompare(bValue, 'pt-BR', {numeric: true, sensitivity: 'base'});
+                    return direction === 'asc' ? result : -result;
+                });
+                rows.forEach(function(row) { body.appendChild(row); });
+            };
+            header.addEventListener('click', sort);
+            header.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    sort();
+                }
+            });
+        });
+    }
+    window._cdc_setup_sortable_table = setupCDCSortableTable;
+
+    function renderUsersDashboard() {
+        var existing = document.getElementById('cdc-users-dashboard');
+        if (!isUsersWorkspacePage()) {
+            if (existing) existing.remove();
+            return;
+        }
+
+        var workspaceBody = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
+        if (!workspaceBody) return;
+
+        if (existing && existing.dataset.loaded === '1') return;
+
+        var dashboard = existing || document.createElement('section');
+        dashboard.id = 'cdc-users-dashboard';
+        dashboard.setAttribute('aria-label', 'Painel de usuários CDC');
+        if (!existing) workspaceBody.insertBefore(dashboard, workspaceBody.firstChild);
+        if (dashboard.dataset.loading === '1') return;
+        dashboard.dataset.loading = '1';
+        dashboard.innerHTML = '<div class="cdc-users-loading">Carregando dados de usuários...</div>';
+
+        frappe.call({
+            method: 'cdc_theme.api.get_users_dashboard_data',
+            args: {
+                selected_project: currentUsersProject,
+                selected_warehouse: currentUsersWarehouse
+            },
+            callback: function(r) {
+                dashboard.dataset.loading = '0';
+                if (!isUsersWorkspacePage() || !dashboard.isConnected) {
+                    dashboard.remove();
+                    return;
+                }
+                if (!r || !r.message) {
+                    dashboard.innerHTML = '<div class="cdc-users-empty">Não foi possível carregar os usuários.</div>';
+                    return;
+                }
+
+                var summary = r.message.summary || {};
+                var users = r.message.users || [];
+                var filters = r.message.filters || {};
+                currentUsersProject = filters.selected_project || 'All';
+                currentUsersWarehouse = filters.selected_warehouse || 'All';
+                var projectOptions = filters.projects || [];
+                var visibleWarehouses = [];
+                projectOptions.forEach(function(option) {
+                    if (currentUsersProject === 'All' || option.value === currentUsersProject) {
+                        visibleWarehouses = visibleWarehouses.concat(option.warehouses || []);
+                    }
+                });
+                var projectOptionsHTML = '<option value="All">Todos os Projetos</option>' + projectOptions.map(function(option) {
+                    return `<option value="${escapeCDC(option.value)}" ${option.value === currentUsersProject ? 'selected' : ''}>${escapeCDC(option.label)}</option>`;
+                }).join('');
+                var warehouseOptionsHTML = '<option value="All">Todos os Armazéns</option>' + visibleWarehouses.map(function(warehouse) {
+                    return `<option value="${escapeCDC(warehouse)}" ${warehouse === currentUsersWarehouse ? 'selected' : ''}>${escapeCDC(warehouse.replace(' - C', ''))}</option>`;
+                }).join('');
+                dashboard.dataset.loaded = '1';
+                var rows = users.map(function(user) {
+                    var statusClass = user.enabled ? 'is-enabled' : 'is-disabled';
+                    var statusLabel = user.enabled ? 'Ativo' : 'Desativado';
+                    var lastAccess = user.last_active || user.last_login || '—';
+                    return `
+                        <tr data-search="${escapeCDC([user.full_name, user.email, user.user_type, user.role_profile_name].join(' ').toLowerCase())}">
+                            <td data-sort="${escapeCDC(user.full_name || user.name)}"><a class="cdc-user-name" href="/app/user/${encodeURIComponent(user.name)}">${escapeCDC(user.full_name || user.name)}</a></td>
+                            <td data-sort="${escapeCDC(user.email)}">${escapeCDC(user.email)}</td>
+                            <td data-sort="${escapeCDC(user.user_type)}">${escapeCDC(user.user_type)}</td>
+                            <td data-sort="${escapeCDC(user.role_profile_name)}">${escapeCDC(user.role_profile_name)}</td>
+                            <td data-sort="${statusLabel}"><span class="cdc-user-status ${statusClass}">${statusLabel}</span></td>
+                            <td data-sort="${escapeCDC(lastAccess)}">${escapeCDC(lastAccess)}</td>
+                        </tr>`;
+                }).join('');
+
+                dashboard.innerHTML = `
+                    ${getCDCBreadcrumbHTML('Usuários')}
+                    <div class="cdc-users-heading">
+                        <div><h2>Visão geral de usuários</h2><p>Indicadores e acessos cadastrados no NextERP.</p></div>
+                    </div>
+                    <div class="cdc-linked-filters" aria-label="Filtros de usuários">
+                        <label><span>Projeto</span><select id="cdc-users-project-filter">${projectOptionsHTML}</select></label>
+                        <label><span>Armazém</span><select id="cdc-users-warehouse-filter">${warehouseOptionsHTML}</select></label>
+                    </div>
+                    <div class="cdc-users-metrics">
+                        <article class="cdc-user-metric"><span>Usuários NextERP</span><strong>${summary.total || 0}</strong><small>Contas internas do sistema</small></article>
+                        <article class="cdc-user-metric accent-green"><span>Acessos ativos</span><strong>${summary.enabled || 0}</strong><small>Com login habilitado</small></article>
+                        <article class="cdc-user-metric accent-orange"><span>Acessos desativados</span><strong>${summary.disabled || 0}</strong><small>Sem acesso ao Desk</small></article>
+                        <article class="cdc-user-metric accent-blue"><span>Com perfil de função</span><strong>${summary.with_role_profile || 0}</strong><small>Permissões por perfil</small></article>
+                    </div>
+                    <div class="cdc-users-table-card">
+                        <div class="cdc-users-table-header">
+                            <div><h3>Usuários</h3><p>${users.length} registros exibidos</p></div>
+                            <input id="cdc-users-search" type="search" placeholder="Buscar usuário, email ou perfil" aria-label="Buscar usuários">
+                        </div>
+                        <div class="cdc-table-scroll-top cdc-users-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
+                        <div class="cdc-users-table-scroll">
+                            <table class="cdc-users-table">
+                                <thead><tr><th data-sort-index="0">Usuário <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Email <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Tipo <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3">Perfil <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4">Status <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="date">Última atividade <span class="cdc-sort-indicator">↕</span></th></tr></thead>
+                                <tbody>${rows || '<tr><td colspan="6">Nenhum usuário encontrado.</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="cdc-users-shortcuts-label"><h3>Seus atalhos</h3><p>Acessos administrativos e configurações de permissão.</p></div>`;
+
+                setupCDCSortableTable(dashboard, '.cdc-users-table-scroll-top', '.cdc-users-table-scroll', '.cdc-users-table');
+
+                var search = document.getElementById('cdc-users-search');
+                if (search) search.addEventListener('input', function() {
+                    var term = this.value.trim().toLowerCase();
+                    dashboard.querySelectorAll('.cdc-users-table tbody tr[data-search]').forEach(function(row) {
+                        row.hidden = term && row.dataset.search.indexOf(term) === -1;
+                    });
+                });
+                var projectFilter = document.getElementById('cdc-users-project-filter');
+                if (projectFilter) projectFilter.addEventListener('change', function() {
+                    currentUsersProject = this.value;
+                    currentUsersWarehouse = 'All';
+                    sessionStorage.setItem('cdc_users_project', currentUsersProject);
+                    sessionStorage.setItem('cdc_users_warehouse', 'All');
+                    dashboard.dataset.loaded = '0';
+                    renderUsersDashboard();
+                });
+                var warehouseFilter = document.getElementById('cdc-users-warehouse-filter');
+                if (warehouseFilter) warehouseFilter.addEventListener('change', function() {
+                    currentUsersWarehouse = this.value;
+                    sessionStorage.setItem('cdc_users_warehouse', currentUsersWarehouse);
+                    dashboard.dataset.loaded = '0';
+                    renderUsersDashboard();
+                });
+            }
+        });
+    }
+
+    window._cdc_render_users_dashboard = renderUsersDashboard;
 
 
 
 
     // --- BANNER COMPLETO DA WORKSPACE INTEGRAÇÕES ---
     function renderIntegrationsDiagnosticBanner() {
+        if (!isIntegrationPage()) {
+            var staleBanner = document.getElementById('cdc-integracoes-banner');
+            if (staleBanner) staleBanner.remove();
+            return;
+        }
         if (document.getElementById('cdc-integracoes-banner')) return;
 
         var target = document.querySelector('.layout-main-section') ||
@@ -251,7 +518,8 @@
         banner.style.cssText = 'margin:18px 24px 0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;gap:16px;';
 
         // ── 1. BUSINESS INTELLIGENCE (primeiro, conforme solicitado) ──────────
-        var S = '<div style="background:linear-gradient(135deg,#0f172a,#172038);border-radius:14px;padding:24px 28px;color:#f1f5f9;">';
+        var S = getCDCBreadcrumbHTML('Integrações');
+        S += '<div style="background:linear-gradient(135deg,#0f172a,#172038);border-radius:14px;padding:24px 28px;color:#f1f5f9;">';
         S += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
         S += '<span style="font-size:24px;">📊</span>';
         S += '<span style="font-size:17px;font-weight:800;color:#fff;">Business Intelligence</span>';
@@ -332,7 +600,10 @@
                             html += '<span style="font-size:12px;color:#e2e8f0;font-weight:600;">' + (c.channel_name || '—') + '</span>';
                             html += '<span style="font-size:11px;color:#64748b;">' + evts + '</span>';
                             html += '</div>';
-                            html += '<a href="/app/cdc-mattermost-config/' + c.name + '" style="font-size:11px;color:#3b82f6;text-decoration:none;font-weight:600;" onclick="frappe.set_route(\'Form\',\'CDC Mattermost Config\',\'' + c.name + '\');return false;">Editar →</a>';
+                            html += '<div class="cdc-mm-row-actions">';
+                            html += '<button type="button" class="cdc-mm-action-btn cdc-mm-edit-btn" data-name="' + escapeCDC(c.name) + '" title="Editar configuração" aria-label="Editar configuração">✎ Editar</button>';
+                            html += '<button type="button" class="cdc-mm-action-btn is-delete cdc-mm-delete-btn" data-name="' + escapeCDC(c.name) + '" data-channel="' + escapeCDC(c.channel_name || c.name) + '" title="Apagar configuração" aria-label="Apagar configuração">× Apagar</button>';
+                            html += '</div>';
                             html += '</div>';
                         });
                         html += '</div>';
@@ -344,6 +615,34 @@
         }
 
         loadMattermostConfigs();
+
+        banner.addEventListener('click', function(event) {
+            var editButton = event.target.closest('.cdc-mm-edit-btn');
+            if (editButton) {
+                frappe.set_route('Form', 'CDC Mattermost Config', editButton.dataset.name);
+                return;
+            }
+
+            var deleteButton = event.target.closest('.cdc-mm-delete-btn');
+            if (!deleteButton) return;
+            var configName = deleteButton.dataset.name;
+            var channelName = deleteButton.dataset.channel || configName;
+            frappe.confirm(
+                'Apagar a configuração do canal <strong>' + escapeCDC(channelName) + '</strong>?',
+                function() {
+                    frappe.call({
+                        method: 'frappe.client.delete',
+                        args: {doctype: 'CDC Mattermost Config', name: configName},
+                        freeze: true,
+                        freeze_message: 'Apagando configuração...',
+                        callback: function() {
+                            frappe.show_alert({message: 'Configuração apagada', indicator: 'green'});
+                            loadMattermostConfigs();
+                        }
+                    });
+                }
+            );
+        });
 
         // ── Botão: Nova Config ────────────────────────────────────────────────
         document.getElementById('cdc-mm-new-btn').addEventListener('click', function() {
@@ -381,7 +680,7 @@
 
                     var d = r.message;
                     if (d.erro) {
-                        resultEl.innerHTML = '<div style="padding:14px 0;color:#fca5a5;">❌ ' + d.erro + '</div>';
+                        resultEl.innerHTML = '<div style="padding:14px 0;color:#fca5a5;">❌ ' + escapeCDC(d.erro) + '</div>';
                         resultEl.style.maxHeight = '80px';
                         resultEl.dataset.open = '1';
                         return;
@@ -390,7 +689,7 @@
                     var erros = (d.erros_recentes && d.erros_recentes.length)
                         ? d.erros_recentes.map(function(e) {
                             return '<div style="background:rgba(239,68,68,0.1);border-radius:6px;padding:6px 10px;font-size:11px;color:#fca5a5;margin-bottom:4px;">⚠️ '
-                                + (e.title || '') + '<span style="color:#475569;margin-left:8px;">' + (e.creation || '') + '</span></div>';
+                                + escapeCDC(e.title || '') + '<span style="color:#475569;margin-left:8px;">' + escapeCDC(e.creation || '') + '</span></div>';
                           }).join('')
                         : '<div style="color:#86efac;font-size:12px;">✅ Nenhum erro recente</div>';
 
@@ -556,10 +855,79 @@
         return report;
     };
 
+    function removeStockPageNavigator() {
+        var state = window._cdcStockPageNavigator;
+        if (state && state.scroller && state.handler) state.scroller.removeEventListener('scroll', state.handler);
+        window._cdcStockPageNavigator = null;
+        var button = document.getElementById('cdc-stock-page-navigator');
+        if (button) button.remove();
+    }
+
+    function restoreNativeStockWorkspaceContent() {
+        document.querySelectorAll('.cdc-stock-native-content-hidden').forEach(function(element) {
+            element.classList.remove('cdc-stock-native-content-hidden');
+        });
+    }
+
+    function hideNativeStockWorkspaceContent(workspaceBody, dashboard) {
+        restoreNativeStockWorkspaceContent();
+        Array.from(workspaceBody.children || []).forEach(function(element) {
+            if (element === dashboard || element.matches('script, style, .modal, .toast-container, .freeze-message-container')) return;
+            element.classList.add('cdc-stock-native-content-hidden');
+        });
+    }
+
+    function setupStockPageNavigator(dashboard) {
+        removeStockPageNavigator();
+        if (!dashboard || !isStockWorkspacePage()) return;
+        var scroller = null;
+        var node = dashboard.parentElement;
+        while (node && node !== document.body) {
+            var overflowY = window.getComputedStyle(node).overflowY;
+            if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 20) {
+                scroller = node;
+                break;
+            }
+            node = node.parentElement;
+        }
+        var usesWindow = !scroller;
+        scroller = scroller || window;
+        var button = document.createElement('button');
+        button.id = 'cdc-stock-page-navigator';
+        button.type = 'button';
+        document.body.appendChild(button);
+
+        var metrics = function() {
+            if (usesWindow) {
+                var doc = document.scrollingElement || document.documentElement;
+                return {top: window.scrollY || doc.scrollTop, max: Math.max(0, doc.scrollHeight - window.innerHeight)};
+            }
+            return {top: scroller.scrollTop, max: Math.max(0, scroller.scrollHeight - scroller.clientHeight)};
+        };
+        var update = function() {
+            var position = metrics();
+            var atBottom = position.max > 0 && position.top >= position.max - 24;
+            button.classList.toggle('is-at-bottom', atBottom);
+            button.innerHTML = atBottom ? '<span>↑</span><small>Subir</small>' : '<span>↓</span><small>Ir ao fim</small>';
+            button.setAttribute('aria-label', atBottom ? 'Voltar ao início da página' : 'Ir ao fim da página');
+            button.title = atBottom ? 'Voltar ao início' : 'Ir ao fim da página';
+        };
+        button.addEventListener('click', function() {
+            var position = metrics();
+            var destination = position.max > 0 && position.top >= position.max - 24 ? 0 : position.max;
+            if (usesWindow) window.scrollTo({top: destination, behavior: 'smooth'});
+            else scroller.scrollTo({top: destination, behavior: 'smooth'});
+        });
+        scroller.addEventListener('scroll', update, {passive: true});
+        window._cdcStockPageNavigator = {scroller: scroller, handler: update};
+        update();
+    }
+
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) {
             var dashToRemove = document.getElementById('cdc-stock-exec-dashboard');
             if (dashToRemove) dashToRemove.remove();
+            restoreNativeStockWorkspaceContent();
             return;
         }
 
@@ -568,6 +936,15 @@
         }
 
         if (isDashboardLoading) return;
+
+        var pilotProject = getPilotProjectContext();
+        if (pilotProject) {
+            currentSelectedUnit = 'All';
+            currentSelectedProjectFilter = pilotProject.name;
+        } else {
+            currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
+            currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
+        }
 
         var workspaceBody = document.querySelector('.layout-main-section') || 
                             document.querySelector('.page-body') ||
@@ -589,12 +966,13 @@
         if (!dashDiv) {
             dashDiv = document.createElement('div');
             dashDiv.id = 'cdc-stock-exec-dashboard';
-            dashDiv.style.cssText = 'margin-bottom: 24px; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
+            dashDiv.style.cssText = 'margin-bottom: 0; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
         }
 
         if (workspaceBody.firstChild !== dashDiv) {
             workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
         }
+        hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
         isDashboardLoading = true;
         lastFetchTime = Date.now();
@@ -604,13 +982,17 @@
             args: { 
                 selected_unit: currentSelectedUnit,
                 period: currentSelectedPeriod,
-                entry_type: currentOccurrencesType
+                entry_type: currentOccurrencesType,
+                selected_project: pilotProject ? pilotProject.name : null,
+                table_type: currentTableTypeFilter
             },
             callback: function(r) {
                 isDashboardLoading = false;
                 if (!r || !r.message) return;
 
                 var data = r.message;
+                var pilotProject = getPilotProjectContext();
+                var breadcrumb = getCDCBreadcrumbHTML('Estoque', pilotProject ? pilotProject.name : null);
 
                 // --- 1. SELETOR DE ARMAZÉM ---
                 var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
@@ -621,7 +1003,16 @@
                     return `<option value="${val}" ${selected}>${lbl}</option>`;
                 }).join('');
 
-                var selectorHeader = `
+                var selectorHeader = pilotProject ? `
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#0f172a,#17345c);color:#fff;border-radius:12px;padding:18px 22px;margin-bottom:20px;box-shadow:0 4px 14px rgba(15,23,42,.18);">
+                        <div>
+                            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#93c5fd;margin-bottom:5px;">Dashboard piloto por projeto</div>
+                            <div style="font-size:21px;font-weight:800;">${pilotProject.name}</div>
+                            <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">Dados exclusivos de ${pilotProject.label}</div>
+                        </div>
+                        <a id="cdc-project-back" href="/app/cdc-estoque" style="background:#fff;color:#1d4ed8;border-radius:8px;padding:9px 14px;text-decoration:none;font-size:12px;font-weight:800;">← Voltar à visão geral</a>
+                    </div>
+                ` : `
                     <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #0f172a; font-size: 15px;">
                             <span style="font-size: 18px;">👁️</span>
@@ -631,6 +1022,7 @@
                             <select id="cdc-unit-filter-select" class="form-control" style="width: auto; min-width: 320px; max-width: 460px; height: 42px; font-size: 14px; font-weight: 700; border-radius: 8px; border: 2px solid #2563eb; color: #0f172a; cursor: pointer; background-color: #f8fafc; padding: 0 12px;">
                                 ${unitOptions}
                             </select>
+                            <button id="cdc-clear-unit-filter" type="button" class="btn btn-default" ${currentSelectedUnit === 'All' ? 'disabled aria-disabled="true"' : ''} style="height:42px;font-size:12px;font-weight:800;border-radius:8px;white-space:nowrap;opacity:${currentSelectedUnit === 'All' ? '.55' : '1'};">↺ Mostrar todos</button>
                         </div>
                     </div>
                 `;
@@ -645,41 +1037,41 @@
 
                 var top4CardsGrid = `
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
-                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                        <a href="/app/warehouse" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🏭 TOTAL DE ARMAZÉM</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${totalWh}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${activeWh} ativos</span>
                                 <span style="color: #ef4444;">🔴 ${inactiveWh} inativos (+30 dias)</span>
                             </div>
-                        </div>
+                        </a>
 
-                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                        <a href="/app/stock-entry?purpose=Material%20Receipt" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📥 ENTRADA MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${receiptsCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${receiptsCount} este mês</span>
                                 <span style="color: #d97706;">🟠 158 mês passado</span>
                             </div>
-                        </div>
+                        </a>
 
-                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                        <a href="/app/stock-entry?purpose=Material%20Issue" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📤 SAÍDA DE MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${issuesCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${issuesCount} este mês</span>
                                 <span style="color: #d97706;">🟠 31 mês passado</span>
                             </div>
-                        </div>
+                        </a>
 
-                        <div class="cdc-exec-card" style="padding: 16px; margin-bottom: 0;">
+                        <a href="/app/stock-entry?purpose=Material%20Transfer" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🔄 TRANSFERÊNCIA</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${transfersCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${transfersCount} este mês</span>
                                 <span style="color: #d97706;">🟠 4 acumuladas</span>
                             </div>
-                        </div>
+                        </a>
                     </div>
                 `;
 
@@ -688,7 +1080,7 @@
                     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 22px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                         <div style="font-size: 17px; font-weight: 800; color: #0f172a; margin-bottom: 14px;">Atalho</div>
                         <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
-                            <a href="/app/query-report/Lancamento%20no%20Estoque%20-%20CDC" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                            <a href="/app/stock-entry/view/report/Lancamento%20no%20Estoque%20-%20CDC" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
                                 Lançamento no Estoque <span style="font-size: 12px; color: #64748b;">↗</span>
                             </a>
                             <a href="/app/stock-reconciliation" style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: none; display: flex; align-items: center; gap: 4px;">
@@ -725,7 +1117,7 @@
                             <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">Relatórios Personalizados</div>
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 <a href="/app/query-report/Balan%C3%A7o%20de%20Estoque%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Balanço de Estoque - CDC</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
-                                <a href="/app/query-report/Lancamento%20no%20Estoque%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Lancamento no Estoque - CDC...</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
+                                <a href="/app/stock-entry/view/report/Lancamento%20no%20Estoque%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Lancamento no Estoque - CDC...</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
                                 <a href="/app/query-report/Livro%20de%20Inventarios%20-%20CDC" style="font-weight: 600; font-size: 13px; color: #334155; text-decoration: none; display: flex; justify-content: space-between; align-items: center;"><span>Livro de Inventarios - CDC</span> <span style="color: #64748b; font-size: 12px;">↗</span></a>
                             </div>
                         </div>
@@ -736,8 +1128,18 @@
                 var projectsList = (data.projects && data.projects.length > 0) ? data.projects : [];
                 var projectPills = projectsList.map(function(pj) {
                     var subtext = (pj.items && pj.items > 0) ? `${pj.items} itens` : 'Sem saldo';
+                    var projectSlugs = {
+                        'Projeto Atitude II.I': 'projeto-atitude-ii-i',
+                        'Institucional / Geral': 'institucional-geral',
+                        'Projeto Atitude': 'projeto-atitude',
+                        'Projeto Bem Viver': 'projeto-bem-viver',
+                        'Projeto Cais': 'projeto-cais',
+                        'Projeto ATM': 'projeto-atm'
+                    };
+                    var isPilotProject = !!projectSlugs[pj.project];
+                    var projectUrl = '/app/cdc-estoque/' + projectSlugs[pj.project];
                     return `
-                        <a href="${pj.url || '/app/stock-entry'}" class="cdc-city-item" style="padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; text-decoration: none;">
+                        <a href="${projectUrl}" class="cdc-city-item ${isPilotProject ? 'cdc-pilot-project-link' : ''}" style="padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; text-decoration: none;">
                             <div style="display: flex; flex-direction: column; gap: 2px;">
                                 <span style="font-weight: 700; color: #1e293b; font-size: 12px;">🔗 ${pj.project}</span>
                                 <span style="font-size: 10px; color: #64748b;">${subtext}</span>
@@ -776,8 +1178,37 @@
                     </div>
                 `;
 
-                var sideBySideRow = `
-                    <div style="display: grid; grid-template-columns: 330px 1fr; gap: 16px; margin-bottom: 20px;">
+                var recentMovementsCard = `
+                    <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px; min-width: 0;">
+                        <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
+                            <span>Últimas Movimentações</span>
+                            ${tableFilterPills}
+                        </div>
+                        <div class="cdc-table-container" style="max-height: 380px; overflow-y: auto;">
+                            <table class="cdc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Data</th>
+                                        <th>Armazém</th>
+                                        <th>Qtd.</th>
+                                        <th>Responsável</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRowsHTML}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
+                var sideBySideRow = pilotProject ? `
+                    <div style="display: block; margin-bottom: 20px;">
+                        ${recentMovementsCard}
+                    </div>
+                ` : `
+                    <div style="display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; margin-bottom: 20px;">
                         <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
                             <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
                                 <span>Armazéns por Projeto</span>
@@ -787,29 +1218,7 @@
                                 ${projectPills}
                             </div>
                         </div>
-
-                        <div class="cdc-exec-card" style="margin-bottom: 0; padding: 16px;">
-                            <div class="cdc-exec-card-title" style="margin-bottom: 10px;">
-                                <span>Últimas Movimentações</span>
-                                ${tableFilterPills}
-                            </div>
-                            <div class="cdc-table-container" style="max-height: 380px; overflow-y: auto;">
-                                <table class="cdc-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Data</th>
-                                            <th>Armazém</th>
-                                            <th>Qtd.</th>
-                                            <th>Responsável</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${tableRowsHTML}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        ${recentMovementsCard}
                     </div>
                 `;
 
@@ -1071,6 +1480,7 @@
                 `;
 
                 dashDiv.innerHTML = `
+                    ${breadcrumb}
                     ${selectorHeader}
                     ${top4CardsGrid}
                     ${shortcutsBar}
@@ -1078,6 +1488,7 @@
                     ${categoryFullWidthCard}
                     ${occurrencesSection}
                 `;
+                setupStockPageNavigator(dashDiv);
 
                 window._cdc_debug_dashboard_data = data;
 
@@ -1235,6 +1646,25 @@
             renderStockDashboard();
         });
 
+        $(document).off('click', '#cdc-clear-unit-filter').on('click', '#cdc-clear-unit-filter', function(e) {
+            e.preventDefault();
+            currentSelectedUnit = 'All';
+            sessionStorage.setItem('cdc_unit', 'All');
+            renderStockDashboard();
+        });
+
+        $(document).off('click', '.cdc-pilot-project-link').on('click', '.cdc-pilot-project-link', function(e) {
+            e.preventDefault();
+            window.history.pushState({}, '', this.getAttribute('href'));
+            renderStockDashboard();
+        });
+
+        $(document).off('click', '#cdc-project-back').on('click', '#cdc-project-back', function(e) {
+            e.preventDefault();
+            window.history.pushState({}, '', '/app/cdc-estoque');
+            renderStockDashboard();
+        });
+
         $(document).off('change', '#cdc-top-chart-project-select').on('change', '#cdc-top-chart-project-select', function(e) {
             e.stopPropagation();
             currentSelectedProjectFilter = $(this).val();
@@ -1370,20 +1800,6 @@
         });
     });
 
-    setInterval(function() {
-        if (isStockWorkspacePage()) {
-            var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
-            if (!dashContainer && !isDashboardLoading) {
-                renderStockDashboard();
-            }
-        } else {
-            var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
-            if (dashContainer) {
-                dashContainer.remove();
-            }
-        }
-    }, 400);
-
     $(document).on('page-change', function() {
         if (!isStockWorkspacePage()) {
             var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
@@ -1395,42 +1811,32 @@
                 renderStockDashboard();
             }, 100);
         }
-
-    // --- DETECÇÃO DA ROTA INTEGRAÇÕES ---
-    function isIntegrationPage() {
-        var href = (window.location.href || '').toLowerCase();
-        if (href.indexOf('integrac') !== -1 || href.indexOf('integrat') !== -1) return true;
-
-        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
-        if (route && route.length > 0) {
-            var mainRoute = (route[0] || '').toLowerCase();
-            var subRoute = (route[1] || '').toLowerCase();
-            if (mainRoute === 'integrations' || mainRoute === 'integracoes' || mainRoute === 'integrações') return true;
-            if ((mainRoute === 'workspaces' || mainRoute === 'workspace') && 
-                (subRoute === 'integrations' || subRoute === 'integrações' || subRoute === 'integracoes')) {
-                return true;
-            }
-        }
-        return false;
-    }
+    });
 
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: Exibe estritamente Estoque, Usuários e Integrações
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['stock', 'estoque', 'users', 'usuários', 'usuarios', 'integrations', 'integrações', 'integracoes'];
-        
-        var sidebarLinks = document.querySelectorAll('.desk-sidebar .sidebar-item, .desk-sidebar .standard-sidebar-item, .desk-sidebar .sidebar-item-container, .desk-sidebar li');
+        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc integracoes', 'cdc pendencias'];
+
+        var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
-            var labelText = (el.innerText || el.textContent || '').trim().toLowerCase();
-            if (labelText && labelText !== 'público' && labelText !== 'public' && labelText !== 'módulos' && labelText !== 'modulos') {
-                var isAllowed = allowedList.some(function(term) {
-                    return labelText.indexOf(term) !== -1;
-                });
-                if (!isAllowed) {
-                    el.style.cssText = 'display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important;';
-                } else {
-                    el.style.cssText = 'display: block !important; visibility: visible !important;';
-                }
+            var labelText = (el.innerText || el.textContent || '').trim().toLowerCase().normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+            var primaryLabel = labelText.split(' dup')[0].trim();
+            var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
+                .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
+                /^\/app\/cdc-(estoque|usuarios|integracoes|pendencias)(\/|$)/.test(href);
+            el.classList.toggle('cdc-workspace-hidden', labelText && !isAllowed);
+        });
+    }
+
+    function syncCDCBrandLogos() {
+        var logoUrl = '/files/Logos-CDC-1.png';
+        document.querySelectorAll('.app-logo, .navbar-brand img').forEach(function(img) {
+            if (img.tagName === 'IMG' && img.getAttribute('src') !== logoUrl) {
+                img.setAttribute('src', logoUrl);
             }
+            img.classList.add('cdc-brand-logo');
         });
     }
 
@@ -1438,15 +1844,32 @@
     function checkAndRenderThemeComponents() {
         if (isStockWorkspacePage()) {
             renderStockDashboard();
+        } else {
+            removeStockPageNavigator();
+            restoreNativeStockWorkspaceContent();
         }
         if (isIntegrationPage()) {
             renderIntegrationsDiagnosticBanner();
+        } else {
+            var integrationsBanner = document.getElementById('cdc-integracoes-banner');
+            if (integrationsBanner) integrationsBanner.remove();
         }
+        renderUsersDashboard();
+    }
+
+    function scheduleThemeRender() {
+        [0, 250, 700, 1500].forEach(function(delay) {
+            setTimeout(function() {
+                syncCDCBrandLogos();
+                sanitizeSidebarWorkspaces();
+                checkAndRenderThemeComponents();
+            }, delay);
+        });
     }
 
     // PURGA AUTOMÁTICA DE CACHE LEGADO DE WORKSPACES NO NAVEGADOR DO USUÁRIO
     function purgeLegacyBrowserWorkspaceCache() {
-        var currentBuildTag = '20260731_v100';
+        var currentBuildTag = '20260731_v150';
         var storedTag = localStorage.getItem('cdc_theme_version');
 
         if (storedTag !== currentBuildTag) {
@@ -1456,7 +1879,7 @@
                 localStorage.removeItem('frappe:boot');
                 sessionStorage.clear();
                 localStorage.setItem('cdc_theme_version', currentBuildTag);
-                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v100).');
+                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v150).');
             } catch(e) {}
         }
     }
@@ -1466,35 +1889,25 @@
 
     $(document).ready(function() {
         purgeLegacyBrowserWorkspaceCache();
-        syncCDCBrandLogos();
-        sanitizeSidebarWorkspaces();
-        checkAndRenderThemeComponents();
+        scheduleThemeRender();
     });
-    $(window).on('hashchange route page-change', function() {
-        syncCDCBrandLogos();
-        sanitizeSidebarWorkspaces();
-        checkAndRenderThemeComponents();
+    $(window).on('hashchange route', scheduleThemeRender);
+    window.addEventListener('popstate', function() {
+        isDashboardLoading = false;
+        scheduleThemeRender();
     });
-    setInterval(function() {
-        syncCDCBrandLogos();
-        sanitizeSidebarWorkspaces();
-        checkAndRenderThemeComponents();
-    }, 1200);
-
-    // Inicialização na carga inicial
-    setTimeout(function() {
-        purgeLegacyBrowserWorkspaceCache();
-        syncCDCBrandLogos();
-        sanitizeSidebarWorkspaces();
-        checkAndRenderThemeComponents();
-    }, 500);
+    $(document).on('page-change', scheduleThemeRender);
+    if (frappe.router && frappe.router.on) {
+        frappe.router.on('change', scheduleThemeRender);
+    }
 
 
 
 
 
     // REGISTRO GLOBAL DO BOTÃO TESTAR CONEXÃO NO FORMULÁRIO MATTERMOST
-    frappe.ui.form.on('CDC Mattermost Config', {
+    if (frappe.ui && frappe.ui.form && frappe.ui.form.on) {
+      frappe.ui.form.on('CDC Mattermost Config', {
         refresh: function(frm) {
             frm.add_custom_button(__('🧪 Testar Conexão'), function() {
                 if (!frm.doc.webhook_url) {
@@ -1512,6 +1925,7 @@
                 });
             }).addClass('btn-primary');
         }
-    });
+      });
+    }
 
 })();

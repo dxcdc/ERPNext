@@ -55,6 +55,16 @@ Toda a documentação do projeto está padronizada e disponível no diretório [
 | 🤖 [prompt_ia.md](./docs/prompt_ia.md) | Diretrizes e regras de contexto para assistentes de IA e desenvolvimento em dupla. |
 | 🔍 [pesquisa.md](./docs/pesquisa.md) | Pesquisa de inovações da comunidade Frappe/ERPNext e especificação técnica da integração com Mattermost. |
 | 📊 [relatorio_executivo_migracao.md](./docs/relatorio_executivo_migracao.md) | Relatório executivo consolidado com a Matriz das 4 Abordagens Visuais. |
+| ✅ [prontidao_migracao.md](./docs/prontidao_migracao.md) | Painel qualitativo de prontidão, evidências e bloqueios da migração. |
+| 👁️ [validacao_manual_visual.md](./docs/validacao_manual_visual.md) | Roteiro de homologação manual, visual e por perfil de acesso. |
+| 🪞 [espelho_sombra_producao.md](./docs/espelho_sombra_producao.md) | Arquitetura segura para acompanhar eventos recentes sem escrever na produção. |
+| 🗓️ [relatorio_tarefas_2026-08-01.md](./docs/relatorio_tarefas_2026-08-01.md) | Entregas, backlog priorizado e retomada planejada para segunda-feira. |
+
+Reconciliação somente leitura entre laboratório e produção:
+
+```bash
+python3 scripts/reconcile_production_shadow.py --host usuario@servidor --identity ~/.ssh/id_ed25519
+```
 
 ---
 
