@@ -1,11 +1,11 @@
 output "laboratory_url" {
-  value       = "http://localhost:8085"
+  value       = "http://localhost:${var.http_port}"
   description = "URL do Laboratorio Local Nginx"
 }
 
 output "active_branch" {
-  value       = "lab/estabilizacao-tema-cdc"
-  description = "Branch de desenvolvimento do laboratorio"
+  value       = "main"
+  description = "Branch canônica esperada para a receita versionada"
 }
 
 output "telemetry_json_path" {

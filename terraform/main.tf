@@ -9,7 +9,37 @@ resource "null_resource" "docker_check" {
   }
 
   provisioner "local-exec" {
-    command = "cd .. && docker compose up -d"
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<EOT
+      set -euo pipefail
+      cd ..
+      docker compose up -d
+
+      echo "⏳ Aguardando MariaDB aceitar conexões autenticadas..."
+      for attempt in $(seq 1 90); do
+        if docker exec nexterp-db-1 mysqladmin ping -u root -p'${var.db_password}' --silent >/dev/null 2>&1; then
+          break
+        fi
+        if [ "$attempt" -eq 90 ]; then
+          echo "MariaDB não ficou pronto dentro de 90 segundos" >&2
+          exit 1
+        fi
+        sleep 1
+      done
+
+      echo "⏳ Aguardando configuração compartilhada e criação do site..."
+      configurator_status=$(docker wait nexterp-configurator-1)
+      if [ "$configurator_status" != "0" ]; then
+        docker logs nexterp-configurator-1 >&2
+        exit "$configurator_status"
+      fi
+      site_status=$(docker wait nexterp-create-site-1)
+      if [ "$site_status" != "0" ]; then
+        docker logs nexterp-create-site-1 >&2
+        exit "$site_status"
+      fi
+      docker exec nexterp-frontend-1 test -f /home/frappe/frappe-bench/sites/${var.site_name}/site_config.json
+    EOT
   }
 }
 

@@ -43,6 +43,7 @@ services:
       REDIS_CACHE: redis-cache:6379
       REDIS_QUEUE: redis-queue:6379
       SOCKETIO_PORT: "9000"
+      PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - assets:/home/frappe/frappe-bench/sites/assets
@@ -88,7 +89,7 @@ services:
           echo "Site frontend already exists; creation skipped";
           exit 0;
         fi;
-        bench new-site --mariadb-user-host-login-scope='%' --admin-password=admin --db-root-username=root --db-root-password=admin --install-app erpnext --set-default frontend;
+        bench new-site --mariadb-user-host-login-scope='%' --admin-password=admin --db-root-username=root --db-root-password=admin --db-name _5e5899d8398b5f7b --install-app erpnext --set-default frontend;
 
   db:
     image: mariadb:10.6
