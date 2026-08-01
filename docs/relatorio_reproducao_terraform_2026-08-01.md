@@ -87,3 +87,86 @@ A receita passou a inicializar banco, Redis e configurador primeiro. Assim, some
 - a divergência das 56 pendências permaneceu, pelo mesmo motivo temporal já documentado.
 
 O reteste mantém a fidelidade global em **92%**, pois aumentou a confiança na reprodutibilidade da infraestrutura, mas não alterou a lacuna de continuidade do estado derivado da ONGSYS. Para esse indicador subir, a sincronização segura pós-restauração precisa fazer parte da receita ou o dump deve ser capturado depois dela.
+
+## Registro objetivo do segundo ensaio
+
+### Identificação
+
+| Campo | Valor |
+|---|---|
+| Data da auditoria final | 01/08/2026 02:48:08, America/Recife |
+| Commit de partida | `b7076bc` |
+| Commit da correção final | `9cd925d` |
+| Namespace descartável | `nexterp-retest` |
+| Porta temporária | 8087 |
+| Banco | `_5e5899d8398b5f7b` |
+| Site | `frontend` |
+| Backup usado | `gcp-prod-database-latest.sql.gz` |
+| Hash SHA-256 do backup | `11b122e3cc78bbdadca91e687a4e0b58ec39a583c7ecb0022ed28187047c26b0` |
+
+### Tentativas
+
+| Tentativa | Resultado | Evidência |
+|---|---|---|
+| Reteste inicial com `b7076bc` | Falhou | corrida ao popular `assets`: `failed to create symlink ... file exists` |
+| Reteste após serialização | Aprovado | 9 recursos aplicados; pipeline 8/8 |
+| Plano após aplicação | Aprovado | `No changes`, código de saída 0 |
+
+O recurso que prepara containers e site levou 1min57s. A restauração do backup levou 1min01s, a instalação/migração do tema 1min00s e as demais fases somaram aproximadamente 1min02s. O ciclo corrigido completo levou cerca de **5 minutos**.
+
+### Checksums das tabelas centrais
+
+Os valores abaixo foram obtidos com `CHECKSUM TABLE` nos dois ambientes. Cada par foi idêntico.
+
+| Tabela | Linhas | Checksum laboratório | Checksum réplica |
+|---|---:|---:|---:|
+| `tabStock Entry` | 3.532 | 1.934.928.668 | 1.934.928.668 |
+| `tabStock Entry Detail` | 62.343 | 3.242.272.764 | 3.242.272.764 |
+| `tabStock Ledger Entry` | 64.628 | 1.388.730.745 | 1.388.730.745 |
+| `tabWarehouse` | 54 | 1.742.001.145 | 1.742.001.145 |
+| `tabItem` | 1.507 | 2.054.296.514 | 2.054.296.514 |
+| `tabBin` | 3.052 | 42.779.783 | 42.779.783 |
+
+### Pipeline e desempenho observado
+
+| Etapa | Resultado | Duração |
+|---|---|---:|
+| Workspaces e banco | Aprovada | 1,60s |
+| Serviços e containers | Aprovada | 0,13s |
+| Assets e servidor web | Aprovada | 0,21s |
+| Estoque e projetos | Aprovada | 19,25s |
+| Usuários e pendências | Aprovada | 4,61s |
+| Rotas e diagnóstico | Aprovada | 4,80s |
+| Livro de Inventário | Aprovada | 6,23s |
+| ONGSYS e Terraform seguro | Aprovada | 4,61s |
+
+Os tempos das APIs, incluindo a inicialização do comando Bench, foram: estoque 2,596s, usuários 2,151s e pendências 2,119s. Esses números são observações deste equipamento, não metas de desempenho para produção.
+
+### Integridade e achados
+
+| Verificação | Resultado |
+|---|---:|
+| Bins órfãos | 0 |
+| Saldos negativos | 0 |
+| Lançamentos submetidos sem itens | 0 |
+| Pendências inválidas | 0 |
+| Achados altos | 0 |
+| Achados médios | 2 |
+
+Os dois achados médios foram o armazém legado com texto corrompido e a permissão inicialmente ampla do arquivo de estado Terraform descartável. Nenhum deles alterou os dados transacionais comparados.
+
+### Evidências brutas e descarte
+
+Os logs brutos foram mantidos fora do Git para evitar versionar saídas potencialmente sensíveis:
+
+| Evidência | SHA-256 |
+|---|---|
+| tentativa com corrida de `assets` | `bfa06a3e732ea56c7fd7cb89a79ebaeb090fafc5e4ec478fb929963c4d7bceb0` |
+| aplicação corrigida | `9b0d24e81d70a4345da62ee352ff9c4392983f6410866033b8e0de6382c79fa7` |
+| plano idempotente | `9ed1d3a7b74d985570a813ebb2205b33146060fef3d2037961f91a85b7e349b6` |
+
+Após a coleta foram confirmados zero containers, zero volumes e zero redes com prefixo `nexterp-retest`. A worktree e a branch temporárias também foram removidas. O laboratório de referência permaneceu disponível na porta 8085.
+
+## Interpretação dos percentuais
+
+Os resultados de 100% significam igualdade nos critérios explicitamente medidos, não garantia absoluta de equivalência do sistema inteiro. A estimativa global de 92% é uma avaliação de prontidão baseada nas dimensões documentadas e penalizada pela falta da continuidade automática das pendências ONGSYS. Validação visual autenticada, teste de restauração em infraestrutura equivalente à hospedagem final e observação das rotinas agendadas continuam sendo critérios separados.
