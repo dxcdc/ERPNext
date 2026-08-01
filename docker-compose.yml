@@ -8,6 +8,7 @@ services:
         condition: on-failure
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
@@ -44,6 +45,7 @@ services:
       SOCKETIO_PORT: "9000"
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
 
@@ -56,7 +58,11 @@ services:
         condition: none
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
     entrypoint:
       - bash
       - -c
@@ -78,6 +84,10 @@ services:
           fi
         done;
         echo "sites/common_site_config.json found";
+        if [[ -f sites/frontend/site_config.json ]]; then
+          echo "Site frontend already exists; creation skipped";
+          exit 0;
+        fi;
         bench new-site --mariadb-user-host-login-scope='%' --admin-password=admin --db-root-username=root --db-root-password=admin --install-app erpnext --set-default frontend;
 
   db:
@@ -124,6 +134,7 @@ services:
       CLIENT_MAX_BODY_SIZE: 50m
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     ports:
@@ -143,6 +154,7 @@ services:
       - long,default,short
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
@@ -164,6 +176,7 @@ services:
       - short,default
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
@@ -201,6 +214,7 @@ services:
       - schedule
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
@@ -221,12 +235,15 @@ services:
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
       - logs:/home/frappe/frappe-bench/logs
+      - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
 
 volumes:
   db-data:
   redis-queue-data:
   sites:
+  assets:
   logs:
 
 networks:

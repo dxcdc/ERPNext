@@ -3,56 +3,56 @@
     "stage": 1,
     "title": "Workspaces e banco",
     "status": "PASSED",
-    "duration": "1.57s",
+    "duration": "1.63s",
     "details": "Quatro workspaces CDC públicas e visíveis"
   },
   {
     "stage": 2,
     "title": "Serviços e contêineres",
     "status": "PASSED",
-    "duration": "0.08s",
+    "duration": "0.13s",
     "details": "Serviços essenciais ativos"
   },
   {
     "stage": 3,
     "title": "Assets e servidor web",
     "status": "PASSED",
-    "duration": "0.17s",
-    "details": "Asset ativo via HTTP 200 (115 KB)"
+    "duration": "0.22s",
+    "details": "Asset ativo via HTTP 200 (116 KB)"
   },
   {
     "stage": 4,
     "title": "Estoque e projetos",
     "status": "PASSED",
-    "duration": "19.47s",
+    "duration": "22.37s",
     "details": "API do estoque e seis projetos validados"
   },
   {
     "stage": 5,
     "title": "Usuários e pendências",
     "status": "PASSED",
-    "duration": "4.79s",
+    "duration": "5.29s",
     "details": "69 usuários e 56 pendências"
   },
   {
     "stage": 6,
     "title": "Rotas e diagnóstico",
     "status": "PASSED",
-    "duration": "4.62s",
+    "duration": "3.29s",
     "details": "Rotas canônicas e diagnóstico holístico aprovados"
   },
   {
     "stage": 7,
     "title": "Livro de Inventário",
     "status": "PASSED",
-    "duration": "5.93s",
+    "duration": "6.29s",
     "details": "Livro de Inventário operacional com 3556 linhas"
   },
   {
     "stage": 8,
     "title": "ONGSYS e Terraform seguro",
     "status": "PASSED",
-    "duration": "4.62s",
+    "duration": "4.82s",
     "details": "ONGSYS idempotente e restauração Terraform opt-in"
   }
 ]

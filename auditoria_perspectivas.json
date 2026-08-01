@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-08-01T01:38:22-0300",
+    "generated_at": "2026-08-01T02:06:55-0300",
     "findings": 1,
     "by_severity": {
       "HIGH": 0,
@@ -14,9 +14,9 @@
       "invalid_pending": 0
     },
     "api_timings_seconds_including_bench_startup": {
-      "stock": 2.927,
-      "users": 2.427,
-      "pending": 2.392
+      "stock": 3.039,
+      "users": 2.596,
+      "pending": 2.462
     }
   },
   "findings": [

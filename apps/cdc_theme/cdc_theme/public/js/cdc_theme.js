@@ -1831,13 +1831,18 @@
     }
 
     function syncCDCBrandLogos() {
-        var logoUrl = '/files/Logos-CDC-1.png';
+        var logoUrl = '/assets/cdc_theme/images/cdc_logo.png';
+        var faviconUrl = '/assets/cdc_theme/images/favicon.png';
         document.querySelectorAll('.app-logo, .navbar-brand img').forEach(function(img) {
             if (img.tagName === 'IMG' && img.getAttribute('src') !== logoUrl) {
                 img.setAttribute('src', logoUrl);
             }
             img.classList.add('cdc-brand-logo');
         });
+        var favicon = document.querySelector('link[rel*="icon"]');
+        if (favicon && favicon.getAttribute('href') !== faviconUrl) {
+            favicon.setAttribute('href', faviconUrl);
+        }
     }
 
     // DISPARADOR GERAL DE COMPONENTES DO TEMA CDC
