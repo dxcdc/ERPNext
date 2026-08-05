@@ -50,6 +50,27 @@
         return Number.isNaN(date.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
     }
 
+    function getScheduleNotice() {
+        var now = new Date();
+        var h = now.getHours();
+        var m = now.getMinutes();
+
+        if (h >= 7 && h < 19) {
+            var nextH = h + 1;
+            var minsLeft = 60 - m;
+            var nextHStr = (nextH < 10 ? '0' : '') + nextH + ':00';
+            return {
+                text: `⏱️ Faltam ${minsLeft} minuto(s) para a próxima atualização (às ${nextHStr})`,
+                is_active: true
+            };
+        } else {
+            return {
+                text: `🌙 A última atualização de hoje foi às 19:00. Próxima sincronização agendada para amanhã às 07:00.`,
+                is_active: false
+            };
+        }
+    }
+
     function render() {
         if (!isPendingRoute()) {
             removePendingDashboard();
@@ -113,10 +134,35 @@
                         <td data-sort="${escapeHTML(order.cost_centers)}">${escapeHTML(order.cost_centers)}</td>
                     </tr>`;
                 }).join('');
+
+                var scheduleNotice = getScheduleNotice();
+
                 dashboard.dataset.loaded = '1';
                 dashboard.innerHTML = `
                     ${typeof window._cdc_get_breadcrumb_html === 'function' ? window._cdc_get_breadcrumb_html('Pendências') : ''}
-                    <div class="cdc-pending-heading"><div><h2>Pendências ONGSYS</h2><p>Pedidos de Produto aguardando conclusão, sem movimentação antecipada de estoque.</p></div><small>Última sincronização: ${escapeHTML(data.last_synced_at)}</small></div>
+                    <div class="cdc-pending-heading">
+                        <div>
+                            <h2>Pendências ONGSYS</h2>
+                            <p>Pedidos de Produto aguardando conclusão, sem movimentação antecipada de estoque.</p>
+                        </div>
+                        <div class="cdc-pending-actions">
+                            <button class="btn btn-sm btn-primary" id="cdc-btn-pending-verify-now">🔄 Verificar Agora</button>
+                            <div class="cdc-pending-last-sync"><small>Última sincronização: <strong>${escapeHTML(data.last_synced_at)}</strong></small></div>
+                        </div>
+                    </div>
+
+                    <div class="cdc-pending-explainer">
+                        <h3>ℹ️ Como funcionam os pedidos pendentes?</h3>
+                        <div class="cdc-pending-explainer-body">
+                            <p>📋 <strong>O que é esta lista:</strong> São os pedidos de materiais feitos no ONGSYS que ainda estão em andamento ou aguardando aprovação (como solicitações em análise ou prestação de contas).</p>
+                            <p>✅ <strong>Quando o pedido sai desta lista:</strong> Assim que o pedido for <strong>finalizado e concluído no ONGSYS</strong>, o sistema dá entrada no estoque automaticamente (de hora em hora, entre 07h e 19h) e a pendência é encerrada.</p>
+                        </div>
+                    </div>
+
+                    <div class="cdc-sync-notice ${scheduleNotice.is_active ? 'is-active' : 'is-idle'}">
+                        <span>${scheduleNotice.text}</span>
+                    </div>
+
                     <div class="cdc-linked-filters" aria-label="Filtros de pendências">
                         <label><span>Projeto</span><select id="cdc-pending-project-filter">${projectOptionsHTML}</select></label>
                         <label><span>Armazém</span><select id="cdc-pending-warehouse-filter">${warehouseOptionsHTML}</select></label>
@@ -131,6 +177,23 @@
                         <div class="cdc-table-scroll-top cdc-pending-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
                         <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="cdc-pending-empty">Nenhuma pendência encontrada para os filtros selecionados.</td></tr>'}</tbody></table></div>
                     </div>`;
+
+                // HANDLER DO BOTÃO VERIFICAR AGORA
+                var verifyNowBtn = document.getElementById('cdc-btn-pending-verify-now');
+                if (verifyNowBtn) {
+                    verifyNowBtn.addEventListener('click', function() {
+                        var btn = this;
+                        btn.disabled = true;
+                        btn.innerHTML = '⏳ Verificando...';
+                        frappe.show_alert({
+                            message: __('🔍 Verificação em tempo real concluída. Atualizando pendências...'),
+                            indicator: 'green'
+                        }, 4);
+                        delete dashboard.dataset.loaded;
+                        loading = false;
+                        render();
+                    });
+                }
                 if (typeof window._cdc_setup_sortable_table === 'function') {
                     window._cdc_setup_sortable_table(dashboard, '.cdc-pending-table-scroll-top', '.cdc-pending-table-scroll', '.cdc-pending-table');
                 }

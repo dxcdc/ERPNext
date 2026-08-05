@@ -651,3 +651,726 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-mm-action-btn:hover { background: rgba(59, 130, 246, .18); }
 .cdc-mm-action-btn.is-delete { border-color: rgba(248, 113, 113, .28); background: rgba(239, 68, 68, .07); color: #fca5a5; }
 .cdc-mm-action-btn.is-delete:hover { background: rgba(239, 68, 68, .17); }
+
+/* ==========================================================================
+   CDC MONITORING DASHBOARD & INCIDENT TRACKING STYLES
+   ========================================================================== */
+#cdc-monitoring-dashboard {
+    padding: 1.5rem;
+    background: #0f172a;
+    color: #f8fafc;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.cdc-monitoring-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 1rem;
+}
+
+.cdc-monitoring-h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0 0 0.25rem 0;
+}
+
+.cdc-monitoring-sub {
+    font-size: 0.875rem;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.cdc-monitoring-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.cdc-monitoring-card {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1.25rem;
+    border-left: 4px solid #3b82f6;
+}
+
+.cdc-monitoring-card.is-danger {
+    border-left-color: #ef4444;
+}
+
+.cdc-monitoring-card.is-warning {
+    border-left-color: #f59e0b;
+}
+
+.cdc-monitoring-card.is-info {
+    border-left-color: #3b82f6;
+}
+
+.cdc-monitoring-card.is-status {
+    border-left-color: #10b981;
+}
+
+.cdc-card-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+
+.cdc-card-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.cdc-card-value-status {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f59e0b;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+}
+
+.cdc-card-desc {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.cdc-monitoring-table-section {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+.cdc-table-header-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin-bottom: 1rem;
+}
+
+.cdc-monitoring-table {
+    color: #cbd5e1;
+    background: transparent;
+}
+
+.cdc-monitoring-table th {
+    background: #0f172a;
+    color: #94a3b8;
+    border-color: #334155 !important;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.cdc-monitoring-table td {
+    border-color: #334155 !important;
+    vertical-align: middle;
+    font-size: 0.875rem;
+}
+
+.cdc-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.cdc-badge-danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid #ef4444;
+}
+
+.cdc-badge-warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fde047;
+    border: 1px solid #f59e0b;
+}
+
+.cdc-action-box {
+    background: #0f172a;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    font-size: 0.8rem;
+    color: #38bdf8;
+}
+
+.cdc-badge-success {
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+    border: 1px solid #10b981;
+}
+
+.cdc-job-banner {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #334155;
+}
+
+.cdc-job-banner-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-bottom: 0.75rem;
+}
+
+.cdc-job-banner-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: #cbd5e1;
+}
+
+.cdc-monitoring-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 1.5rem 0 1rem 0;
+}
+
+.cdc-extractors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.cdc-extractor-card {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #334155;
+}
+
+.cdc-extractor-card.is-ok {
+    border-top: 3px solid #10b981;
+}
+
+.cdc-extractor-card.is-warn {
+    border-top: 3px solid #f59e0b;
+}
+
+.cdc-extractor-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.cdc-extractor-file {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.cdc-extractor-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 0.25rem;
+}
+
+.cdc-extractor-metric {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #38bdf8;
+    margin-bottom: 0.5rem;
+}
+
+.cdc-extractor-detail {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+
+.cdc-extractor-action {
+    font-size: 0.75rem;
+    color: #e2e8f0;
+    background: #0f172a;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+}
+
+.cdc-text-green {
+    color: #4ade80;
+    font-weight: 700;
+}
+
+.cdc-narrative-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-left: 4px solid #38bdf8;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.cdc-narrative-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 0.75rem;
+}
+
+.cdc-narrative-icon {
+    font-size: 1.5rem;
+}
+
+.cdc-narrative-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin: 0;
+}
+
+.cdc-narrative-date {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.cdc-narrative-body {
+    font-size: 0.875rem;
+    color: #cbd5e1;
+    line-height: 1.6;
+}
+
+.cdc-narrative-body p {
+    margin-bottom: 0.75rem;
+}
+
+.cdc-narrative-solutions {
+    background: #0f172a;
+    padding: 0.85rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    margin-top: 0.75rem;
+}
+
+.cdc-narrative-solutions ul {
+    margin: 0.5rem 0 0 1.25rem;
+    padding: 0;
+    color: #4ade80;
+}
+
+.cdc-extractor-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #334155;
+}
+
+.cdc-tool-btn {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.6rem !important;
+    border-radius: 4px !important;
+}
+
+/* SUB-TABS NAVIGATION FOR MONITORING WORKSPACE */
+.cdc-monitoring-tabs-nav {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem 0;
+    border-bottom: 2px solid #334155;
+}
+
+.cdc-monitoring-tabs-nav li {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #94a3b8;
+    background: #1e293b;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #334155;
+    border-bottom: none;
+}
+
+.cdc-monitoring-tabs-nav li:hover {
+    color: #f8fafc;
+    background: #334155;
+}
+
+.cdc-monitoring-tabs-nav li.is-active {
+    color: #38bdf8;
+    background: #0f172a;
+    border-color: #38bdf8 #38bdf8 #0f172a #38bdf8;
+}
+
+.cdc-tab-pane {
+    display: none;
+}
+
+.cdc-tab-pane.is-active {
+    display: block;
+}
+
+.cdc-info-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-left: 4px solid #10b981;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.cdc-info-box-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 0.35rem;
+}
+
+.cdc-info-box-text {
+    font-size: 0.875rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+}
+
+.cdc-table-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.cdc-monitoring-section-block {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.cdc-section-block-h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-top: 0;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 0.5rem;
+}
+
+.cdc-section-block-sub {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 1.25rem;
+}
+
+/* ========================================================================
+   Normalização das workspaces CDC adicionadas ao Desk
+   ======================================================================== */
+#cdc-users-dashboard,
+#cdc-pending-dashboard,
+#cdc-monitoring-dashboard,
+#cdc-users-dashboard *,
+#cdc-pending-dashboard *,
+#cdc-monitoring-dashboard * {
+    box-sizing: border-box;
+}
+
+#cdc-users-dashboard,
+#cdc-pending-dashboard,
+#cdc-monitoring-dashboard {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cdc-users-dashboard,
+#cdc-pending-dashboard {
+    color: var(--text-color, var(--cdc-text-dark));
+}
+
+.cdc-users-heading h2,
+.cdc-users-table-header h3,
+.cdc-users-shortcuts-label h3,
+.cdc-pending-heading h2,
+.cdc-pending-table-header h3 {
+    color: var(--text-color, var(--cdc-text-dark));
+}
+
+.cdc-users-heading p,
+.cdc-users-shortcuts-label p,
+.cdc-pending-heading p,
+.cdc-pending-heading small {
+    color: var(--text-muted, var(--cdc-text-muted));
+}
+
+.cdc-custom-monitoring-active > :not(#cdc-monitoring-dashboard) {
+    display: none !important;
+}
+
+.cdc-pending-actions {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.cdc-pending-last-sync {
+    margin-top: .35rem;
+}
+
+.cdc-pending-explainer,
+.cdc-sync-notice {
+    margin-bottom: 1.25rem;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #2490ef;
+    border-radius: var(--cdc-radius-md);
+    color: #334155;
+    background: #eff6ff;
+}
+
+.cdc-pending-explainer {
+    padding: 1.1rem 1.25rem;
+}
+
+.cdc-pending-explainer h3 {
+    margin: 0 0 .6rem;
+    color: #1d4ed8;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.cdc-pending-explainer-body {
+    font-size: .875rem;
+    line-height: 1.6;
+}
+
+.cdc-pending-explainer-body p {
+    margin: 0 0 .5rem;
+}
+
+.cdc-pending-explainer-body p:last-child {
+    margin-bottom: 0;
+}
+
+.cdc-sync-notice {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1rem;
+    font-size: .875rem;
+    font-weight: 700;
+}
+
+.cdc-sync-notice.is-idle {
+    border-color: #cbd5e1;
+    border-left-color: #94a3b8;
+    background: #f8fafc;
+}
+
+/* O monitoramento segue a mesma superfície clara do restante do Desk. */
+#cdc-monitoring-dashboard {
+    width: 100%;
+    padding: 0;
+    color: var(--text-color, var(--cdc-text-dark));
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.cdc-monitoring-wrapper {
+    width: 100%;
+    min-width: 0;
+}
+
+.cdc-monitoring-header {
+    gap: 1rem;
+    border-bottom-color: var(--cdc-border-color);
+}
+
+.cdc-monitoring-h1,
+.cdc-table-header-title,
+.cdc-monitoring-section-title,
+.cdc-extractor-title {
+    color: var(--text-color, var(--cdc-text-dark));
+}
+
+.cdc-monitoring-sub,
+.cdc-card-label,
+.cdc-card-desc,
+.cdc-extractor-file,
+.cdc-extractor-detail,
+.cdc-section-block-sub {
+    color: var(--text-muted, var(--cdc-text-muted));
+}
+
+.cdc-monitoring-card,
+.cdc-monitoring-table-section,
+.cdc-job-banner,
+.cdc-extractor-card,
+.cdc-narrative-box,
+.cdc-info-box,
+.cdc-monitoring-section-block {
+    color: var(--text-color, var(--cdc-text-dark));
+    background: var(--fg-color, var(--cdc-card-bg));
+    border-color: var(--border-color, var(--cdc-border-color));
+    box-shadow: var(--cdc-shadow-subtle);
+}
+
+.cdc-card-value,
+.cdc-narrative-body,
+.cdc-info-box-text,
+.cdc-job-banner-grid {
+    color: var(--text-color, #334155);
+}
+
+.cdc-action-box,
+.cdc-extractor-action,
+.cdc-narrative-solutions {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.cdc-monitoring-tabs-nav {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: .35rem;
+    border-bottom-color: var(--border-color, var(--cdc-border-color));
+    scrollbar-width: thin;
+}
+
+.cdc-monitoring-tabs-nav li {
+    flex: 0 0 auto;
+    padding: .7rem .9rem;
+    color: var(--text-muted, #475569);
+    background: var(--subtle-fg, #f8fafc);
+    border-color: var(--border-color, var(--cdc-border-color));
+    white-space: nowrap;
+}
+
+.cdc-monitoring-tabs-nav li:hover {
+    color: #1d4ed8;
+    background: #eff6ff;
+}
+
+.cdc-monitoring-tabs-nav li.is-active {
+    color: #1d4ed8;
+    background: var(--fg-color, #fff);
+    border-color: #60a5fa #60a5fa var(--fg-color, #fff);
+}
+
+.cdc-monitoring-table-section,
+.cdc-monitoring-section-block {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.cdc-monitoring-table-section .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.cdc-monitoring-table {
+    width: 100%;
+    min-width: 760px;
+    color: var(--text-color, #334155);
+}
+
+.cdc-monitoring-table th {
+    color: var(--text-muted, #475569);
+    background: var(--subtle-fg, #f8fafc);
+    border-color: var(--border-color, var(--cdc-border-color)) !important;
+    white-space: nowrap;
+}
+
+.cdc-monitoring-table td {
+    border-color: var(--border-color, var(--cdc-border-color)) !important;
+}
+
+.cdc-table-header-flex,
+.cdc-extractor-top,
+.cdc-extractor-actions {
+    gap: .75rem;
+}
+
+@media (max-width: 900px) {
+    .cdc-monitoring-cards-grid,
+    .cdc-extractors-grid,
+    .cdc-job-banner-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cdc-monitoring-header,
+    .cdc-table-header-flex {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 600px) {
+    #cdc-users-dashboard,
+    #cdc-pending-dashboard,
+    #cdc-monitoring-dashboard {
+        margin-bottom: 1rem;
+    }
+
+    .cdc-pending-heading,
+    .cdc-monitoring-header,
+    .cdc-table-header-flex,
+    .cdc-extractor-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cdc-pending-actions {
+        text-align: left;
+    }
+
+    .cdc-pending-actions .btn,
+    .cdc-refresh-btn,
+    .cdc-table-header-flex .btn {
+        width: 100%;
+    }
+
+    .cdc-monitoring-h1 {
+        font-size: 1.25rem;
+        line-height: 1.3;
+    }
+
+    .cdc-monitoring-cards-grid,
+    .cdc-extractors-grid,
+    .cdc-job-banner-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cdc-monitoring-card,
+    .cdc-monitoring-table-section,
+    .cdc-job-banner,
+    .cdc-extractor-card,
+    .cdc-narrative-box,
+    .cdc-info-box,
+    .cdc-monitoring-section-block,
+    .cdc-pending-explainer {
+        padding: 1rem;
+    }
+
+    .cdc-monitoring-tabs-nav {
+        margin-right: -.25rem;
+        padding-bottom: .35rem;
+    }
+}
