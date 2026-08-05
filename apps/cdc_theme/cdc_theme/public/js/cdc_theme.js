@@ -51,7 +51,28 @@
         return projects[slug || legacySlugs[legacyProject]] || null;
     }
 
-    function getCDCBreadcrumbHTML(section, detail) {
+    function suppressFalsePositive404() {
+        try {
+            var main = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
+            if (main) {
+                var els = main.querySelectorAll('.page-not-found, .page-error-state, .invalid-page-state, .empty-state');
+                els.forEach(function(el) {
+                    if (el && !el.closest('#cdc-monitoring-dashboard') && !el.closest('#cdc-pending-dashboard')) {
+                        el.style.display = 'none';
+                    }
+                });
+                var msgEls = main.querySelectorAll('.text-muted, p, div, h1, h2, h3');
+                msgEls.forEach(function(el) {
+                    var txt = (el.textContent || '').trim().toLowerCase();
+                    if (txt === 'não encontrado' || txt.indexOf('não encontrado') !== -1 || txt.indexOf('o recurso que você está procurando não está disponível') !== -1 || txt.indexOf('o recurso que voce esta procurando nao esta disponivel') !== -1) {
+                        if (!el.closest('#cdc-monitoring-dashboard') && !el.closest('#cdc-pending-dashboard')) {
+                            el.style.display = 'none';
+                        }
+                    }
+                });
+            }
+        } catch (err) {}
+    }
         var sections = [
             {label: 'Estoque', href: '/app/cdc-estoque'},
             {label: 'Usuários', href: '/app/cdc-usuários'},
@@ -2012,6 +2033,9 @@
                     removeMonitoringDashboard();
                     return;
                 }
+                dashboard.dataset.loaded = '1';
+                suppressFalsePositive404();
+                var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Monitoramento', 'Central de Exceções & Ferramentas') : '';
                 var data = response && response.message;
                 if (!data) {
                     dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Não foi possível consultar os incidentes.</div>';

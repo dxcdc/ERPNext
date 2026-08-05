@@ -138,6 +138,20 @@
                 var scheduleNotice = getScheduleNotice();
 
                 dashboard.dataset.loaded = '1';
+                try {
+                    var main = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
+                    if (main) {
+                        var msgEls = main.querySelectorAll('.page-not-found, .page-error-state, .invalid-page-state, .empty-state, .text-muted, p, div, h1, h2, h3');
+                        msgEls.forEach(function(el) {
+                            var txt = (el.textContent || '').trim().toLowerCase();
+                            if (txt === 'não encontrado' || txt.indexOf('não encontrado') !== -1 || txt.indexOf('o recurso que você está procurando não está disponível') !== -1 || txt.indexOf('o recurso que voce esta procurando nao esta disponivel') !== -1) {
+                                if (!el.closest('#cdc-pending-dashboard') && !el.closest('#cdc-monitoring-dashboard')) {
+                                    el.style.display = 'none';
+                                }
+                            }
+                        });
+                    }
+                } catch (e) {}
                 dashboard.innerHTML = `
                     ${typeof window._cdc_get_breadcrumb_html === 'function' ? window._cdc_get_breadcrumb_html('Pendências') : ''}
                     <div class="cdc-pending-heading">
