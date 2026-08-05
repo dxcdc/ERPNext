@@ -1374,3 +1374,94 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
         padding-bottom: .35rem;
     }
 }
+
+/* WIDGET TERMINAL EM TEMPO REAL */
+.cdc-terminal-box {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    color: #c9d1d9;
+    font-family: 'ui-monospace', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12.5px;
+    margin: 0 0 1.25rem 0;
+    overflow: hidden;
+    animation: cdcFadeIn 0.3s ease-out;
+}
+
+.cdc-terminal-header {
+    background: #161b22;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #30363d;
+}
+
+.cdc-terminal-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.cdc-terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.cdc-terminal-dot.red { background: #ff5f56; }
+.cdc-terminal-dot.yellow { background: #ffbd2e; }
+.cdc-terminal-dot.green { background: #27c93f; }
+
+.cdc-terminal-title {
+    font-size: 11px;
+    color: #8b949e;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.cdc-terminal-status {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(56, 139, 253, 0.15);
+    color: #58a6ff;
+    border: 1px solid rgba(56, 139, 253, 0.3);
+}
+
+.cdc-terminal-status.is-done {
+    background: rgba(46, 160, 67, 0.15);
+    color: #3fb950;
+    border-color: rgba(46, 160, 67, 0.3);
+}
+
+.cdc-terminal-body {
+    padding: 12px 16px;
+    max-height: 220px;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+
+.cdc-terminal-line {
+    margin: 3px 0;
+    word-break: break-all;
+}
+
+.cdc-term-timestamp {
+    color: #484f58;
+    margin-right: 8px;
+}
+
+.cdc-terminal-line.prompt { color: #8b949e; font-weight: 600; }
+.cdc-terminal-line.info { color: #58a6ff; }
+.cdc-terminal-line.success { color: #3fb950; font-weight: 600; }
+.cdc-terminal-line.warning { color: #d29922; }
+.cdc-terminal-line.danger { color: #f85149; }
+
+@keyframes cdcFadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
