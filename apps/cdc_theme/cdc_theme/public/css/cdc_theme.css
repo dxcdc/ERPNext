@@ -1465,3 +1465,30 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* CDC Admin -------------------------------------------------------------- */
+.cdc-custom-admin-active > :not(#cdc-admin-dashboard) { display: none !important; }
+#cdc-admin-dashboard { color: var(--text-color); animation: cdcFadeIn .25s ease-out; }
+.cdc-admin-shell { padding: 8px 4px 32px; }
+.cdc-admin-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 24px; margin-bottom: 18px; border: 1px solid var(--border-color); border-radius: 14px; background: linear-gradient(135deg, var(--fg-color), var(--subtle-fg)); }
+.cdc-admin-header h1 { margin: 3px 0 5px; font-size: 28px; font-weight: 750; }
+.cdc-admin-header p, .cdc-admin-section-title p { margin: 0; color: var(--text-muted); }
+.cdc-admin-eyebrow { color: var(--primary); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.cdc-admin-summary { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.cdc-admin-metric { min-height: 104px; padding: 17px; border: 1px solid var(--border-color); border-top: 3px solid var(--primary); border-radius: 12px; background: var(--fg-color); }
+.cdc-admin-metric span { display: block; color: var(--text-muted); font-size: 12px; font-weight: 650; }
+.cdc-admin-metric strong { display: block; margin-top: 7px; font-size: 29px; }
+.cdc-admin-metric.is-success { border-top-color: #22a06b; }.cdc-admin-metric.is-warning { border-top-color: #d99000; }.cdc-admin-metric.is-danger { border-top-color: #dc3545; }
+.cdc-admin-section { padding: 20px; margin-bottom: 18px; border: 1px solid var(--border-color); border-radius: 14px; background: var(--fg-color); }
+.cdc-admin-section-title { display: flex; justify-content: space-between; margin-bottom: 15px; }.cdc-admin-section-title h2, .cdc-admin-terminal h2 { margin: 0 0 3px; font-size: 17px; }
+.cdc-admin-check-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 10px; }
+.cdc-admin-check { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; min-height: 82px; padding: 13px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--subtle-fg); }
+.cdc-admin-check-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; background: #22a06b; font-weight: 900; }.cdc-admin-check.is-error .cdc-admin-check-icon { background: #dc3545; }
+.cdc-admin-check h3, .cdc-admin-action h3 { margin: 0 0 4px; font-size: 14px; }.cdc-admin-check p, .cdc-admin-action p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+.cdc-admin-action-grid { display: grid; grid-template-columns: repeat(3, minmax(200px, 1fr)); gap: 12px; }
+.cdc-admin-action { position: relative; min-height: 180px; padding: 17px; border: 1px solid var(--border-color); border-radius: 11px; background: var(--subtle-fg); }.cdc-admin-action .btn { position: absolute; right: 17px; bottom: 17px; left: 17px; }
+.cdc-admin-action-icon { display: inline-grid; place-items: center; width: 34px; height: 34px; margin-bottom: 12px; border-radius: 9px; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); font-size: 19px; }
+.cdc-admin-terminal { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px; padding: 18px 20px; border: 1px solid #30363d; border-radius: 13px; color: #e6edf3; background: #0d1117; }.cdc-admin-terminal p { margin: 0; color: #8b949e; }.cdc-admin-terminal code { padding: 8px 11px; border: 1px solid #30363d; border-radius: 7px; color: #3fb950; background: #161b22; }
+.cdc-admin-footnote { margin-top: 12px; color: var(--text-muted); font-size: 11px; text-align: right; }.cdc-admin-loading { padding: 50px; color: var(--text-muted); text-align: center; }.cdc-admin-loading.is-error { color: #dc3545; }
+@media (max-width: 900px) { .cdc-admin-summary { grid-template-columns: repeat(2, 1fr); }.cdc-admin-check-grid, .cdc-admin-action-grid { grid-template-columns: 1fr; }.cdc-admin-terminal { grid-template-columns: 1fr; }.cdc-admin-action { min-height: 160px; } }
+@media (max-width: 520px) { .cdc-admin-header { flex-direction: column; padding: 18px; }.cdc-admin-header .btn { width: 100%; }.cdc-admin-summary { grid-template-columns: 1fr 1fr; }.cdc-admin-check { grid-template-columns: 30px 1fr; }.cdc-admin-check .btn { grid-column: 1 / -1; }.cdc-admin-section { padding: 14px; } }

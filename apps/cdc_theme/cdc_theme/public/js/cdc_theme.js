@@ -73,12 +73,15 @@
             }
         } catch (err) {}
     }
+
+    function getCDCBreadcrumbHTML(section, detail) {
         var sections = [
             {label: 'Estoque', href: '/app/cdc-estoque'},
             {label: 'Usuários', href: '/app/cdc-usuários'},
             {label: 'Integrações', href: '/app/cdc-integrações'},
             {label: 'Pendências', href: '/app/cdc-pendências'},
-            {label: 'Monitoramento', href: '/app/cdc-monitoramento'}
+            {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
+            {label: 'Admin', href: '/app/cdc-admin'}
         ];
         var current = sections.find(function(item) { return item.label === section; });
         var quickLinks = sections.map(function(item) {
@@ -1848,7 +1851,7 @@
 
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: Exibe estritamente Estoque, Usuários e Integrações
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc integracoes', 'cdc pendencias'];
+        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc admin'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -1858,7 +1861,11 @@
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
-                /^\/app\/cdc-(estoque|usuarios|integracoes|pendencias)(\/|$)/.test(href);
+                /^\/app\/cdc-(estoque|usuarios|integracoes|pendencias|monitoramento|admin)(\/|$)/.test(href);
+            var isAdminWorkspace = primaryLabel === 'cdc admin' || /^\/app\/cdc-admin(\/|$)/.test(href);
+            if (isAdminWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
+                isAllowed = false;
+            }
             el.classList.toggle('cdc-workspace-hidden', labelText && !isAllowed);
         });
     }

@@ -11,6 +11,7 @@ app_include_css = "/assets/cdc_theme/css/cdc_theme.css"
 app_include_js = [
     "/assets/cdc_theme/js/cdc_theme.js",
     "/assets/cdc_theme/js/cdc_pending.js",
+    "/assets/cdc_theme/js/cdc_admin.js",
 ]
 
 web_include_css = "/assets/cdc_theme/css/cdc_theme.css"

@@ -1,4 +1,5 @@
 import calendar
+import os
 
 import frappe
 from frappe.utils import add_days, add_months, get_first_day, getdate, today
@@ -41,6 +42,7 @@ def custom_get_desktop_page(page):
         "cdc-pendências": "CDC Pendências",
         "cdc-monitoramento": "CDC Monitoramento",
         "cdc-incidentes": "CDC Monitoramento",
+        "cdc-admin": "CDC Admin",
         "stock": "CDC Estoque",
         "users": "CDC Usuários",
         "integrations": "CDC Integrações",
@@ -51,6 +53,7 @@ def custom_get_desktop_page(page):
         "pendências": "CDC Pendências",
         "monitoramento": "CDC Monitoramento",
         "incidentes": "CDC Monitoramento",
+        "admin": "CDC Admin",
     }
 
     lower_name = str(name).lower().strip()
@@ -117,7 +120,7 @@ def run_stage_6_diagnostics():
     # 6.3: Desktop Pages Loader das workspaces CDC
     try:
         from frappe.desk.desktop import get_desktop_page
-        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento"]:
+        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Admin"]:
             page_json = json.dumps({"name": page_name})
             res = custom_get_desktop_page(page_json)
             diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
@@ -150,7 +153,7 @@ def run_stage_6_diagnostics():
 
     # 6.6: Child Tables Integrity (Shortcuts, Links, Charts, Number Cards)
     try:
-        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento"]
+        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Admin"]
         sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", cdc_workspaces]})
         link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", cdc_workspaces]})
         diag["sub_stage_6_6_child_tables"] = {
@@ -163,6 +166,155 @@ def run_stage_6_diagnostics():
         diag["overall_stage_6_status"] = "FAILED"
 
     return diag
+
+
+CDC_ADMIN_WORKSPACE = "CDC Admin"
+
+
+def _ensure_cdc_admin_workspace():
+    """Cria ou normaliza somente a workspace administrativa do CDC."""
+    if frappe.db.exists("Workspace", CDC_ADMIN_WORKSPACE):
+        workspace = frappe.get_doc("Workspace", CDC_ADMIN_WORKSPACE)
+    else:
+        workspace = frappe.new_doc("Workspace")
+        workspace.name = CDC_ADMIN_WORKSPACE
+        workspace.label = CDC_ADMIN_WORKSPACE
+        workspace.title = CDC_ADMIN_WORKSPACE
+        workspace.module = "Core"
+        workspace.content = "[]"
+    workspace.public = 1
+    workspace.is_hidden = 0
+    workspace.icon = "tool"
+    workspace.sequence_id = 6.0
+    workspace.save(ignore_permissions=True)
+    return workspace.name
+
+
+@frappe.whitelist()
+def ensure_cdc_admin_workspace():
+    _require_system_manager()
+    name = _ensure_cdc_admin_workspace()
+    frappe.db.commit()
+    frappe.clear_cache()
+    return {"ok": True, "message": f"Workspace {name} pronta."}
+
+
+def _admin_check(check_id, label, callback, repair=None):
+    try:
+        detail = callback()
+        return {
+            "id": check_id, "label": label, "status": "ok",
+            "detail": str(detail), "repair": repair,
+        }
+    except Exception as exc:
+        return {
+            "id": check_id, "label": label, "status": "error",
+            "detail": str(exc), "repair": repair,
+        }
+
+
+@frappe.whitelist()
+def get_cdc_admin_diagnostics():
+    """Diagnosticos leves, sem shell e sem alterar dados."""
+    _require_system_manager()
+
+    def database_check():
+        frappe.db.sql("SELECT 1")
+        return f"MariaDB conectado; site {frappe.local.site}."
+
+    def redis_check():
+        return "Redis respondeu ao PING." if frappe.cache.ping() else "Redis sem resposta."
+
+    def app_check():
+        installed = frappe.get_installed_apps()
+        if "cdc_theme" not in installed:
+            raise RuntimeError("cdc_theme não está instalado neste site.")
+        return "cdc_theme instalado e carregado."
+
+    def asset_check():
+        public_path = frappe.get_app_path("cdc_theme", "public")
+        required = (
+            "css/cdc_theme.css", "js/cdc_theme.js", "js/cdc_admin.js",
+        )
+        missing = [item for item in required if not os.path.isfile(os.path.join(public_path, item))]
+        if missing:
+            raise RuntimeError("Assets ausentes: " + ", ".join(missing))
+        return "CSS e JavaScripts administrativos presentes no app."
+
+    def workspace_check():
+        required = (
+            "CDC Estoque", "CDC Usuários", "CDC Integrações",
+            "CDC Pendências", "CDC Monitoramento", CDC_ADMIN_WORKSPACE,
+        )
+        missing = [name for name in required if not frappe.db.exists("Workspace", name)]
+        hidden = frappe.get_all("Workspace", filters={"name": ["in", required], "is_hidden": 1}, pluck="name")
+        if missing or hidden:
+            raise RuntimeError(f"Ausentes: {missing or 'nenhuma'}; ocultas: {hidden or 'nenhuma'}")
+        return f"{len(required)} workspaces CDC registradas e visíveis."
+
+    def workspace_json_check():
+        result = validate_workspace_json()
+        invalid = [name for name, value in result.items() if value.get("status") != "OK"]
+        if invalid:
+            raise RuntimeError("JSON inválido: " + ", ".join(invalid))
+        return f"JSON válido em {len(result)} workspaces visíveis."
+
+    def error_log_check():
+        recent = frappe.db.count("Error Log", filters={"creation": [">=", add_days(today(), -1)]})
+        if recent:
+            return f"{recent} erros registrados nas últimas 24 horas; revise antes de produção."
+        return "Nenhum Error Log nas últimas 24 horas."
+
+    checks = [
+        _admin_check("database", "Banco de dados", database_check),
+        _admin_check("redis", "Cache e filas Redis", redis_check),
+        _admin_check("app", "Aplicativo CDC Theme", app_check),
+        _admin_check("assets", "Arquivos do tema", asset_check, "clear_cache"),
+        _admin_check("workspaces", "Workspaces CDC", workspace_check, "repair_workspace"),
+        _admin_check("workspace_json", "Integridade das workspaces", workspace_json_check, "clear_cache"),
+        _admin_check("error_logs", "Erros recentes", error_log_check),
+    ]
+    errors = sum(1 for item in checks if item["status"] == "error")
+    warnings = sum(1 for item in checks if item["id"] == "error_logs" and not item["detail"].startswith("Nenhum"))
+    return {
+        "status": "healthy" if not errors else "attention",
+        "summary": {"total": len(checks), "ok": len(checks) - errors, "errors": errors, "warnings": warnings},
+        "checks": checks,
+        "repair_command": "./scripts/reparar_tema.sh",
+        "checked_at": frappe.utils.now_datetime().strftime("%d/%m/%Y %H:%M:%S"),
+        "user": frappe.session.user,
+    }
+
+
+@frappe.whitelist()
+def run_cdc_admin_action(action):
+    """Executa somente correcoes administrativas enumeradas e auditaveis."""
+    _require_system_manager()
+    allowed = {"clear_cache", "repair_workspace", "apply_light_theme"}
+    if action not in allowed:
+        frappe.throw("Ação administrativa não permitida.", frappe.PermissionError)
+
+    if action == "clear_cache":
+        frappe.clear_cache()
+        try:
+            from frappe.website.utils import clear_cache as clear_website_cache
+            clear_website_cache()
+        except ImportError:
+            pass
+        message = "Caches do Frappe e do website foram limpos."
+    elif action == "repair_workspace":
+        _ensure_cdc_admin_workspace()
+        frappe.db.commit()
+        frappe.clear_cache()
+        message = "Workspace CDC Admin reparada e cache atualizado."
+    else:
+        frappe.db.set_value("User", frappe.session.user, "desk_theme", "Light", update_modified=False)
+        frappe.db.commit()
+        frappe.clear_cache(user=frappe.session.user)
+        message = "Tema claro reaplicado ao usuário atual."
+
+    frappe.logger("cdc_admin").info("CDC Admin action=%s user=%s", action, frappe.session.user)
+    return {"ok": True, "action": action, "message": message}
 
 
 CDC_PROJECTS = (

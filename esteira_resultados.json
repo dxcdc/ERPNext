@@ -3,49 +3,49 @@
     "stage": 1,
     "title": "Workspaces e banco",
     "status": "PASSED",
-    "duration": "1.57s",
-    "details": "Quatro workspaces CDC públicas e visíveis"
+    "duration": "1.53s",
+    "details": "Seis workspaces CDC públicas e visíveis"
   },
   {
     "stage": 2,
     "title": "Serviços e contêineres",
     "status": "PASSED",
-    "duration": "0.09s",
+    "duration": "0.08s",
     "details": "Serviços essenciais ativos"
   },
   {
     "stage": 3,
     "title": "Assets e servidor web",
     "status": "PASSED",
-    "duration": "0.17s",
-    "details": "Asset ativo via HTTP 200 (146 KB)"
+    "duration": "0.15s",
+    "details": "Asset ativo via HTTP 200 (148 KB)"
   },
   {
     "stage": 4,
     "title": "Estoque e projetos",
     "status": "PASSED",
-    "duration": "21.58s",
+    "duration": "20.65s",
     "details": "API do estoque e seis projetos validados"
   },
   {
     "stage": 5,
     "title": "Usuários e pendências",
     "status": "PASSED",
-    "duration": "4.98s",
+    "duration": "4.90s",
     "details": "69 usuários e 58 pendências"
   },
   {
     "stage": 6,
     "title": "Rotas e diagnóstico",
     "status": "PASSED",
-    "duration": "3.11s",
+    "duration": "3.32s",
     "details": "Rotas canônicas e diagnóstico holístico aprovados"
   },
   {
     "stage": 7,
     "title": "Livro de Inventário",
     "status": "PASSED",
-    "duration": "1.54s",
+    "duration": "1.52s",
     "details": "Livro de Inventário operacional"
   },
   {

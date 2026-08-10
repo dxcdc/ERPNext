@@ -89,6 +89,27 @@ docker compose up -d
 ```
 Acesse o ERPNext localmente no seu navegador em `http://localhost:8085`.
 
+### Reparacao automatica do tema
+
+Se o tema estiver desajustado, com assets antigos ou o ambiente local estiver
+parcialmente parado, execute:
+
+```bash
+./scripts/reparar_tema.sh
+```
+
+O comando valida os fontes, recupera os servicos na ordem correta, recompila
+somente o `cdc_theme`, limpa os caches e confirma que o CSS e o JavaScript estao
+publicados. Para apenas diagnosticar, sem alterar o estado dos containers:
+
+```bash
+./scripts/reparar_tema.sh --check
+```
+
+Administradores também podem acompanhar os testes e aplicar correções seguras
+pela tela **CDC Admin**, em `http://localhost:8085/app/cdc-admin`. A recuperação
+completa continua disponível pelo script quando algum serviço estiver fora do ar.
+
 ---
 
 ## 🔀 Fluxos de CI/CD com GitHub Actions
