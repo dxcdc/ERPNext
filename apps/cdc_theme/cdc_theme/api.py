@@ -171,32 +171,42 @@ def run_stage_6_diagnostics():
 CDC_ADMIN_WORKSPACE = "CDC Admin"
 
 
-def _ensure_cdc_admin_workspace():
-    """Cria ou normaliza somente a workspace administrativa do CDC."""
-    if frappe.db.exists("Workspace", CDC_ADMIN_WORKSPACE):
-        workspace = frappe.get_doc("Workspace", CDC_ADMIN_WORKSPACE)
+def _ensure_cdc_workspace(name, icon, sequence_id, content="[]"):
+    if frappe.db.exists("Workspace", name):
+        workspace = frappe.get_doc("Workspace", name)
     else:
         workspace = frappe.new_doc("Workspace")
-        workspace.name = CDC_ADMIN_WORKSPACE
-        workspace.label = CDC_ADMIN_WORKSPACE
-        workspace.title = CDC_ADMIN_WORKSPACE
+        workspace.name = name
+        workspace.label = name
+        workspace.title = name
         workspace.module = "Core"
-        workspace.content = "[]"
+        workspace.content = content
     workspace.public = 1
     workspace.is_hidden = 0
-    workspace.icon = "tool"
-    workspace.sequence_id = 6.0
+    workspace.icon = icon
+    workspace.sequence_id = sequence_id
     workspace.save(ignore_permissions=True)
     return workspace.name
+
+
+def _repair_cdc_support_workspaces():
+    monitoring_content = (
+        '[{"id":"cdc-monitoring-header","type":"header","data":'
+        '{"text":"<span class=\'h4\'><b>Monitoramento</b></span>","col":12}}]'
+    )
+    return [
+        _ensure_cdc_workspace("CDC Monitoramento", "activity", 5.0, monitoring_content),
+        _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 6.0),
+    ]
 
 
 @frappe.whitelist()
 def ensure_cdc_admin_workspace():
     _require_system_manager()
-    name = _ensure_cdc_admin_workspace()
+    names = _repair_cdc_support_workspaces()
     frappe.db.commit()
     frappe.clear_cache()
-    return {"ok": True, "message": f"Workspace {name} pronta."}
+    return {"ok": True, "message": f"Workspaces {', '.join(names)} prontas."}
 
 
 def _admin_check(check_id, label, callback, repair=None):
@@ -303,10 +313,10 @@ def run_cdc_admin_action(action):
             pass
         message = "Caches do Frappe e do website foram limpos."
     elif action == "repair_workspace":
-        _ensure_cdc_admin_workspace()
+        _repair_cdc_support_workspaces()
         frappe.db.commit()
         frappe.clear_cache()
-        message = "Workspace CDC Admin reparada e cache atualizado."
+        message = "Workspaces CDC Monitoramento e CDC Admin reparadas."
     else:
         frappe.db.set_value("User", frappe.session.user, "desk_theme", "Light", update_modified=False)
         frappe.db.commit()
