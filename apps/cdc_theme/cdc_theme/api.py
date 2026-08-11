@@ -195,7 +195,7 @@ def _repair_cdc_support_workspaces():
         '{"text":"<span class=\'h4\'><b>Monitoramento</b></span>","col":12}}]'
     )
     return [
-        _ensure_cdc_workspace("CDC Monitoramento", "activity", 5.0, monitoring_content),
+        _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 5.0, monitoring_content),
         _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 6.0),
     ]
 

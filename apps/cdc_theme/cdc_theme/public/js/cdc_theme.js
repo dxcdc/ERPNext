@@ -2055,6 +2055,34 @@
         return normalizeRoute(window.location.pathname).indexOf('/app/cdc-monitoramento') !== -1;
     }
 
+    function getActiveWorkspaceBody() {
+        var currentPage = window.frappe && frappe.container && frappe.container.page;
+        if (currentPage) {
+            var currentBody = currentPage.querySelector('.layout-main-section') ||
+                              currentPage.querySelector('.workspace-page-content') ||
+                              currentPage.querySelector('.page-body') ||
+                              currentPage.querySelector('.page-content');
+            if (currentBody) return currentBody;
+        }
+
+        var visiblePages = Array.prototype.slice.call(document.querySelectorAll('.page-container'))
+            .filter(function(page) { return page.offsetParent !== null; });
+        var visiblePage = visiblePages[visiblePages.length - 1];
+        if (visiblePage) {
+            return visiblePage.querySelector('.layout-main-section') ||
+                   visiblePage.querySelector('.workspace-page-content') ||
+                   visiblePage.querySelector('.page-body') ||
+                   visiblePage.querySelector('.page-content') ||
+                   visiblePage;
+        }
+
+        return document.querySelector('.layout-main-section') ||
+               document.querySelector('.workspace-page-content') ||
+               document.querySelector('.page-body') ||
+               document.querySelector('.page-content') ||
+               document.querySelector('.page-container');
+    }
+
     function removeMonitoringDashboard() {
         var dashboard = document.getElementById('cdc-monitoring-dashboard');
         if (dashboard) dashboard.remove();
@@ -2071,11 +2099,7 @@
             removeMonitoringDashboard();
             return;
         }
-        var body = document.querySelector('.layout-main-section') || 
-                   document.querySelector('.workspace-page-content') ||
-                   document.querySelector('.page-body') ||
-                   document.querySelector('.page-content') ||
-                   document.querySelector('.page-container');
+        var body = getActiveWorkspaceBody();
         if (!body) return;
         var dashboard = document.getElementById('cdc-monitoring-dashboard');
         if (!dashboard) {
@@ -2091,41 +2115,44 @@
         var route = window.frappe && frappe.get_route ? frappe.get_route().join('/') : window.location.pathname;
         var user = window.frappe && frappe.session ? frappe.session.user : 'Guest';
         var time = new Date().toLocaleString();
+        var isSuccess = !isError && String(statusMsg || '').indexOf('HTTP 200') !== -1;
 
         return `
-            <div class="cdc-diagnostic-container">
-                <div class="cdc-diagnostic-header-flex">
+            <details class="cdc-diagnostic-container ${isSuccess ? 'is-success' : ''}" ${isSuccess ? '' : 'open'}>
+                <summary class="cdc-diagnostic-header-flex">
                     <div class="cdc-diagnostic-title-box">
                         <span class="cdc-diagnostic-icon">🛠️</span>
                         <div>
-                            <h3 class="cdc-diagnostic-h3">Painel de Diagnóstico de Carregamento da Rota</h3>
-                            <p class="cdc-diagnostic-sub">Diagnóstico em tempo real da conexão com o servidor e contêineres DOM</p>
+                            <h3 class="cdc-diagnostic-h3">Diagnóstico Técnico da Central</h3>
+                            <p class="cdc-diagnostic-sub">${isSuccess ? 'API conectada; abra para testar a rota e consultar os logs técnicos' : 'Diagnóstico em tempo real da conexão com o servidor e contêineres DOM'}</p>
                         </div>
                     </div>
-                    <span class="cdc-diagnostic-badge ${isError ? 'is-error' : 'is-running'}">
-                        ${isError ? '⚠️ ERRO REGISTRADO' : '⏳ PROCESSANDO REQUISIÇÃO'}
+                    <span class="cdc-diagnostic-badge ${isError ? 'is-error' : (isSuccess ? 'is-success' : 'is-running')}">
+                        ${isError ? '⚠️ ERRO REGISTRADO' : (isSuccess ? '● API OPERACIONAL' : '⏳ PROCESSANDO REQUISIÇÃO')}
                     </span>
-                </div>
+                </summary>
 
-                <div class="cdc-diagnostic-actions-bar">
-                    <button class="btn btn-xs btn-primary cdc-diag-btn" id="cdc-diag-btn-ping">📡 Testar API Backend (Ping)</button>
-                    <button class="btn btn-xs btn-default cdc-diag-btn" id="cdc-diag-btn-remount">⚡ Forçar Remontagem da Tela</button>
-                    <button class="btn btn-xs btn-default cdc-diag-btn" id="cdc-diag-btn-copy">📋 Copiar Logs de Diagnóstico</button>
-                </div>
+                <div class="cdc-diagnostic-content">
+                    <div class="cdc-diagnostic-actions-bar">
+                        <button class="btn btn-xs btn-primary cdc-diag-btn" id="cdc-diag-btn-ping">📡 Testar API Backend (Ping)</button>
+                        <button class="btn btn-xs btn-default cdc-diag-btn" id="cdc-diag-btn-remount">⚡ Forçar Remontagem da Tela</button>
+                        <button class="btn btn-xs btn-default cdc-diag-btn" id="cdc-diag-btn-copy">📋 Copiar Logs de Diagnóstico</button>
+                    </div>
 
-                <div class="cdc-diagnostic-logs-box">
-                    <div class="cdc-diagnostic-logs-header">LOGS DE EXECUÇÃO & DIAGNÓSTICO DO NAVEGADOR</div>
-                    <pre class="cdc-diagnostic-pre" id="cdc-diag-pre-output">
+                    <div class="cdc-diagnostic-logs-box">
+                        <div class="cdc-diagnostic-logs-header">LOGS DE EXECUÇÃO & DIAGNÓSTICO DO NAVEGADOR</div>
+                        <pre class="cdc-diagnostic-pre" id="cdc-diag-pre-output">
 [TIMESTAMP] ${time}
 [URL] ${window.location.href}
 [ROUTA FRAPPE] ${route}
 [USUÁRIO SESSÃO] ${user}
-[CONTAINER .layout-main-section] ${!!document.querySelector('.layout-main-section') ? '🟢 Presente' : '🔴 Ausente'}
-[CONTAINER .workspace-page-content] ${!!document.querySelector('.workspace-page-content') ? '🟢 Presente' : '🔴 Ausente'}
+[CONTÊINER ATIVO .layout-main-section] ${!!document.querySelector('.layout-main-section') ? '🟢 Presente' : '🔴 Não encontrado'}
+[CONTÊINER ALTERNATIVO .workspace-page-content] ${!!document.querySelector('.workspace-page-content') ? '🟢 Disponível' : '⚪ Não utilizado nesta versão'}
 [STATUS REQUISIÇÃO] ${statusMsg || 'Iniciando chamada REST cdc_theme.api.get_ongsys_monitoring_dashboard...'}
-                    </pre>
+                        </pre>
+                    </div>
                 </div>
-            </div>
+            </details>
         `;
     }
 
@@ -2187,6 +2214,7 @@
 
         if (loading) return;
         loading = true;
+        var requestGeneration = routeGeneration;
         dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando central de monitoramento e exceções...</div>' + getDiagnosticPanelHTML('Carregando dados da API...', false);
         bindDiagnosticActions(dashboard);
 
@@ -2194,15 +2222,13 @@
             method: 'cdc_theme.api.get_ongsys_monitoring_dashboard',
             callback: function(response) {
                 loading = false;
+                if (requestGeneration !== routeGeneration) return;
                 if (!isMonitoringRoute()) {
                     removeMonitoringDashboard();
                     return;
                 }
-                var currentBody = document.querySelector('.layout-main-section') || 
-                                  document.querySelector('.workspace-page-content') ||
-                                  document.querySelector('.page-body') ||
-                                  document.querySelector('.page-content') ||
-                                  document.querySelector('.page-container');
+                try {
+                var currentBody = getActiveWorkspaceBody();
                 if (currentBody) {
                     var currentDash = document.getElementById('cdc-monitoring-dashboard');
                     if (!currentDash) {
@@ -2217,7 +2243,6 @@
                     currentBody.classList.add('cdc-custom-monitoring-active');
                 }
                 dashboard.dataset.loaded = '1';
-                suppressFalsePositive404();
                 var data = response && response.message;
                 if (!data) {
                     dashboard.innerHTML = getDiagnosticPanelHTML('Falha ao obter resposta da API REST.', true);
@@ -2238,6 +2263,40 @@
                 dashboard.innerHTML = `
                     ${breadcrumbHTML}
                     <div class="cdc-monitoring-wrapper">
+                        <section class="cdc-control-tower-hero">
+                            <div class="cdc-control-tower-icon" aria-hidden="true">📡</div>
+                            <div class="cdc-control-tower-copy">
+                                <span class="cdc-control-tower-eyebrow">Integração ONGSYS → NextERP</span>
+                                <h1>Torre de Controle da Operação</h1>
+                                <p>Acompanhe o fluxo das requisições de materiais sem consultar código Python, logs do Linux ou banco de dados.</p>
+                            </div>
+                            <div class="cdc-control-tower-health">
+                                <span class="cdc-control-tower-health-dot"></span>
+                                <div><strong>${escapeHTML((data.summary || {}).system_health || 'EM ANÁLISE')}</strong><small>Saúde da integração</small></div>
+                            </div>
+                        </section>
+
+                        <div class="cdc-control-map" aria-label="Áreas monitoradas">
+                            <button type="button" class="cdc-control-card is-warning" data-tab="tab-pendencias">
+                                <span class="cdc-control-card-icon">⚠️</span><span><strong>Pendências</strong><small>Diagnóstico e ação recomendada</small></span>
+                            </button>
+                            <button type="button" class="cdc-control-card" data-tab="tab-armazem">
+                                <span class="cdc-control-card-icon">🏢</span><span><strong>Armazéns</strong><small>De-para e centros de custo</small></span>
+                            </button>
+                            <button type="button" class="cdc-control-card" data-tab="tab-entradas">
+                                <span class="cdc-control-card-icon">📥</span><span><strong>Entradas</strong><small>Solicitações convertidas em estoque</small></span>
+                            </button>
+                            <button type="button" class="cdc-control-card" data-tab="tab-job">
+                                <span class="cdc-control-card-icon">⏱️</span><span><strong>Cron Job</strong><small>Execução e performance horária</small></span>
+                            </button>
+                            <button type="button" class="cdc-control-card" data-tab="tab-perfis">
+                                <span class="cdc-control-card-icon">👥</span><span><strong>Perfis e catálogo</strong><small>Usuários, itens e projetos piloto</small></span>
+                            </button>
+                            <button type="button" class="cdc-control-card" data-tab="tab-avisos">
+                                <span class="cdc-control-card-icon">🔔</span><span><strong>Avisos</strong><small>Mattermost e antiduplicidade</small></span>
+                            </button>
+                        </div>
+
                         <div class="cdc-monitoring-header">
                             <div class="cdc-monitoring-title-box">
                                 <h1 class="cdc-monitoring-h1">🔍 Central de Monitoramento & Integração ONGSYS</h1>
@@ -2576,7 +2635,7 @@
                             </div>
                         </div>
                     </div>
-                    ${getDiagnosticPanelHTML('API REST Conectada com Êxito (HTTP 200 OK)', false)}
+                    ${getDiagnosticPanelHTML('API REST conectada com sucesso (HTTP 200)', false)}
                 `;
 
                 dashboard.dataset.loaded = '1';
@@ -2584,19 +2643,33 @@
 
                 // GERENCIADOR DE TROCA DE SUB-ABAS
                 var tabLinks = dashboard.querySelectorAll('.cdc-monitoring-tabs-nav li');
+                var controlCards = dashboard.querySelectorAll('.cdc-control-card[data-tab]');
+                function activateMonitoringTab(target) {
+                    sessionStorage.setItem('cdc_monitoring_active_tab', target);
+                    tabLinks.forEach(function(link) {
+                        link.classList.toggle('is-active', link.dataset.tab === target);
+                    });
+                    controlCards.forEach(function(card) {
+                        card.classList.toggle('is-active', card.dataset.tab === target);
+                    });
+                    var panes = dashboard.querySelectorAll('.cdc-tab-pane');
+                    panes.forEach(function(pane) { pane.classList.remove('is-active'); });
+                    var activePane = dashboard.querySelector('#' + target);
+                    if (activePane) activePane.classList.add('is-active');
+                }
                 tabLinks.forEach(function(link) {
                     link.addEventListener('click', function() {
-                        var target = this.dataset.tab;
-                        sessionStorage.setItem('cdc_monitoring_active_tab', target);
-                        tabLinks.forEach(function(l) { l.classList.remove('is-active'); });
-                        this.classList.add('is-active');
-
-                        var panes = dashboard.querySelectorAll('.cdc-tab-pane');
-                        panes.forEach(function(pane) { pane.classList.remove('is-active'); });
-                        var activePane = dashboard.querySelector('#' + target);
-                        if (activePane) activePane.classList.add('is-active');
+                        activateMonitoringTab(this.dataset.tab);
                     });
                 });
+                controlCards.forEach(function(card) {
+                    card.addEventListener('click', function() {
+                        activateMonitoringTab(this.dataset.tab);
+                        var tabs = dashboard.querySelector('.cdc-monitoring-tabs-nav');
+                        if (tabs) tabs.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    });
+                });
+                activateMonitoringTab(activeTab);
 
                 var refreshBtn = document.getElementById('cdc-btn-refresh-monitoring');
                 if (refreshBtn) {
@@ -2638,6 +2711,11 @@
                         }, 5);
                     });
                 });
+                } catch (renderError) {
+                    dashboard.dataset.loaded = '1';
+                    console.error('[CDC Monitoramento] Falha ao renderizar painel:', renderError);
+                    dashboard.innerHTML = '<div class="cdc-monitoring-wrapper"><div class="cdc-monitoring-state is-error"><strong>Falha ao montar a Torre de Controle.</strong><br>' + escapeHTML(renderError && renderError.message ? renderError.message : String(renderError)) + '</div></div>';
+                }
             },
             error: function(error) {
                 loading = false;
