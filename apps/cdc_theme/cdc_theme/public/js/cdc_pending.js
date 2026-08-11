@@ -315,7 +315,11 @@
                         <div class="cdc-pending-table-header"><div><h3>Aguardando conclusão</h3><p>Cancelados e ordens finalizadas não aparecem nesta lista.</p></div><input id="cdc-pending-search" type="search" aria-label="Buscar pedidos pendentes" placeholder="Buscar ID, título, estado ou centro de custo"></div>
                         <div class="cdc-table-scroll-top cdc-pending-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
                         <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="cdc-pending-empty">Nenhuma pendência encontrada para os filtros selecionados.</td></tr>'}</tbody></table></div>
-                    </div>`;
+                    </div>
+                    ${getDiagnosticPanelHTML('API REST Conectada com Êxito (HTTP 200 OK)', false)}
+                `;
+
+                bindDiagnosticActions(dashboard);
 
                 // HANDLER DO BOTÃO VERIFICAR AGORA COM TERMINAL AO VIVO
                 var verifyNowBtn = document.getElementById('cdc-btn-pending-verify-now');

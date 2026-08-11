@@ -2576,9 +2576,11 @@
                             </div>
                         </div>
                     </div>
+                    ${getDiagnosticPanelHTML('API REST Conectada com Êxito (HTTP 200 OK)', false)}
                 `;
 
                 dashboard.dataset.loaded = '1';
+                bindDiagnosticActions(dashboard);
 
                 // GERENCIADOR DE TROCA DE SUB-ABAS
                 var tabLinks = dashboard.querySelectorAll('.cdc-monitoring-tabs-nav li');
