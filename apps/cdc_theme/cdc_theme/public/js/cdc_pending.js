@@ -76,13 +76,22 @@
             removePendingDashboard();
             return;
         }
-        if (loading) return;
-        var body = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
+        var body = document.querySelector('.layout-main-section') || 
+                   document.querySelector('.workspace-page-content') ||
+                   document.querySelector('.page-body') ||
+                   document.querySelector('.page-content') ||
+                   document.querySelector('.page-container');
         if (!body) return;
-        var dashboard = document.getElementById('cdc-pending-dashboard') || document.createElement('section');
-        dashboard.id = 'cdc-pending-dashboard';
-        if (!dashboard.parentNode) body.insertBefore(dashboard, body.firstChild);
-        if (dashboard.dataset.loaded === '1') return;
+        var dashboard = document.getElementById('cdc-pending-dashboard');
+        if (!dashboard) {
+            dashboard = document.createElement('section');
+            dashboard.id = 'cdc-pending-dashboard';
+        }
+        if (dashboard.parentNode !== body) {
+            body.insertBefore(dashboard, body.firstChild);
+        }
+        if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-pending-heading')) return;
+        if (loading) return;
         loading = true;
         var requestGeneration = routeGeneration;
         dashboard.innerHTML = '<div class="cdc-pending-state">Carregando pendências do espelho ONGSYS...</div>';
