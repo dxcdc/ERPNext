@@ -117,6 +117,49 @@ Em caso de indisponibilidade ou falha crítica do sistema, execute os seguintes 
     ```
   * Inspecione o log de erros de JS no console do navegador e corrija a ordem de carregamento dos scripts no arquivo `hooks.py` do Custom App.
 
+### Sintoma: O `cdc_theme` parece quebrado mesmo com containers ativos e assets HTTP 200
+* **Sinais típicos**: `docker compose ps` saudável, `./scripts/reparar_tema.sh --check` sem erros, `curl -I /assets/cdc_theme/...` retornando `200 OK`, mas a Desk continua com sidebar antiga, workspaces CDC incompletas ou layout sem os cards do tema.
+* **Causa provável**: O navegador do usuário manteve `desktop:workspaces`, `workspace_sidebar_items` ou `frappe:boot` com dados antigos. Nesse cenário, o backend já está correto, porém a Desk continua renderizando metadados obsoletos.
+* **Diagnóstico**:
+  ```bash
+  ./scripts/reparar_tema.sh --check
+  docker compose exec -T backend bench --site frontend execute cdc_theme.api.get_cdc_admin_diagnostics
+  curl -I http://localhost:8085/assets/cdc_theme/js/cdc_theme.js
+  ```
+  Se esses testes passarem e o problema persistir apenas no navegador, trate como falha de cache do cliente.
+* **Correção imediata para o usuário**:
+  ```javascript
+  localStorage.removeItem('desktop:workspaces');
+  localStorage.removeItem('workspace_sidebar_items');
+  localStorage.removeItem('frappe:boot');
+  sessionStorage.clear();
+  location.reload();
+  ```
+  Como alternativa rápida, use `Ctrl+Shift+R` após limpar os itens acima.
+* **Correção permanente aplicada no projeto**: O `cdc_theme.js` passou a invalidar automaticamente o cache do navegador quando detectar ausência das workspaces CDC esperadas ou troca da versão efetiva do asset carregado.
+
+### Sintoma: A rota `/app/cdc-monitoramento` fica presa em `Carregando central de monitoramento e exceções...`
+* **Sinais típicos**: a workspace abre, o bloco de monitoramento aparece, mas o texto de carregamento nunca é substituído por cards e tabelas.
+* **Causa provável**:
+  * erro silencioso no `frappe.call` do dashboard, sem tratamento no frontend;
+  * usuário autenticado sem permissão de `Stock Entry`, enquanto o endpoint do monitoramento exigia essa permissão mesmo retornando conteúdo estático;
+  * exceção pontual do método `cdc_theme.api.get_ongsys_monitoring_dashboard`.
+* **Diagnóstico**:
+  ```bash
+  docker compose exec -T backend bench --site frontend execute cdc_theme.api.get_ongsys_monitoring_dashboard
+  docker compose logs --tail=100 backend frontend
+  ```
+  Se o método responder no bench, mas a tela continuar presa em `Carregando...`, o problema estava no tratamento de erro do JavaScript.
+* **Correção aplicada no projeto**:
+  * o endpoint `get_ongsys_monitoring_dashboard` deixou de depender de permissão de leitura em `Stock Entry` e agora bloqueia apenas sessão `Guest`;
+  * o `cdc_theme.js` passou a tratar `error` no `frappe.call` e renderizar mensagem visível quando a API falhar.
+* **Correção operacional imediata**:
+  ```bash
+  docker compose exec -T backend bench build --app cdc_theme
+  docker compose exec -T backend bench --site frontend clear-cache
+  ```
+  Depois force recarga no navegador com `Ctrl+Shift+R`.
+
 ---
 
 ## 6. Problemas do Webhook do Mattermost
@@ -190,4 +233,3 @@ Esta seção documenta problemas reais ocorridos durante a homologação e teste
     1. Atualizado o `timeout` de `30s` para `90s` no arquivo `common.py` da GCP e repositório.
     2. Documentado no relatório de inquérito (`docs/diagnostico_integracao_ongsys.md`) que o gestor do ONGSYS precisa alterar os pedidos de `"Ordem gerada"` para `"Ordem finalizada"` (ou ajustar o filtro no código).
 *   **Lição Aprendida**: Em integrações com sistemas externos legados, aumente os limites de *timeout* HTTP e faça validações ponta-a-ponta dos estados dos objetos para distinguir falhas de transporte de regras de negócio.
-

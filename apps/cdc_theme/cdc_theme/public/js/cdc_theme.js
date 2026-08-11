@@ -1912,19 +1912,70 @@
         });
     }
 
-    // PURGA AUTOMÁTICA DE CACHE LEGADO DE WORKSPACES NO NAVEGADOR DO USUÁRIO
-    function purgeLegacyBrowserWorkspaceCache() {
-        var currentBuildTag = '20260731_v150';
-        var storedTag = localStorage.getItem('cdc_theme_version');
+    function normalizeThemeCacheSnapshot(value) {
+        return String(value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+    }
 
-        if (storedTag !== currentBuildTag) {
+    function getThemeCacheTag() {
+        var script = document.querySelector('script[src*="/assets/cdc_theme/js/cdc_theme.js"]');
+        if (script && script.src) {
+            return script.src;
+        }
+        return 'cdc_theme_runtime_v151';
+    }
+
+    function browserWorkspaceCacheNeedsReset() {
+        var cachePayload = [
+            localStorage.getItem('desktop:workspaces'),
+            localStorage.getItem('workspace_sidebar_items'),
+            localStorage.getItem('frappe:boot')
+        ].filter(Boolean).join(' ');
+
+        if (!cachePayload) {
+            return false;
+        }
+
+        var normalized = normalizeThemeCacheSnapshot(cachePayload);
+        var hasCDCWorkspaceCache = normalized.indexOf('cdc ') !== -1 || normalized.indexOf('cdc-') !== -1;
+        if (!hasCDCWorkspaceCache) {
+            return false;
+        }
+
+        var requiredTokens = [
+            'cdc estoque',
+            'cdc usuarios',
+            'cdc integracoes',
+            'cdc pendencias',
+            'cdc monitoramento'
+        ];
+
+        if (window.frappe && Array.isArray(frappe.user_roles) && frappe.user_roles.indexOf('System Manager') !== -1) {
+            requiredTokens.push('cdc admin');
+        }
+
+        return requiredTokens.some(function(token) {
+            return normalized.indexOf(token) === -1;
+        });
+    }
+
+    // PURGA AUTOMÁTICA DE CACHE LEGADO OU INCONSISTENTE DE WORKSPACES NO NAVEGADOR DO USUÁRIO
+    function purgeLegacyBrowserWorkspaceCache() {
+        var currentBuildTag = getThemeCacheTag();
+        var storedTag = localStorage.getItem('cdc_theme_version');
+        var shouldResetWorkspaceCache = browserWorkspaceCacheNeedsReset();
+
+        if (storedTag !== currentBuildTag || shouldResetWorkspaceCache) {
             try {
                 localStorage.removeItem('desktop:workspaces');
                 localStorage.removeItem('workspace_sidebar_items');
                 localStorage.removeItem('frappe:boot');
                 sessionStorage.clear();
                 localStorage.setItem('cdc_theme_version', currentBuildTag);
-                console.log('[CDC Theme] Cache de workspaces purgado automaticamente (v150).');
+                console.log('[CDC Theme] Cache de workspaces purgado automaticamente.');
             } catch(e) {}
         }
     }
@@ -2460,6 +2511,19 @@
                         }, 5);
                     });
                 });
+            },
+            error: function(error) {
+                loading = false;
+                if (requestGeneration !== routeGeneration || !isMonitoringRoute() || !dashboard.isConnected) {
+                    removeMonitoringDashboard();
+                    return;
+                }
+                dashboard.dataset.loaded = '0';
+                var message = 'Nao foi possivel carregar a central de monitoramento.';
+                if (error && error.message) {
+                    message += ' ' + error.message;
+                }
+                dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">' + escapeHTML(message) + '</div>';
             }
         });
     }

@@ -1226,7 +1226,8 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
     5. 👥 Perfis (2_itens, 3_projetos, 4_usuarios)
     6. 🔔 Avisos (Mattermost Webhooks & Idempotência)
     """
-    _require_read_permission("Stock Entry")
+    if frappe.session.user == "Guest":
+        frappe.throw("Sessão inválida para abrir o monitoramento.", frappe.PermissionError)
 
     tab_pendencias = {
         "title": "Diagnóstico Inteligente de Pendências ONGSYS",
