@@ -2087,10 +2087,108 @@
         }
         body.classList.add('cdc-custom-monitoring-active');
         if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-monitoring-wrapper')) return;
+    function getDiagnosticPanelHTML(statusMsg, isError) {
+        var route = window.frappe && frappe.get_route ? frappe.get_route().join('/') : window.location.pathname;
+        var user = window.frappe && frappe.session ? frappe.session.user : 'Guest';
+        var time = new Date().toLocaleString();
+
+        return `
+            <div class="cdc-diagnostic-container">
+                <div class="cdc-diagnostic-header-flex">
+                    <div class="cdc-diagnostic-title-box">
+                        <span class="cdc-diagnostic-icon">🛠️</span>
+                        <div>
+                            <h3 class="cdc-diagnostic-h3">Painel de Diagnóstico de Carregamento da Rota</h3>
+                            <p class="cdc-diagnostic-sub">Diagnóstico em tempo real da conexão com o servidor e contêineres DOM</p>
+                        </div>
+                    </div>
+                    <span class="cdc-diagnostic-badge ${isError ? 'is-error' : 'is-running'}">
+                        ${isError ? '⚠️ ERRO REGISTRADO' : '⏳ PROCESSANDO REQUISIÇÃO'}
+                    </span>
+                </div>
+
+                <div class="cdc-diagnostic-actions-bar">
+                    <button class="btn btn-xs btn-primary cdc-diag-btn" id="cdc-diag-btn-ping">📡 Testar API Backend (Ping)</button>
+                    <button class="btn btn-xs btn-default cdc-diag-btn" id="cdc-diag-btn-remount">⚡ Forçar Remontagem da Tela</button>
+                    <button class="btn btn-xs btn-default cdc-diag-btn" id="cdc-diag-btn-copy">📋 Copiar Logs de Diagnóstico</button>
+                </div>
+
+                <div class="cdc-diagnostic-logs-box">
+                    <div class="cdc-diagnostic-logs-header">LOGS DE EXECUÇÃO & DIAGNÓSTICO DO NAVEGADOR</div>
+                    <pre class="cdc-diagnostic-pre" id="cdc-diag-pre-output">
+[TIMESTAMP] ${time}
+[URL] ${window.location.href}
+[ROUTA FRAPPE] ${route}
+[USUÁRIO SESSÃO] ${user}
+[CONTAINER .layout-main-section] ${!!document.querySelector('.layout-main-section') ? '🟢 Presente' : '🔴 Ausente'}
+[CONTAINER .workspace-page-content] ${!!document.querySelector('.workspace-page-content') ? '🟢 Presente' : '🔴 Ausente'}
+[STATUS REQUISIÇÃO] ${statusMsg || 'Iniciando chamada REST cdc_theme.api.get_ongsys_monitoring_dashboard...'}
+                    </pre>
+                </div>
+            </div>
+        `;
+    }
+
+    function bindDiagnosticActions(dashboard) {
+        var pingBtn = dashboard.querySelector('#cdc-diag-btn-ping');
+        if (pingBtn) {
+            pingBtn.addEventListener('click', function() {
+                var btn = this;
+                btn.disabled = true;
+                btn.textContent = '⏳ Testando...';
+                var pre = dashboard.querySelector('#cdc-diag-pre-output');
+                var startTime = Date.now();
+                frappe.call({
+                    method: 'cdc_theme.api.get_ongsys_monitoring_dashboard',
+                    callback: function(res) {
+                        btn.disabled = false;
+                        btn.textContent = '📡 Testar API Backend (Ping)';
+                        var elapsed = Date.now() - startTime;
+                        if (pre) {
+                            pre.textContent += `\n\n[TESTE MANUAL API - ${new Date().toLocaleTimeString()}]`;
+                            pre.textContent += `\nHTTP Status: OK 200 (Tempo: ${elapsed}ms)`;
+                            pre.textContent += `\nResposta da API: ${JSON.stringify(res ? res.message : null, null, 2).substring(0, 300)}...`;
+                        }
+                    },
+                    error: function(err) {
+                        btn.disabled = false;
+                        btn.textContent = '📡 Testar API Backend (Ping)';
+                        if (pre) {
+                            pre.textContent += `\n\n[ERRO NA CHAMADA API]`;
+                            pre.textContent += `\nDetalhes do Erro: ${JSON.stringify(err, null, 2)}`;
+                        }
+                    }
+                });
+            });
+        }
+
+        var remountBtn = dashboard.querySelector('#cdc-diag-btn-remount');
+        if (remountBtn) {
+            remountBtn.addEventListener('click', function() {
+                delete dashboard.dataset.loaded;
+                loading = false;
+                render();
+                frappe.show_alert({ message: __('⚡ Solicitando remontagem da tela...'), indicator: 'blue' }, 3);
+            });
+        }
+
+        var copyBtn = dashboard.querySelector('#cdc-diag-btn-copy');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                var pre = dashboard.querySelector('#cdc-diag-pre-output');
+                if (pre) {
+                    navigator.clipboard.writeText(pre.textContent).then(function() {
+                        frappe.show_alert({ message: __('📋 Logs copiados para a área de transferência!'), indicator: 'green' }, 3);
+                    });
+                }
+            });
+        }
+    }
+
         if (loading) return;
         loading = true;
-        var requestGeneration = routeGeneration;
-        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando central de monitoramento e exceções...</div>';
+        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando central de monitoramento e exceções...</div>' + getDiagnosticPanelHTML('Carregando dados da API...', false);
+        bindDiagnosticActions(dashboard);
 
         frappe.call({
             method: 'cdc_theme.api.get_ongsys_monitoring_dashboard',
@@ -2122,7 +2220,8 @@
                 suppressFalsePositive404();
                 var data = response && response.message;
                 if (!data) {
-                    dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Não foi possível consultar os incidentes.</div>';
+                    dashboard.innerHTML = getDiagnosticPanelHTML('Falha ao obter resposta da API REST.', true);
+                    bindDiagnosticActions(dashboard);
                     return;
                 }
 
