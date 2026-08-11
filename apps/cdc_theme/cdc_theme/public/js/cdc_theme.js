@@ -2096,13 +2096,30 @@
             method: 'cdc_theme.api.get_ongsys_monitoring_dashboard',
             callback: function(response) {
                 loading = false;
-                if (requestGeneration !== routeGeneration || !isMonitoringRoute() || !dashboard.isConnected) {
+                if (!isMonitoringRoute()) {
                     removeMonitoringDashboard();
                     return;
                 }
+                var currentBody = document.querySelector('.layout-main-section') || 
+                                  document.querySelector('.workspace-page-content') ||
+                                  document.querySelector('.page-body') ||
+                                  document.querySelector('.page-content') ||
+                                  document.querySelector('.page-container');
+                if (currentBody) {
+                    var currentDash = document.getElementById('cdc-monitoring-dashboard');
+                    if (!currentDash) {
+                        dashboard = document.createElement('section');
+                        dashboard.id = 'cdc-monitoring-dashboard';
+                    } else {
+                        dashboard = currentDash;
+                    }
+                    if (dashboard.parentNode !== currentBody) {
+                        currentBody.insertBefore(dashboard, currentBody.firstChild);
+                    }
+                    currentBody.classList.add('cdc-custom-monitoring-active');
+                }
                 dashboard.dataset.loaded = '1';
                 suppressFalsePositive404();
-                var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Monitoramento', 'Central de Exceções & Ferramentas') : '';
                 var data = response && response.message;
                 if (!data) {
                     dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Não foi possível consultar os incidentes.</div>';

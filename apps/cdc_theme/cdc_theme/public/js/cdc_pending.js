@@ -104,9 +104,26 @@
             },
             callback: function(response) {
                 loading = false;
-                if (requestGeneration !== routeGeneration || !isPendingRoute() || !dashboard.isConnected) {
+                if (!isPendingRoute()) {
                     removePendingDashboard();
                     return;
+                }
+                var currentBody = document.querySelector('.layout-main-section') || 
+                                  document.querySelector('.workspace-page-content') ||
+                                  document.querySelector('.page-body') ||
+                                  document.querySelector('.page-content') ||
+                                  document.querySelector('.page-container');
+                if (currentBody) {
+                    var currentDash = document.getElementById('cdc-pending-dashboard');
+                    if (!currentDash) {
+                        dashboard = document.createElement('section');
+                        dashboard.id = 'cdc-pending-dashboard';
+                    } else {
+                        dashboard = currentDash;
+                    }
+                    if (dashboard.parentNode !== currentBody) {
+                        currentBody.insertBefore(dashboard, currentBody.firstChild);
+                    }
                 }
                 var data = response && response.message;
                 if (!data) {
