@@ -2746,14 +2746,25 @@
 
     function isItemGroupRoute() {
         var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
-        if (route && route.length) {
-            var parts = route.map(normalizeRoute);
-            return parts.some(function(part) {
-                return part === 'item-group' || part === 'item-groups' || part === 'grupos-de-itens';
-            });
+        var routeStr = (route || []).join(' ').toLowerCase();
+
+        if (routeStr.indexOf('item group') !== -1 || routeStr.indexOf('item-group') !== -1 || routeStr.indexOf('item_group') !== -1) {
+            return true;
         }
-        var path = normalizeRoute(window.location.pathname);
-        return path.indexOf('/app/item-group') !== -1 || path.indexOf('/app/item-groups') !== -1;
+        var href = (window.location.href || '').toLowerCase();
+        var hash = (window.location.hash || '').toLowerCase();
+        var pathname = (window.location.pathname || '').toLowerCase();
+
+        if (href.indexOf('item-group') !== -1 || href.indexOf('item_group') !== -1 || href.indexOf('item%20group') !== -1) {
+            return true;
+        }
+        if (hash.indexOf('item-group') !== -1 || hash.indexOf('item_group') !== -1 || hash.indexOf('item%20group') !== -1) {
+            return true;
+        }
+        if (pathname.indexOf('item-group') !== -1 || pathname.indexOf('item_group') !== -1) {
+            return true;
+        }
+        return false;
     }
 
     function removeItemGroupDashboard() {
@@ -2781,7 +2792,9 @@
                    document.querySelector('.workspace-page-content') ||
                    document.querySelector('.page-body') ||
                    document.querySelector('.page-content') ||
-                   document.querySelector('.page-container');
+                   document.querySelector('.page-container') ||
+                   document.querySelector('#body_div') ||
+                   document.body;
         if (!body) return;
         var dashboard = document.getElementById('cdc-item-group-dashboard');
         if (!dashboard) {
@@ -2792,6 +2805,9 @@
             body.insertBefore(dashboard, body.firstChild);
         }
         body.classList.add('cdc-custom-item-group-active');
+        if (body.parentNode && body.parentNode.classList) {
+            body.parentNode.classList.add('cdc-custom-item-group-active');
+        }
         if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-item-group-wrapper')) return;
         if (itemGroupLoading) return;
         itemGroupLoading = true;

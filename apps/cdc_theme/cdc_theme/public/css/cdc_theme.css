@@ -1766,6 +1766,14 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     display: none !important;
 }
 
+.cdc-custom-item-group-active .tree-container,
+.cdc-custom-item-group-active .list-row-container,
+.cdc-custom-item-group-active .frappe-list,
+.cdc-custom-item-group-active .page-head,
+.cdc-custom-item-group-active .page-body > :not(#cdc-item-group-dashboard) {
+    display: none !important;
+}
+
 #cdc-item-group-dashboard {
     color: var(--text-color);
     animation: cdcFadeIn .25s ease-out;
