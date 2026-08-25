@@ -1419,6 +1419,7 @@ def get_item_group_dashboard_data(selected_project='All', selected_warehouse='Al
     total_stock_value = 0.0
     total_stock_qty = 0.0
     critical_groups_count = 0
+    low_stock_groups_count = 0
 
     for g in raw_groups:
         g_name = g['name']
@@ -1436,6 +1437,7 @@ def get_item_group_dashboard_data(selected_project='All', selected_warehouse='Al
             critical_groups_count += 1
         elif items_cnt > 0 and s_qty < 10:
             status = "Estoque Baixo"
+            low_stock_groups_count += 1
         else:
             status = "Ativo"
 
@@ -1473,7 +1475,8 @@ def get_item_group_dashboard_data(selected_project='All', selected_warehouse='Al
             "total_stock_value": round(total_stock_value, 2),
             "formatted_total_value": f"R$ {total_stock_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
             "total_stock_qty": round(total_stock_qty, 2),
-            "critical_groups_count": critical_groups_count
+            "critical_groups_count": critical_groups_count,
+            "low_stock_groups_count": low_stock_groups_count
         },
         "groups": groups_list,
         "top_groups": top_groups,
@@ -1484,4 +1487,3 @@ def get_item_group_dashboard_data(selected_project='All', selected_warehouse='Al
             "period": period
         }
     }
-

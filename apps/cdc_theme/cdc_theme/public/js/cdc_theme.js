@@ -2856,11 +2856,15 @@
                 var summary = data.summary || {};
                 var groups = data.groups || [];
                 var topGroups = data.top_groups || [];
-                var filters = data.filters || {};
-                var projects = filters.projects || [];
-
-                var projectOptionsHTML = '<option value="All">Todos os Projetos</option>' + projects.map(function(p) {
-                    return `<option value="${escapeHTML(p.value)}" ${p.value === selectedItemGroupProject ? 'selected' : ''}>${escapeHTML(p.label)}</option>`;
+                var parentGroups = Array.from(new Set(groups.map(function(g) {
+                    return g.parent_item_group;
+                }).filter(function(parent) {
+                    return parent && parent !== '—';
+                }))).sort(function(a, b) {
+                    return a.localeCompare(b, 'pt-BR');
+                });
+                var parentOptionsHTML = '<option value="">Todos os grupos pais</option>' + parentGroups.map(function(parent) {
+                    return `<option value="${escapeHTML(parent)}">${escapeHTML(parent)}</option>`;
                 }).join('');
 
                 var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Estoque', 'Grupos de Itens & Catálogo') : '';
@@ -2868,7 +2872,7 @@
                 var rowsHTML = groups.map(function(g) {
                     var badgeClass = g.status === 'Sem Estoque' ? 'cdc-badge-danger' : (g.status === 'Estoque Baixo' ? 'cdc-badge-warning' : 'cdc-badge-success');
                     return `
-                        <tr data-search="${escapeHTML([g.name, g.parent_item_group, g.status].join(' ').toLowerCase())}">
+                        <tr data-search="${escapeHTML([g.name, g.parent_item_group, g.status].join(' ').toLowerCase())}" data-parent="${escapeHTML(g.parent_item_group)}" data-status="${escapeHTML(g.status)}" data-kind="${g.is_group === 'Sim' ? 'group' : 'leaf'}">
                             <td><span class="cdc-group-icon">${g.icon}</span> <strong>${escapeHTML(g.name)}</strong></td>
                             <td>${escapeHTML(g.parent_item_group)}</td>
                             <td>${escapeHTML(g.is_group)}</td>
@@ -2919,18 +2923,20 @@
                                 <div class="cdc-card-value">${summary.critical_groups_count || 0}</div>
                                 <div class="cdc-card-desc">Grupos que precisam de reposição</div>
                             </div>
+                            <div class="cdc-monitoring-card ${summary.low_stock_groups_count > 0 ? 'is-warning' : 'is-status'}">
+                                <div class="cdc-card-label">Estoque Baixo</div>
+                                <div class="cdc-card-value">${summary.low_stock_groups_count || 0}</div>
+                                <div class="cdc-card-desc">Grupos com saldo abaixo de 10</div>
+                            </div>
                         </div>
 
                         <!-- BARRA DE FILTROS -->
                         <div class="cdc-linked-filters" aria-label="Filtros de Grupos">
-                            <label><span>Projeto Piloto</span><select id="cdc-ig-project-filter">${projectOptionsHTML}</select></label>
-                            <label><span>Período</span>
-                                <select id="cdc-ig-period-filter">
-                                    <option value="month" ${selectedItemGroupPeriod === 'month' ? 'selected' : ''}>Este Mês</option>
-                                    <option value="quarter" ${selectedItemGroupPeriod === 'quarter' ? 'selected' : ''}>Trimestre Atual</option>
-                                    <option value="year" ${selectedItemGroupPeriod === 'year' ? 'selected' : ''}>Ano Vigente</option>
-                                </select>
-                            </label>
+                            <label><span>Pesquisar</span><input id="cdc-ig-search" type="search" aria-label="Pesquisar grupo de itens" placeholder="Nome, grupo pai ou situação"></label>
+                            <label><span>Grupo pai</span><select id="cdc-ig-parent-filter">${parentOptionsHTML}</select></label>
+                            <label><span>Situação</span><select id="cdc-ig-status-filter"><option value="">Todas as situações</option><option value="Ativo">Ativo</option><option value="Estoque Baixo">Estoque baixo</option><option value="Sem Estoque">Sem estoque</option></select></label>
+                            <label><span>Tipo</span><select id="cdc-ig-kind-filter"><option value="">Todos os tipos</option><option value="group">Com subgrupos</option><option value="leaf">Grupo final</option></select></label>
+                            <button type="button" class="btn btn-sm btn-default" id="cdc-ig-clear-filters">Limpar filtros</button>
                         </div>
 
                         <!-- SEÇÃO DE GRÁFICOS VISUAIS -->
@@ -2958,7 +2964,7 @@
                         <div class="cdc-monitoring-table-section">
                             <div class="cdc-table-header-flex">
                                 <div class="cdc-table-header-title">📋 Lista Completa de Grupos de Itens & Categorias</div>
-                                <input id="cdc-ig-search" type="search" aria-label="Buscar grupo de itens" placeholder="Buscar categoria..." style="padding:4px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;width:220px;">
+                                <span id="cdc-ig-result-count" class="text-muted">${groups.length} grupos encontrados</span>
                             </div>
                             <div class="table-responsive">
                                 <table class="table table-bordered cdc-monitoring-table" id="cdc-ig-table">
@@ -2988,12 +2994,40 @@
                 bindDiagnosticActions(dashboard);
 
                 var searchInput = dashboard.querySelector('#cdc-ig-search');
-                if (searchInput) {
-                    searchInput.addEventListener('input', function() {
-                        var term = this.value.trim().toLowerCase();
-                        dashboard.querySelectorAll('#cdc-ig-table tbody tr').forEach(function(row) {
-                            row.hidden = term && row.dataset.search.indexOf(term) === -1;
+                var parentFilter = dashboard.querySelector('#cdc-ig-parent-filter');
+                var statusFilter = dashboard.querySelector('#cdc-ig-status-filter');
+                var kindFilter = dashboard.querySelector('#cdc-ig-kind-filter');
+                var resultCount = dashboard.querySelector('#cdc-ig-result-count');
+
+                function applyItemGroupFilters() {
+                    var term = searchInput ? searchInput.value.trim().toLowerCase() : '';
+                    var parent = parentFilter ? parentFilter.value : '';
+                    var status = statusFilter ? statusFilter.value : '';
+                    var kind = kindFilter ? kindFilter.value : '';
+                    var visible = 0;
+                    dashboard.querySelectorAll('#cdc-ig-table tbody tr').forEach(function(row) {
+                        var matches = (!term || row.dataset.search.indexOf(term) !== -1) &&
+                            (!parent || row.dataset.parent === parent) &&
+                            (!status || row.dataset.status === status) &&
+                            (!kind || row.dataset.kind === kind);
+                        row.hidden = !matches;
+                        if (matches) visible++;
+                    });
+                    if (resultCount) resultCount.textContent = visible + (visible === 1 ? ' grupo encontrado' : ' grupos encontrados');
+                }
+
+                [searchInput, parentFilter, statusFilter, kindFilter].forEach(function(control) {
+                    if (control) control.addEventListener(control === searchInput ? 'input' : 'change', applyItemGroupFilters);
+                });
+
+                var clearFiltersBtn = dashboard.querySelector('#cdc-ig-clear-filters');
+                if (clearFiltersBtn) {
+                    clearFiltersBtn.addEventListener('click', function() {
+                        [searchInput, parentFilter, statusFilter, kindFilter].forEach(function(control) {
+                            if (control) control.value = '';
                         });
+                        applyItemGroupFilters();
+                        if (searchInput) searchInput.focus();
                     });
                 }
 
@@ -3007,16 +3041,6 @@
                     });
                 }
 
-                var projectFilter = dashboard.querySelector('#cdc-ig-project-filter');
-                if (projectFilter) {
-                    projectFilter.addEventListener('change', function() {
-                        selectedItemGroupProject = this.value;
-                        sessionStorage.setItem('cdc_ig_project', selectedItemGroupProject);
-                        delete dashboard.dataset.loaded;
-                        itemGroupLoading = false;
-                        renderItemGroup();
-                    });
-                }
             },
             error: function(err) {
                 itemGroupLoading = false;
