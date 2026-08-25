@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote
 
-from common import Common
+from common import Common, is_product_order
 
 
 PENDING_DOCTYPE = "CDC ONGSYS Pending Order"
@@ -143,7 +143,7 @@ def pending_payload(order: Dict[str, Any], synced_at: str) -> Dict[str, Any]:
 
 
 def save_pending_orders(api: Common, orders: List[Dict[str, Any]], full_sync: bool, synced_at: str) -> int:
-    product_orders = [order for order in orders if order.get("tipoPedido") == "Produto"]
+    product_orders = [order for order in orders if is_product_order(order.get("tipoPedido"))]
     pending = {
         str(order.get("idPedido")): order
         for order in product_orders

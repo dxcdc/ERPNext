@@ -6,10 +6,14 @@ resource "null_resource" "telemetry_report" {
   depends_on = [null_resource.asset_sync]
 
   provisioner "local-exec" {
+    environment = {
+      DB_PASSWORD = var.db_password
+      DB_NAME     = var.db_name
+    }
     command = <<EOT
       echo "📊 Executando Modulo de Telemetria HCL do Laboratorio..."
       python3 -c "
-import subprocess, json, time, urllib.request
+import subprocess, json, os, time, urllib.request
 
 start_time = time.time()
 report = {
@@ -20,7 +24,11 @@ report = {
 
 # 1. Checkup MariaDB Workspaces CDC
 try:
-    res = subprocess.check_output(\"docker exec -i nexterp-db-1 mysql -u root -p'admin' _5e5899d8398b5f7b -e 'SELECT name, label, is_hidden, LENGTH(content) FROM tabWorkspace WHERE is_hidden = 0;'\", shell=True).decode()
+    res = subprocess.check_output([
+        'docker', 'exec', '-e', 'MYSQL_PWD=' + os.environ['DB_PASSWORD'], '-i',
+        'nexterp-db-1', 'mysql', '-u', 'root', os.environ['DB_NAME'], '-e',
+        'SELECT name, label, is_hidden, LENGTH(content) FROM tabWorkspace WHERE is_hidden = 0;'
+    ]).decode()
     lines = [l.strip() for l in res.strip().split('\n') if l.strip()]
     report['checks']['workspaces_cdc'] = {
         'status': 'OK',
@@ -62,4 +70,3 @@ print('====================================================')
     EOT
   }
 }
-

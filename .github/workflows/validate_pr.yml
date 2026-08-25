@@ -1,0 +1,57 @@
+name: Validar Pull Requests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validar fontes do CDC Theme
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validar JavaScript
+        run: |
+          node --check apps/cdc_theme/cdc_theme/public/js/cdc_theme.js
+          node --check apps/cdc_theme/cdc_theme/public/js/cdc_pending.js
+          node --check apps/cdc_theme/cdc_theme/public/js/cdc_admin.js
+          node --check apps/cdc_theme/cdc_theme/public/js/cdc_users.js
+
+      - name: Validar Python e Bash
+        run: |
+          python -m compileall -q apps/cdc_theme/cdc_theme extractor scripts terraform
+          bash -n extractor/run_job.sh
+          bash -n reinstalar_ambiente_local.sh
+          bash -n scripts/reparar_tema.sh
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Validar Terraform
+        run: |
+          terraform -chdir=terraform fmt -check
+          terraform -chdir=terraform init -backend=false -input=false
+          terraform -chdir=terraform validate
+
+      - name: Executar testes unitários
+        run: python -m unittest discover -s tests -v
+
+      - name: Validar integridade do diff
+        run: git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

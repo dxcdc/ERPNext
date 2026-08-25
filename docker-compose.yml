@@ -14,8 +14,8 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "3306"
-      MYSQL_ROOT_PASSWORD: admin
-      MARIADB_ROOT_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Defina DB_ROOT_PASSWORD no arquivo .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Defina DB_ROOT_PASSWORD no arquivo .env}
       PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
 
   configurator:
@@ -64,6 +64,9 @@ services:
       - ./apps/cdc_theme:/home/frappe/frappe-bench/apps/cdc_theme:z
     environment:
       PYTHONPATH: /home/frappe/frappe-bench/apps/cdc_theme
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Defina DB_ROOT_PASSWORD no arquivo .env}
+      FRAPPE_ADMIN_PASSWORD: ${FRAPPE_ADMIN_PASSWORD:?Defina FRAPPE_ADMIN_PASSWORD no arquivo .env}
+      DB_NAME: ${DB_NAME:-_5e5899d8398b5f7b}
     entrypoint:
       - bash
       - -c
@@ -89,14 +92,14 @@ services:
           echo "Site frontend already exists; creation skipped";
           exit 0;
         fi;
-        bench new-site --mariadb-user-host-login-scope='%' --admin-password=admin --db-root-username=root --db-root-password=admin --db-name _5e5899d8398b5f7b --install-app erpnext --set-default frontend;
+        bench new-site --mariadb-user-host-login-scope='%' --admin-password="$$FRAPPE_ADMIN_PASSWORD" --db-root-username=root --db-root-password="$$DB_ROOT_PASSWORD" --db-name "$$DB_NAME" --install-app erpnext --set-default frontend;
 
   db:
     image: mariadb:10.6
     networks:
       - frappe_network
     healthcheck:
-      test: mysqladmin ping -h localhost --password=admin
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost --password=\"$$MYSQL_ROOT_PASSWORD\""]
       interval: 1s
       retries: 20
     deploy:
@@ -108,8 +111,8 @@ services:
       - --skip-character-set-client-handshake
       - --skip-innodb-read-only-compressed
     environment:
-      MYSQL_ROOT_PASSWORD: admin
-      MARIADB_ROOT_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Defina DB_ROOT_PASSWORD no arquivo .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Defina DB_ROOT_PASSWORD no arquivo .env}
     volumes:
       - db-data:/var/lib/mysql
 

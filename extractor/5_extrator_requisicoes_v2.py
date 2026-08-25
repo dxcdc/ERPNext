@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-from common import Common
+from common import Common, is_product_order
 
 
 COMPANY_NAME = "CDC"
@@ -162,7 +162,7 @@ def import_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict[st
     for order in orders:
         order_date = parse_datetime(order.get("dataPedido"))
         if (
-            order.get("tipoPedido") == "Produto"
+            is_product_order(order.get("tipoPedido"))
             and order.get("statusPedido") == FINAL_STATUS
             and order_date
             and order_date >= cutoff

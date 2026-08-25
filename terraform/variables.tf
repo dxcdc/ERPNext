@@ -6,7 +6,7 @@ variable "http_port" {
 
 variable "db_password" {
   type        = string
-  default     = "admin"
+  sensitive   = true
   description = "Senha do usuario root do MariaDB"
 }
 

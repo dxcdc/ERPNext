@@ -1,17 +1,6 @@
 (function() {
     'use strict';
 
-    // GARANTIR TEMA LIGHT COMO PADRÃO DO SISTEMA
-    try {
-        if (!localStorage.getItem('desk_theme') || localStorage.getItem('desk_theme') !== 'Light') {
-            localStorage.setItem('desk_theme', 'Light');
-        }
-        document.documentElement.setAttribute('data-theme', 'light');
-        if (window.frappe && frappe.boot && frappe.boot.user) {
-            frappe.boot.user.desk_theme = 'Light';
-        }
-    } catch (e) {}
-
     var SYSTEM_ASSET_VERSION = 'v2.9.0-20260727_1218-INTEGRACOES-FIX';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
@@ -1031,12 +1020,12 @@
                 var breadcrumb = getCDCBreadcrumbHTML('Estoque', pilotProject ? pilotProject.name : null);
 
                 // --- 1. SELETOR DE ARMAZÉM ---
-                var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns (46 Armazéns)' }];
+                var availableUnits = data.available_units || [{ value: 'All', label: 'Todos os Armazéns' }];
                 var unitOptions = availableUnits.map(function(u) {
                     var val = (typeof u === 'object') ? u.value : ((u === 'Todos os Armazéns') ? 'All' : u);
                     var lbl = (typeof u === 'object') ? u.label : u;
                     var selected = (currentSelectedUnit === val) ? 'selected' : '';
-                    return `<option value="${val}" ${selected}>${lbl}</option>`;
+                    return `<option value="${escapeHTML(val)}" ${selected}>${escapeHTML(lbl)}</option>`;
                 }).join('');
 
                 var selectorHeader = pilotProject ? `
@@ -1087,7 +1076,7 @@
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${receiptsCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${receiptsCount} este mês</span>
-                                <span style="color: #d97706;">🟠 158 mês passado</span>
+                                <span style="color: #d97706;">🟠 ${data.receipts_last_month || 0} mês passado</span>
                             </div>
                         </a>
 
@@ -1096,7 +1085,7 @@
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${issuesCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${issuesCount} este mês</span>
-                                <span style="color: #d97706;">🟠 31 mês passado</span>
+                                <span style="color: #d97706;">🟠 ${data.issues_last_month || 0} mês passado</span>
                             </div>
                         </a>
 
@@ -1105,7 +1094,7 @@
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${transfersCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
                                 <span style="color: #2563eb;">🔵 ${transfersCount} este mês</span>
-                                <span style="color: #d97706;">🟠 4 acumuladas</span>
+                                <span style="color: #d97706;">🟠 ${data.transfers_accumulated || 0} no mês passado</span>
                             </div>
                         </a>
                     </div>
@@ -1367,7 +1356,7 @@
                 `;
 
                 var totalItemsCount = data.total_items || 655;
-                var unitDisplay = data.unit_display_label || 'Todos os Armazéns (46 Armazéns)';
+                var unitDisplay = data.unit_display_label || 'Todos os Armazéns';
 
                 var categoryFullWidthCard = `
                     <div class="cdc-exec-card" style="margin-bottom: 20px; width: 100%;">
@@ -1973,7 +1962,10 @@
                 localStorage.removeItem('desktop:workspaces');
                 localStorage.removeItem('workspace_sidebar_items');
                 localStorage.removeItem('frappe:boot');
-                sessionStorage.clear();
+                [
+                    'cdc_unit', 'cdc_period', 'cdc_occ_type', 'cdc_table_type',
+                    'cdc_project_filter', 'cdc_users_project', 'cdc_users_warehouse'
+                ].forEach(function(key) { sessionStorage.removeItem(key); });
                 localStorage.setItem('cdc_theme_version', currentBuildTag);
                 console.log('[CDC Theme] Cache de workspaces purgado automaticamente.');
             } catch(e) {}
@@ -2317,7 +2309,7 @@
                                 <span class="cdc-tab-icon">📥</span> 3. Entradas
                             </li>
                             <li class="${activeTab === 'tab-job' ? 'is-active' : ''}" data-tab="tab-job">
-                                <span class="cdc-tab-icon">⏱️</span> 4. Cron Job (90s)
+                                <span class="cdc-tab-icon">⏱️</span> 4. Checkpoint do Job
                             </li>
                             <li class="${activeTab === 'tab-perfis' ? 'is-active' : ''}" data-tab="tab-perfis">
                                 <span class="cdc-tab-icon">👥</span> 5. Perfis & Itens
@@ -2332,13 +2324,13 @@
                             <div class="cdc-monitoring-cards-grid">
                                 <div class="cdc-monitoring-card is-danger">
                                     <div class="cdc-card-label">Pendências Totais Identificadas</div>
-                                    <div class="cdc-card-value">${tabPendencias.metrics.total_pendencies || 2}</div>
+                                    <div class="cdc-card-value">${tabPendencias.metrics.total_pendencies ?? 0}</div>
                                     <div class="cdc-card-desc">Exceções que requerem ação</div>
                                 </div>
                                 <div class="cdc-monitoring-card is-warning">
                                     <div class="cdc-card-label">Armazéns Ausentes do de-para</div>
-                                    <div class="cdc-card-value">${tabPendencias.metrics.unmapped_warehouses || 1}</div>
-                                    <div class="cdc-card-desc">Ex: Centro de Custo 01.03.01</div>
+                                    <div class="cdc-card-value">${tabPendencias.metrics.unmapped_warehouses ?? 0}</div>
+                                    <div class="cdc-card-desc">Calculado a partir do espelho local</div>
                                 </div>
                             </div>
 
@@ -2363,8 +2355,7 @@
                                 <div class="cdc-table-header-flex">
                                     <div class="cdc-table-header-title">📋 Diagnóstico Automático de Pendências Ativas</div>
                                     <div>
-                                        <button class="btn btn-xs btn-primary cdc-btn-verify-warehouses">🔄 Forçar Verificação de Armazéns</button>
-                                        <button class="btn btn-xs btn-default cdc-btn-analyze">🔍 Executar Diagnóstico Agora</button>
+                                        <button class="btn btn-xs btn-primary cdc-btn-refresh-live">🔄 Atualizar dados</button>
                                     </div>
                                 </div>
                                 <div class="table-responsive">
@@ -2401,12 +2392,12 @@
                             <div class="cdc-monitoring-cards-grid">
                                 <div class="cdc-monitoring-card is-danger">
                                     <div class="cdc-card-label">Centros de Custo Mapeados</div>
-                                    <div class="cdc-card-value">${tabWarehouses.metrics.mapped_count || 45}</div>
-                                    <div class="cdc-card-desc">Cadastrados em centro_de_custo_armazen.csv</div>
+                                    <div class="cdc-card-value">${tabWarehouses.metrics.mapped_count ?? 0}</div>
+                                    <div class="cdc-card-desc">Armazéns finais existentes no ERPNext</div>
                                 </div>
                                 <div class="cdc-monitoring-card is-warning">
                                     <div class="cdc-card-label">Armazéns Pendentes de Mapeamento</div>
-                                    <div class="cdc-card-value">${tabWarehouses.metrics.pending_count || 1}</div>
+                                    <div class="cdc-card-value">${tabWarehouses.metrics.pending_count ?? 0}</div>
                                     <div class="cdc-card-desc">Pendente: ${escapeHTML(tabWarehouses.metrics.pending_warehouse)}</div>
                                 </div>
                             </div>
@@ -2432,7 +2423,7 @@
                                 <div class="cdc-table-header-flex">
                                     <div class="cdc-table-header-title">📋 Ferramenta de Verificação de Armazéns</div>
                                     <div>
-                                        <button class="btn btn-xs btn-primary cdc-btn-verify-warehouses">🔄 Forçar Verificação de Armazéns</button>
+                                        <button class="btn btn-xs btn-primary cdc-btn-refresh-live">🔄 Atualizar dados</button>
                                         <a href="/app/warehouse" class="btn btn-xs btn-default">📋 Ver Armazéns</a>
                                     </div>
                                 </div>
@@ -2447,7 +2438,7 @@
                             <div class="cdc-monitoring-cards-grid">
                                 <div class="cdc-monitoring-card is-warning">
                                     <div class="cdc-card-label">Pedidos Retidos (> 48h)</div>
-                                    <div class="cdc-card-value">${tabEntradas.metrics.stuck_orders_count || 1}</div>
+                                    <div class="cdc-card-value">${tabEntradas.metrics.stuck_orders_count ?? 0}</div>
                                     <div class="cdc-card-desc">Script 5_extrator_requisicoes_v2.py</div>
                                 </div>
                                 <div class="cdc-monitoring-card is-info">
@@ -2479,7 +2470,7 @@
                                     <div class="cdc-table-header-title">📋 Lançamentos de Entrada de Estoque</div>
                                     <div>
                                         <a href="/app/stock-entry" class="btn btn-xs btn-primary">📥 Ver Entradas de Estoque</a>
-                                        <button class="btn btn-xs btn-default cdc-btn-analyze">🔄 Forçar Sincronização</button>
+                                        <button class="btn btn-xs btn-default cdc-btn-refresh-live">🔄 Atualizar checkpoint</button>
                                     </div>
                                 </div>
                             </div>
@@ -2490,13 +2481,13 @@
                             <div class="cdc-monitoring-cards-grid">
                                 <div class="cdc-monitoring-card is-info">
                                     <div class="cdc-card-label">Janela Limite (Timeout)</div>
-                                    <div class="cdc-card-value">${tabJob.metrics.timeout_limit || '90s'}</div>
+                                    <div class="cdc-card-value">${tabJob.metrics.timeout_limit || 'Indisponível'}</div>
                                     <div class="cdc-card-desc">Expandida de 30s para 90s em run_job.sh</div>
                                 </div>
                                 <div class="cdc-monitoring-card is-status">
                                     <div class="cdc-card-label">Última Duração de Execução</div>
-                                    <div class="cdc-card-value-status text-success">${tabJob.metrics.last_duration || '14.2s'}</div>
-                                    <div class="cdc-card-desc">Executado com Código de Saída 0</div>
+                                    <div class="cdc-card-value-status">${tabJob.metrics.last_duration || 'Indisponível'}</div>
+                                    <div class="cdc-card-desc">Duração não persistida pelo extrator</div>
                                 </div>
                             </div>
 
@@ -2520,7 +2511,7 @@
                             <div class="cdc-monitoring-table-section">
                                 <div class="cdc-table-header-flex">
                                     <div class="cdc-table-header-title">📋 Histórico de Ciclos de Execução do Cron Job (run_job.sh)</div>
-                                    <button class="btn btn-xs btn-default cdc-btn-analyze">🧪 Testar Execução do Job</button>
+                                    <button class="btn btn-xs btn-default cdc-btn-refresh-live">🔄 Atualizar checkpoint</button>
                                 </div>
                                 <div class="table-responsive">
                                     <table class="table table-bordered cdc-monitoring-table">
@@ -2554,12 +2545,12 @@
                             <div class="cdc-monitoring-cards-grid">
                                 <div class="cdc-monitoring-card is-info">
                                     <div class="cdc-card-label">Usuários Sincronizados</div>
-                                    <div class="cdc-card-value">${tabPerfis.metrics.users_count || 69}</div>
+                                    <div class="cdc-card-value">${tabPerfis.metrics.users_count ?? 0}</div>
                                     <div class="cdc-card-desc">Script 4_extrator_usuarios_v2.py</div>
                                 </div>
                                 <div class="cdc-monitoring-card is-status">
                                     <div class="cdc-card-label">Projetos Piloto Mapeados</div>
-                                    <div class="cdc-card-value">${tabPerfis.metrics.projects_count || 6}</div>
+                                    <div class="cdc-card-value">${tabPerfis.metrics.projects_count ?? 0}</div>
                                     <div class="cdc-card-desc">Script 3_extrator_projetos_v2.py</div>
                                 </div>
                             </div>
@@ -2597,13 +2588,13 @@
                             <div class="cdc-monitoring-cards-grid">
                                 <div class="cdc-monitoring-card is-info">
                                     <div class="cdc-card-label">Webhooks Ativos no Mattermost</div>
-                                    <div class="cdc-card-value">${tabAvisos.metrics.active_webhooks || 16}</div>
+                                    <div class="cdc-card-value">${tabAvisos.metrics.active_webhooks ?? 0}</div>
                                     <div class="cdc-card-desc">Canais de comunicação por armazém</div>
                                 </div>
                                 <div class="cdc-monitoring-card is-status">
                                     <div class="cdc-card-label">Duplicidades Encontradas</div>
-                                    <div class="cdc-card-value-status text-success">${tabAvisos.metrics.duplicates_count || 0} Registros</div>
-                                    <div class="cdc-card-desc">2.553 pedidos auditados com Trava UNIQUE</div>
+                                    <div class="cdc-card-value-status">${tabAvisos.metrics.duplicates_count ?? 0} Registros</div>
+                                    <div class="cdc-card-desc">${tabAvisos.metrics.audited_orders ?? 0} pedidos auditados; índice único ${tabAvisos.metrics.unique_index_enabled ? 'ativo' : 'ausente'}</div>
                                 </div>
                             </div>
 
@@ -2628,8 +2619,8 @@
                                 <div class="cdc-table-header-flex">
                                     <div class="cdc-table-header-title">📋 Ferramentas de Teste & Auditoria</div>
                                     <div>
-                                        <button class="btn btn-xs btn-primary cdc-btn-test-mattermost">🧪 Testar Conexão Mattermost</button>
-                                        <button class="btn btn-xs btn-default cdc-btn-analyze">🛡️ Auditar Trava Unique</button>
+                                        <a href="/app/cdc-integrações" class="btn btn-xs btn-primary">⚙️ Configurar Mattermost</a>
+                                        <button class="btn btn-xs btn-default cdc-btn-refresh-live">🛡️ Atualizar auditoria</button>
                                     </div>
                                 </div>
                             </div>
@@ -2679,36 +2670,16 @@
                     });
                 }
 
-                // BOTÃO DE FORÇAR VERIFICAÇÃO DE ARMAZÉNS
-                var verifyWhBtns = dashboard.querySelectorAll('.cdc-btn-verify-warehouses');
-                verifyWhBtns.forEach(function(btn) {
+                var refreshLiveBtns = dashboard.querySelectorAll('.cdc-btn-refresh-live');
+                refreshLiveBtns.forEach(function(btn) {
                     btn.addEventListener('click', function() {
+                        dashboard.dataset.loaded = '0';
+                        loading = false;
+                        render();
                         frappe.show_alert({
-                            message: __('🔍 Verificação de Armazéns: 45 armazéns validados no de-para. 1 armazém pendente (Centro de Custo 01.03.01 - Transformação Digital).'),
-                            indicator: 'orange'
-                        }, 7);
-                    });
-                });
-
-                // AÇÕES DOS BOTÕES DAS FERRAMENTAS E ANÁLISES
-                var testMattermostBtn = dashboard.querySelector('.cdc-btn-test-mattermost');
-                if (testMattermostBtn) {
-                    testMattermostBtn.addEventListener('click', function() {
-                        frappe.msgprint({
-                            title: __('🧪 Teste de Conexão Mattermost'),
-                            indicator: 'green',
-                            message: __('Conexão com os 16 Webhooks de Armazém validada com sucesso!<br><strong>Status:</strong> HTTP 200 OK — As notificações de movimentação estão ativas.')
-                        });
-                    });
-                }
-
-                var analyzeBtns = dashboard.querySelectorAll('.cdc-btn-analyze');
-                analyzeBtns.forEach(function(btn) {
-                    btn.addEventListener('click', function() {
-                        frappe.show_alert({
-                            message: __('🔍 Análise em tempo real concluída: Nenhuma divergência crítica encontrada.'),
-                            indicator: 'green'
-                        }, 5);
+                            message: __('Medições locais atualizadas. Nenhuma execução externa foi simulada.'),
+                            indicator: 'blue'
+                        }, 4);
                     });
                 });
                 } catch (renderError) {
@@ -2746,55 +2717,30 @@
 
     function isItemGroupRoute() {
         var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
-        var routeStr = (route || []).join(' ').toLowerCase();
+        var routeType = normalizeRoute(route && route[0]);
+        var routeDoctype = normalizeRoute(route && route[1]);
+        if (routeType === 'list' && routeDoctype === 'item-group') return true;
 
-        if (routeStr.indexOf('item group') !== -1 || routeStr.indexOf('item-group') !== -1 || routeStr.indexOf('item_group') !== -1) {
-            return true;
-        }
-        var href = (window.location.href || '').toLowerCase();
-        var hash = (window.location.hash || '').toLowerCase();
-        var pathname = (window.location.pathname || '').toLowerCase();
-
-        if (href.indexOf('item-group') !== -1 || href.indexOf('item_group') !== -1 || href.indexOf('item%20group') !== -1) {
-            return true;
-        }
-        if (hash.indexOf('item-group') !== -1 || hash.indexOf('item_group') !== -1 || hash.indexOf('item%20group') !== -1) {
-            return true;
-        }
-        if (pathname.indexOf('item-group') !== -1 || pathname.indexOf('item_group') !== -1) {
-            return true;
-        }
-        return false;
+        var pathname = normalizeRoute(decodeURIComponent(window.location.pathname || ''));
+        return pathname === '/app/item-group';
     }
 
     function removeItemGroupDashboard() {
         var dashboard = document.getElementById('cdc-item-group-dashboard');
         if (dashboard) {
-            if (dashboard.parentNode) dashboard.parentNode.classList.remove('cdc-custom-item-group-active');
             dashboard.remove();
         }
-        document.querySelectorAll('.cdc-custom-item-group-active').forEach(function(element) {
-            element.classList.remove('cdc-custom-item-group-active');
-        });
     }
 
     var itemGroupLoading = false;
-    var selectedItemGroupProject = sessionStorage.getItem('cdc_ig_project') || 'All';
-    var selectedItemGroupWarehouse = sessionStorage.getItem('cdc_ig_warehouse') || 'All';
-    var selectedItemGroupPeriod = sessionStorage.getItem('cdc_ig_period') || 'quarter';
 
     function renderItemGroup() {
         if (!isItemGroupRoute()) {
             removeItemGroupDashboard();
             return;
         }
-        var body = document.querySelector('.layout-main-section') || 
-                   document.querySelector('.workspace-page-content') ||
-                   document.querySelector('.page-body') ||
-                   document.querySelector('.page-content') ||
-                   document.querySelector('.page-container') ||
-                   document.querySelector('#body_div') ||
-                   document.body;
+        var listBody = document.querySelector('.layout-main-section');
+        var body = listBody && listBody.parentNode;
         if (!body) return;
         var dashboard = document.getElementById('cdc-item-group-dashboard');
         if (!dashboard) {
@@ -2802,34 +2748,24 @@
             dashboard.id = 'cdc-item-group-dashboard';
         }
         if (dashboard.parentNode !== body) {
-            body.insertBefore(dashboard, body.firstChild);
+            body.insertBefore(dashboard, listBody);
         }
-        body.classList.add('cdc-custom-item-group-active');
         if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-item-group-wrapper')) return;
         if (itemGroupLoading) return;
         itemGroupLoading = true;
 
-        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando catálogo e grupos de itens...</div>' + getDiagnosticPanelHTML('Carregando dados da API de Grupos...', false);
-        bindDiagnosticActions(dashboard);
+        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando catálogo e grupos de itens...</div>';
 
         frappe.call({
             method: 'cdc_theme.api.get_item_group_dashboard_data',
-            args: {
-                selected_project: selectedItemGroupProject,
-                selected_warehouse: selectedItemGroupWarehouse,
-                period: selectedItemGroupPeriod
-            },
             callback: function(response) {
                 itemGroupLoading = false;
                 if (!isItemGroupRoute()) {
                     removeItemGroupDashboard();
                     return;
                 }
-                var currentBody = document.querySelector('.layout-main-section') || 
-                                  document.querySelector('.workspace-page-content') ||
-                                  document.querySelector('.page-body') ||
-                                  document.querySelector('.page-content') ||
-                                  document.querySelector('.page-container');
+                var currentListBody = document.querySelector('.layout-main-section');
+                var currentBody = currentListBody && currentListBody.parentNode;
                 if (currentBody) {
                     var currentDash = document.getElementById('cdc-item-group-dashboard');
                     if (!currentDash) {
@@ -2839,23 +2775,18 @@
                         dashboard = currentDash;
                     }
                     if (dashboard.parentNode !== currentBody) {
-                        currentBody.insertBefore(dashboard, currentBody.firstChild);
+                        currentBody.insertBefore(dashboard, currentListBody);
                     }
-                    currentBody.classList.add('cdc-custom-item-group-active');
                 }
                 dashboard.dataset.loaded = '1';
-                suppressFalsePositive404();
-
                 var data = response && response.message;
                 if (!data) {
-                    dashboard.innerHTML = getDiagnosticPanelHTML('Falha ao obter resposta da API de Grupos de Itens.', true);
-                    bindDiagnosticActions(dashboard);
+                    dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Falha ao obter dados dos grupos de itens.</div>';
                     return;
                 }
 
                 var summary = data.summary || {};
                 var groups = data.groups || [];
-                var topGroups = data.top_groups || [];
                 var parentGroups = Array.from(new Set(groups.map(function(g) {
                     return g.parent_item_group;
                 }).filter(function(parent) {
@@ -2869,24 +2800,6 @@
 
                 var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Estoque', 'Grupos de Itens & Catálogo') : '';
 
-                var rowsHTML = groups.map(function(g) {
-                    var badgeClass = g.status === 'Sem Estoque' ? 'cdc-badge-danger' : (g.status === 'Estoque Baixo' ? 'cdc-badge-warning' : 'cdc-badge-success');
-                    return `
-                        <tr data-search="${escapeHTML([g.name, g.parent_item_group, g.status].join(' ').toLowerCase())}" data-parent="${escapeHTML(g.parent_item_group)}" data-status="${escapeHTML(g.status)}" data-kind="${g.is_group === 'Sim' ? 'group' : 'leaf'}">
-                            <td><span class="cdc-group-icon">${g.icon}</span> <strong>${escapeHTML(g.name)}</strong></td>
-                            <td>${escapeHTML(g.parent_item_group)}</td>
-                            <td>${escapeHTML(g.is_group)}</td>
-                            <td><span class="cdc-badge cdc-badge-info">${g.items_count} produtos</span></td>
-                            <td><strong>${g.stock_qty.toLocaleString()} un.</strong></td>
-                            <td><strong style="color:#059669">${escapeHTML(g.formatted_value)}</strong></td>
-                            <td><span class="cdc-badge ${badgeClass}">${escapeHTML(g.status)}</span></td>
-                            <td>
-                                <a href="/app/item?item_group=${encodeURIComponent(g.name)}" class="btn btn-xs btn-default">👁️ Ver Produtos</a>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-
                 dashboard.innerHTML = `
                     ${breadcrumbHTML}
                     <div class="cdc-item-group-wrapper">
@@ -2895,10 +2808,7 @@
                                 <h1 class="cdc-monitoring-h1">🏷️ Gestão de Grupos de Itens & Catálogo</h1>
                                 <p class="cdc-monitoring-sub">Painel executivo de categorias de produto, saldos estocados em R$ e integridade do catálogo</p>
                             </div>
-                            <div>
-                                <a href="/app/item-group/new-item-group-1" class="btn btn-sm btn-primary">➕ Novo Grupo</a>
-                                <button class="btn btn-sm btn-default" id="cdc-btn-refresh-ig">🔄 Atualizar Dados</button>
-                            </div>
+                            <button class="btn btn-sm btn-default" id="cdc-btn-refresh-ig">🔄 Atualizar indicadores</button>
                         </div>
 
                         <!-- CARDS KPI -->
@@ -2932,102 +2842,43 @@
 
                         <!-- BARRA DE FILTROS -->
                         <div class="cdc-linked-filters" aria-label="Filtros de Grupos">
-                            <label><span>Pesquisar</span><input id="cdc-ig-search" type="search" aria-label="Pesquisar grupo de itens" placeholder="Nome, grupo pai ou situação"></label>
+                            <label><span>Pesquisar</span><input id="cdc-ig-search" type="search" aria-label="Pesquisar grupo de itens" placeholder="Nome do grupo"></label>
                             <label><span>Grupo pai</span><select id="cdc-ig-parent-filter">${parentOptionsHTML}</select></label>
-                            <label><span>Situação</span><select id="cdc-ig-status-filter"><option value="">Todas as situações</option><option value="Ativo">Ativo</option><option value="Estoque Baixo">Estoque baixo</option><option value="Sem Estoque">Sem estoque</option></select></label>
-                            <label><span>Tipo</span><select id="cdc-ig-kind-filter"><option value="">Todos os tipos</option><option value="group">Com subgrupos</option><option value="leaf">Grupo final</option></select></label>
+                            <label><span>Tipo</span><select id="cdc-ig-kind-filter"><option value="">Todos os tipos</option><option value="1">Com subgrupos</option><option value="0">Grupo final</option></select></label>
+                            <button type="button" class="btn btn-sm btn-primary" id="cdc-ig-apply-filters">Aplicar filtros</button>
                             <button type="button" class="btn btn-sm btn-default" id="cdc-ig-clear-filters">Limpar filtros</button>
                         </div>
-
-                        <!-- SEÇÃO DE GRÁFICOS VISUAIS -->
-                        <div class="cdc-monitoring-section-block">
-                            <h3 class="cdc-section-block-title">📊 Top Categorias com Maior Valor Estocado (R$)</h3>
-                            <div class="cdc-extractors-grid">
-                                ${topGroups.map(function(tg) {
-                                    return `
-                                        <div class="cdc-extractor-card">
-                                            <div class="cdc-extractor-header">
-                                                <span class="cdc-extractor-title">${tg.icon} ${escapeHTML(tg.name)}</span>
-                                                <span class="cdc-badge cdc-badge-success">${escapeHTML(tg.formatted_value)}</span>
-                                            </div>
-                                            <div class="cdc-extractor-body">
-                                                <p><strong>Produtos cadastrados:</strong> ${tg.items_count} itens</p>
-                                                <p><strong>Quantidade em saldo:</strong> ${tg.stock_qty.toLocaleString()} un.</p>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-
-                        <!-- TABELA COMPLETA DE GRUPOS DE ITENS -->
-                        <div class="cdc-monitoring-table-section">
-                            <div class="cdc-table-header-flex">
-                                <div class="cdc-table-header-title">📋 Lista Completa de Grupos de Itens & Categorias</div>
-                                <span id="cdc-ig-result-count" class="text-muted">${groups.length} grupos encontrados</span>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered cdc-monitoring-table" id="cdc-ig-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Grupo / Categoria</th>
-                                            <th>Grupo Pai</th>
-                                            <th>Possui Subgrupos?</th>
-                                            <th>Itens Vinculados</th>
-                                            <th>Saldo em Estoque</th>
-                                            <th>Valor Total (R$)</th>
-                                            <th>Status</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${rowsHTML}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <p class="text-muted">Os filtros abaixo são aplicados à lista oficial do ERPNext, preservando edição, visualizações e filtros salvos.</p>
                     </div>
-                    ${getDiagnosticPanelHTML('API REST de Grupos Conectada com Êxito (HTTP 200 OK)', false)}
                 `;
 
                 dashboard.dataset.loaded = '1';
-                bindDiagnosticActions(dashboard);
 
                 var searchInput = dashboard.querySelector('#cdc-ig-search');
                 var parentFilter = dashboard.querySelector('#cdc-ig-parent-filter');
-                var statusFilter = dashboard.querySelector('#cdc-ig-status-filter');
                 var kindFilter = dashboard.querySelector('#cdc-ig-kind-filter');
-                var resultCount = dashboard.querySelector('#cdc-ig-result-count');
-
-                function applyItemGroupFilters() {
-                    var term = searchInput ? searchInput.value.trim().toLowerCase() : '';
-                    var parent = parentFilter ? parentFilter.value : '';
-                    var status = statusFilter ? statusFilter.value : '';
-                    var kind = kindFilter ? kindFilter.value : '';
-                    var visible = 0;
-                    dashboard.querySelectorAll('#cdc-ig-table tbody tr').forEach(function(row) {
-                        var matches = (!term || row.dataset.search.indexOf(term) !== -1) &&
-                            (!parent || row.dataset.parent === parent) &&
-                            (!status || row.dataset.status === status) &&
-                            (!kind || row.dataset.kind === kind);
-                        row.hidden = !matches;
-                        if (matches) visible++;
-                    });
-                    if (resultCount) resultCount.textContent = visible + (visible === 1 ? ' grupo encontrado' : ' grupos encontrados');
+                function navigateWithItemGroupFilters() {
+                    var filters = {};
+                    var term = searchInput ? searchInput.value.trim() : '';
+                    if (term) filters.name = ['like', '%' + term + '%'];
+                    if (parentFilter && parentFilter.value) filters.parent_item_group = parentFilter.value;
+                    if (kindFilter && kindFilter.value !== '') filters.is_group = Number(kindFilter.value);
+                    frappe.set_route('List', 'Item Group', 'List', filters);
                 }
 
-                [searchInput, parentFilter, statusFilter, kindFilter].forEach(function(control) {
-                    if (control) control.addEventListener(control === searchInput ? 'input' : 'change', applyItemGroupFilters);
+                var applyFiltersBtn = dashboard.querySelector('#cdc-ig-apply-filters');
+                if (applyFiltersBtn) applyFiltersBtn.addEventListener('click', navigateWithItemGroupFilters);
+                if (searchInput) searchInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') navigateWithItemGroupFilters();
                 });
 
                 var clearFiltersBtn = dashboard.querySelector('#cdc-ig-clear-filters');
                 if (clearFiltersBtn) {
                     clearFiltersBtn.addEventListener('click', function() {
-                        [searchInput, parentFilter, statusFilter, kindFilter].forEach(function(control) {
+                        [searchInput, parentFilter, kindFilter].forEach(function(control) {
                             if (control) control.value = '';
                         });
-                        applyItemGroupFilters();
-                        if (searchInput) searchInput.focus();
+                        frappe.set_route('List', 'Item Group', 'List');
                     });
                 }
 
@@ -3049,8 +2900,8 @@
                     return;
                 }
                 dashboard.dataset.loaded = '0';
-                dashboard.innerHTML = getDiagnosticPanelHTML('Falha ao consultar grupos de itens: ' + JSON.stringify(err), true);
-                bindDiagnosticActions(dashboard);
+                var message = err && err.message ? err.message : 'Não foi possível consultar os grupos de itens.';
+                dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">' + escapeHTML(message) + '</div>';
             }
         });
     }

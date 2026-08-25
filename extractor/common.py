@@ -6,9 +6,20 @@ import json
 import time
 import logging
 import hashlib
+import unicodedata
 import requests
 from typing import Any, Dict, List, Optional
 from requests.auth import HTTPBasicAuth
+
+
+def normalize_order_type(value: Any) -> str:
+    """Normaliza variações observadas como Produto e Pedido de Produto."""
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    return " ".join(normalized.encode("ascii", "ignore").decode().lower().split())
+
+
+def is_product_order(value: Any) -> bool:
+    return normalize_order_type(value) in {"produto", "pedido de produto"}
 
 class Common:
     # Configurações de sincronização (mantidas)

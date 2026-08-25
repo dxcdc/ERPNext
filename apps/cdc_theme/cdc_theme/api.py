@@ -18,6 +18,16 @@ def _require_read_permission(doctype):
             frappe.PermissionError,
         )
 
+
+def _require_stock_dashboard_access():
+    """Restringe consultas agregadas que usam SQL e não aplicam User Permission por linha."""
+    roles = set(frappe.get_roles(frappe.session.user))
+    if not roles.intersection({"System Manager", "Stock Manager"}):
+        frappe.throw(
+            "Painel consolidado restrito a gestores de estoque.",
+            frappe.PermissionError,
+        )
+
 @frappe.whitelist()
 def custom_get_desktop_page(page):
     import json
@@ -543,6 +553,7 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
     Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
     entry_type: 'receipt' (Entrada) ou 'issue' (Saída). Padrão: 'receipt'.
     """
+    _require_stock_dashboard_access()
     _require_read_permission("Stock Entry")
     if not period or period == 'undefined':
         period = 'quarter'
@@ -789,6 +800,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     """
     Retorna métricas dinâmicas para o Painel Executivo do Estoque.
     """
+    _require_stock_dashboard_access()
     _require_read_permission("Stock Entry")
     _require_read_permission("Warehouse")
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
@@ -854,27 +866,23 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     total_warehouses = frappe.db.sql(
         f"SELECT COUNT(DISTINCT w.name) FROM tabWarehouse w {where_wh}"
     )[0][0] or 0
-    if selected_unit == 'All' and not project_se_clause:
-        active_warehouses = 11
-        inactive_warehouses = max(int(total_warehouses) - active_warehouses, 0)
-    else:
-        active_warehouses = frappe.db.sql(f"""
-            SELECT COUNT(DISTINCT w.name)
-            FROM tabWarehouse w
-            {where_wh}
-              AND EXISTS (
-                SELECT 1 FROM `tabStock Entry` se
-                WHERE se.docstatus = 1
-                  AND se.posting_date >= '{activity_cutoff}'
-                  AND (
-                    se.from_warehouse = w.name OR se.to_warehouse = w.name OR EXISTS (
-                      SELECT 1 FROM `tabStock Entry Detail` sed
-                      WHERE sed.parent=se.name AND (sed.s_warehouse=w.name OR sed.t_warehouse=w.name)
-                    )
-                  )
+    active_warehouses = frappe.db.sql(f"""
+        SELECT COUNT(DISTINCT w.name)
+        FROM tabWarehouse w
+        {where_wh}
+          AND EXISTS (
+            SELECT 1 FROM `tabStock Entry` se
+            WHERE se.docstatus = 1
+              AND se.posting_date >= '{activity_cutoff}'
+              AND (
+                se.from_warehouse = w.name OR se.to_warehouse = w.name OR EXISTS (
+                  SELECT 1 FROM `tabStock Entry Detail` sed
+                  WHERE sed.parent=se.name AND (sed.s_warehouse=w.name OR sed.t_warehouse=w.name)
+                )
               )
-        """)[0][0] or 0
-        inactive_warehouses = max(int(total_warehouses) - int(active_warehouses), 0)
+          )
+    """)[0][0] or 0
+    inactive_warehouses = max(int(total_warehouses) - int(active_warehouses), 0)
     
     # 2. Categorias - Medidas Puramente por Quantidade de ITENS
     categories = frappe.db.sql(f"""
@@ -912,7 +920,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
             "color": colors[4]
         })
         
-    # 3. Lista dos 46 Armazéns para o Dropdown
+    # 3. Lista atual de armazéns para o dropdown
     warehouses_raw = frappe.db.sql("""
         SELECT name 
         FROM tabWarehouse 
@@ -920,7 +928,10 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         ORDER BY name ASC
     """)
     
-    available_warehouses = [{"value": "All", "label": "Todos os Armazéns (46 Armazéns)"}]
+    available_warehouses = [{
+        "value": "All",
+        "label": f"Todos os Armazéns ({int(total_warehouses)} Armazéns)",
+    }]
     for w in warehouses_raw:
         clean_label = w[0].replace(' - C', '').strip()
         available_warehouses.append({
@@ -1037,7 +1048,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         entry_type=entry_type, selected_project=selected_project,
     )
 
-    unit_display_label = "Todos os Armazéns (46 Armazéns)"
+    unit_display_label = f"Todos os Armazéns ({int(total_warehouses)} Armazéns)"
     if selected_unit != 'All':
         unit_display_label = selected_unit.replace(' - C', '').strip()
     elif selected_project:
@@ -1215,154 +1226,210 @@ def diagnostico_mattermost():
     }
 
 
+
 @frappe.whitelist()
 def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="All"):
-    """
-    Endpoint estruturado pelas 6 Guia Oficiais da Workspace CDC Monitoramento:
-    1. ⚠️ Pendências & Diagnósticos
-    2. 🏢 Armazéns (1_armazem_v2.py & centro_de_custo_armazen.csv)
-    3. 📥 Entradas (5_extrator_requisicoes_v2.py & Stock Entry)
-    4. ⏱️ Cron Job (run_job.sh & Timeout 90s)
-    5. 👥 Perfis (2_itens, 3_projetos, 4_usuarios)
-    6. 🔔 Avisos (Mattermost Webhooks & Idempotência)
-    """
-    if frappe.session.user == "Guest":
-        frappe.throw("Sessão inválida para abrir o monitoramento.", frappe.PermissionError)
+    """Retorna somente medições persistidas no NextERP; nunca simula execução externa."""
+    _require_system_manager()
 
-    tab_pendencias = {
-        "title": "Diagnóstico Inteligente de Pendências ONGSYS",
-        "what_it_does": "Identifica automaticamente solicitações estagnadas, falhas de mapeamento e descompassos entre o ONGSYS e o ERPNext, indicando a causa raiz e a solução recomendada.",
-        "why_created": "Fornecer visibilidade instantânea dos motivos pelos quais um pedido finalizado no ONGSYS pode deixar de gerar Entrada de Material no estoque.",
-        "metrics": {
-            "total_pendencies": 2,
-            "unmapped_warehouses": 1,
-            "stuck_orders": 1,
-            "status": "WARNING"
-        },
-        "incidents": [
-            {
-                "id_pedido": "REQ-2026-0804-01",
-                "titulo": "Material de Escritório / TI - Transformação Digital",
-                "centro_custo": "01.03.01",
-                "armazem_esperado": "TRANSFORMACAO DIGITAL - C",
-                "status_ongsys": "Ordem finalizada",
-                "severidade": "HIGH",
-                "motivo": "Centro de Custo não Mapeado",
-                "diagnostico": "🚨 Centro de Custo '01.03.01' não cadastrado em centro_de_custo_armazen.csv",
-                "acao_recomendada": "Inclusão formal de '01.03.01;TRANSFORMACAO DIGITAL' no arquivo de configuração de-para do extrator"
-            },
-            {
-                "id_pedido": "REQ-2026-0802-14",
-                "titulo": "Kits Pedagógicos - Atitude Breve Caruaru",
-                "centro_custo": "3.02.01.002",
-                "armazem_esperado": "CAR ATITUDE II.I - DESPESAS DIRETAS - BREVE - C",
-                "status_ongsys": "Prestação de contas realizada",
-                "severidade": "MEDIUM",
-                "motivo": "Status Intermediário (>48h)",
-                "diagnostico": "⚠️ Pedido retido no ONGSYS em 'Prestação de contas realizada' há mais de 48h",
-                "acao_recomendada": "Concluir a transição para 'Ordem finalizada' no ONGSYS para liberar importação automática"
-            }
-        ]
-    }
+    pending_rows = frappe.get_all(
+        "CDC ONGSYS Pending Order",
+        filters={"active": 1},
+        fields=[
+            "ongsys_order_id", "title", "status", "order_type", "order_date",
+            "last_status_at", "cost_centers", "items_count", "total_quantity",
+            "last_synced_at",
+        ],
+        order_by="order_date asc, creation asc",
+        limit_page_length=10000,
+    )
+    cutoff = frappe.utils.add_days(frappe.utils.now_datetime(), -2)
+    incidents = []
+    unmapped_cost_centers = set()
+    stuck_orders = 0
+    for order in pending_rows:
+        _project, warehouse = _pending_order_location(order.cost_centers, order.title)
+        last_activity = order.last_status_at or order.order_date
+        is_stuck = bool(last_activity and frappe.utils.get_datetime(last_activity) <= cutoff)
+        if is_stuck:
+            stuck_orders += 1
+        if not warehouse:
+            for cost_center in (order.cost_centers or "").split(","):
+                if cost_center.strip():
+                    unmapped_cost_centers.add(cost_center.strip())
+        if (is_stuck or not warehouse) and len(incidents) < 20:
+            reason = "Centro de custo sem armazém identificado" if not warehouse else "Sem atualização há mais de 48 horas"
+            incidents.append({
+                "id_pedido": order.ongsys_order_id,
+                "titulo": order.title or "Sem título",
+                "centro_custo": order.cost_centers or "Não informado",
+                "armazem_esperado": warehouse or "Não identificado",
+                "status_ongsys": order.status or "Sem estado",
+                "severidade": "HIGH" if not warehouse else "MEDIUM",
+                "motivo": reason,
+                "diagnostico": reason,
+                "acao_recomendada": (
+                    "Revisar o de-para oficial de centro de custo e armazém."
+                    if not warehouse else
+                    "Confirmar o estado do pedido no ONGSYS antes de qualquer lançamento manual."
+                ),
+            })
 
-    tab_warehouses = {
-        "filename": "1_armazem_v2.py",
-        "title": "Mapeamento de Armazéns & Centros de Custo (1_armazem_v2.py)",
-        "what_it_does": "Valida se os Centros de Custo de novos armazéns abertos no ONGSYS possuem código correspondente cadastrado no arquivo centro_de_custo_armazen.csv.",
-        "why_created": "Incidente do dia 04/Agosto (às 15h00): Um pedido concluído para o armazém 'Transformação Digital' não gerou entrada no estoque porque seu Centro de Custo (01.03.01) não estava cadastrado na tabela de de-para.",
-        "metrics": {
-            "mapped_count": 45,
-            "pending_count": 1,
-            "pending_warehouse": "Transformação Digital (01.03.01)",
-            "status": "WARNING"
-        }
-    }
+    total_warehouses = frappe.db.count("Warehouse", {"is_group": 0})
+    total_users = frappe.db.count("User", {"user_type": "System User", "enabled": 1})
+    total_items = frappe.db.count("Item", {"disabled": 0})
+    projects = _dashboard_filter_options()
 
-    tab_entradas = {
-        "filename": "5_extrator_requisicoes_v2.py",
-        "title": "Importação de Recomendações & Entradas (5_extrator_requisicoes_v2.py)",
-        "what_it_does": "Acompanha a extração direta de solicitações finalizadas no ONGSYS e sua conversão em lançamentos de Entrada de Material (Stock Entry) no ERPNext.",
-        "why_created": "Garantir que 100% dos pedidos com prestação de contas concluída no ONGSYS virem entrada de estoque rastreável.",
-        "metrics": {
-            "stuck_orders_count": 1,
-            "sync_window": "Modo Rápido 3 Págs / Audit 24h",
-            "status": "OK"
-        }
+    sync_fields = (
+        "last_page", "last_success_at", "last_mode", "pages_fetched",
+        "last_import_mode", "last_import_pages",
+    )
+    sync_state = {
+        field: frappe.db.get_single_value("CDC ONGSYS Sync State", field)
+        for field in sync_fields
     }
+    last_success = sync_state.get("last_success_at")
+    sync_stale = True
+    if last_success:
+        sync_stale = frappe.utils.time_diff_in_hours(
+            frappe.utils.now_datetime(), frappe.utils.get_datetime(last_success)
+        ) > 2
+    formatted_last_success = (
+        frappe.utils.format_datetime(last_success, "dd/MM/yyyy HH:mm:ss")
+        if last_success else "Indisponível"
+    )
 
-    tab_job = {
-        "filename": "run_job.sh",
-        "title": "Tempo de Execução & Saúde do Job (run_job.sh)",
-        "what_it_does": "Orquestra a execução horária da esteira dos 5 scripts Python e gerencia o tempo limite (timeout) estendido de 90 segundos.",
-        "why_created": "O limite anterior de 30 segundos abortava o processo durante cargas maiores do banco MariaDB. A janela foi expandida para 90 segundos.",
-        "metrics": {
-            "timeout_limit": "90s",
-            "last_duration": "14.2s",
-            "last_exit_code": 0,
-            "schedule": "De hora em hora (0 * * * *)"
-        },
-        "log_table": [
-            {"datetime": "04/08/2026 20:00:00 UTC", "duration": "14.2s", "exit_code": 0, "status": "Éxito (Código 0)"},
-            {"datetime": "04/08/2026 19:00:00 UTC", "duration": "13.8s", "exit_code": 0, "status": "Éxito (Código 0)"},
-            {"datetime": "04/08/2026 18:00:00 UTC", "duration": "15.1s", "exit_code": 0, "status": "Éxito (Código 0)"}
-        ]
-    }
+    imported_orders = frappe.db.sql("""
+        SELECT COUNT(*)
+        FROM `tabStock Entry`
+        WHERE docstatus=1 AND COALESCE(idpedido_ongsys, '') <> ''
+    """)[0][0] or 0
+    duplicates = frappe.db.sql("""
+        SELECT COUNT(*) FROM (
+            SELECT idpedido_ongsys
+            FROM `tabStock Entry`
+            WHERE COALESCE(idpedido_ongsys, '') <> ''
+            GROUP BY idpedido_ongsys HAVING COUNT(*) > 1
+        ) duplicated
+    """)[0][0] or 0
+    unique_index = frappe.db.sql("""
+        SELECT COUNT(*)
+        FROM information_schema.statistics
+        WHERE table_schema=DATABASE()
+          AND table_name='tabStock Entry'
+          AND index_name='uniq_stock_entry_idpedido_ongsys'
+          AND non_unique=0
+    """)[0][0] or 0
 
-    tab_perfis = {
-        "filename": "2_itens, 3_projetos, 4_usuarios",
-        "title": "Perfis, Catálogo de Itens & 6 Projetos Piloto",
-        "what_it_does": "Sincroniza o catálogo de produtos (script 2_itens), a árvore dos 6 projetos piloto (script 3_projetos) e os 69 usuários ativos com restrição por armazém (script 4_usuarios).",
-        "why_created": "Manter as permissões de acesso por armazém e a codificação dos produtos rigorosamente alinhadas.",
-        "metrics": {
-            "users_count": 69,
-            "projects_count": 6,
-            "items_status": "100% Sincronizado",
-            "status": "OK"
-        },
-        "projects_list": [
-            {"name": "Projeto Atitude II.I", "warehouses": "16 Armazéns (CAB, CAR, JAB, REC)", "status": "Ativo"},
-            {"name": "Institucional / Geral", "warehouses": "Armazéns Gerais e Centrais", "status": "Ativo"},
-            {"name": "Projeto Atitude", "warehouses": "Armazéns Projeto Atitude I", "status": "Ativo"},
-            {"name": "Projeto Bem Viver", "warehouses": "Armazéns Olinda / Recife", "status": "Ativo"},
-            {"name": "Projeto Cais", "warehouses": "Armazéns Cais do Porto", "status": "Ativo"},
-            {"name": "Projeto ATM", "warehouses": "Armazéns ATM II", "status": "Ativo"}
-        ]
-    }
+    try:
+        mattermost_configs = frappe.get_all(
+            "CDC Mattermost Config",
+            fields=["warehouse", "channel_name", "enabled"],
+            order_by="warehouse asc",
+        )
+    except Exception:
+        mattermost_configs = []
+    active_webhooks = [row for row in mattermost_configs if row.enabled]
 
-    tab_avisos = {
-        "title": "Avisos no Mattermost & Prevenção de Duplicidades (Idempotência)",
-        "what_it_does": "Supervisiona os 16 webhooks de notificação do Mattermost por armazém e audita o índice UNIQUE 'uniq_stock_entry_idpedido_ongsys' contra lançamentos duplicados.",
-        "why_created": "Avisar as equipes de campo instantaneamente sobre movimentações e impedir a re-importação duplicada de requisições.",
-        "metrics": {
-            "active_webhooks": 16,
-            "duplicates_count": 0,
-            "audited_orders": 2553,
-            "status": "OK"
-        },
-        "configs": [
-            {"warehouse": "CAB ATITUDE II.I - DESPESAS DIRETAS - INT - C", "channel": "#estoque-cab-atitude", "enabled": 1, "status": "Ativo"},
-            {"warehouse": "CAR ATITUDE II.I - DESPESAS DIRETAS - INT - C", "channel": "#estoque-car-atitude", "enabled": 1, "status": "Ativo"},
-            {"warehouse": "JAB ATITUDE II.I - DESPESAS DIRETAS - INT - C", "channel": "#estoque-jab-atitude", "enabled": 1, "status": "Ativo"},
-            {"warehouse": "REC ATITUDE II.I - DESPESAS DIRETAS - INT - C", "channel": "#estoque-rec-atitude", "enabled": 1, "status": "Ativo"}
-        ]
-    }
+    health = "WARNING" if (
+        pending_rows or unmapped_cost_centers or stuck_orders or sync_stale
+        or duplicates or not unique_index
+    ) else "OK"
+    log_table = [{
+        "datetime": formatted_last_success,
+        "duration": "Indisponível",
+        "exit_code": "—",
+        "status": "Checkpoint desatualizado" if sync_stale else "Checkpoint recente",
+    }]
 
     return {
         "summary": {
-            "unmapped_cost_centers_count": 1,
-            "stuck_orders_count": 1,
-            "system_health": "WARNING"
+            "unmapped_cost_centers_count": len(unmapped_cost_centers),
+            "stuck_orders_count": stuck_orders,
+            "system_health": health,
+            "sync_stale": sync_stale,
         },
-        "tab_pendencias": tab_pendencias,
-        "tab_warehouses": tab_warehouses,
-        "tab_entradas": tab_entradas,
-        "tab_job": tab_job,
-        "tab_perfis": tab_perfis,
-        "tab_avisos": tab_avisos,
+        "tab_pendencias": {
+            "title": "Pendências ONGSYS persistidas",
+            "what_it_does": "Exibe pedidos realmente gravados no espelho local e sinaliza falta de mapeamento ou inatividade superior a 48 horas.",
+            "why_created": "Permitir investigação sem criar movimentações antecipadas ou apresentar incidentes fictícios.",
+            "metrics": {
+                "total_pendencies": len(pending_rows),
+                "unmapped_warehouses": len(unmapped_cost_centers),
+                "stuck_orders": stuck_orders,
+                "status": health,
+            },
+            "incidents": incidents,
+        },
+        "tab_warehouses": {
+            "filename": "1_armazem_v2.py",
+            "title": "Armazéns e centros de custo",
+            "what_it_does": "Compara a localização inferida dos pedidos pendentes com os armazéns existentes no ERPNext.",
+            "why_created": "Sinalizar apenas lacunas observadas nos dados persistidos.",
+            "metrics": {
+                "mapped_count": total_warehouses,
+                "pending_count": len(unmapped_cost_centers),
+                "pending_warehouse": ", ".join(sorted(unmapped_cost_centers)[:3]) or "Nenhum",
+                "status": "WARNING" if unmapped_cost_centers else "OK",
+            },
+        },
+        "tab_entradas": {
+            "filename": "5_extrator_requisicoes_v2.py",
+            "title": "Importação de entradas ONGSYS",
+            "what_it_does": "Mostra o checkpoint persistido e a quantidade real de pedidos convertidos em Stock Entry.",
+            "why_created": "Distinguir estado confirmado no banco de disponibilidade externa não verificada.",
+            "metrics": {
+                "stuck_orders_count": stuck_orders,
+                "sync_window": f"{sync_state.get('last_import_mode') or 'Sem execução'} / {sync_state.get('last_import_pages') or 0} páginas",
+                "imported_orders": int(imported_orders),
+                "status": "WARNING" if sync_stale else "OK",
+            },
+        },
+        "tab_job": {
+            "filename": "run_job.sh",
+            "title": "Checkpoint do job de sincronização",
+            "what_it_does": "Mostra o último checkpoint que o extrator conseguiu persistir no ERPNext.",
+            "why_created": "Não confundir presença do script com comprovação de agendamento ou execução bem-sucedida.",
+            "metrics": {
+                "timeout_limit": "90s",
+                "last_duration": "Indisponível",
+                "last_exit_code": None,
+                "schedule": "Não verificado pelo ERPNext",
+                "last_success_at": formatted_last_success,
+            },
+            "log_table": log_table,
+        },
+        "tab_perfis": {
+            "filename": "catálogos e permissões",
+            "title": "Perfis, catálogo e projetos",
+            "what_it_does": "Resume usuários, itens ativos e agrupamentos de armazéns existentes no banco.",
+            "why_created": "Acompanhar volumes reais sem afirmar sincronização externa não comprovada.",
+            "metrics": {
+                "users_count": total_users,
+                "projects_count": len(projects),
+                "items_count": total_items,
+                "items_status": "Medição local",
+                "status": "OK",
+            },
+            "projects_list": projects,
+        },
+        "tab_avisos": {
+            "title": "Mattermost e idempotência ONGSYS",
+            "what_it_does": "Mede configurações ativas, duplicidades existentes e presença do índice único no banco.",
+            "why_created": "Confirmar os controles efetivamente aplicados antes de declarar a integração saudável.",
+            "metrics": {
+                "active_webhooks": len(active_webhooks),
+                "duplicates_count": int(duplicates),
+                "audited_orders": int(imported_orders),
+                "unique_index_enabled": bool(unique_index),
+                "status": "OK" if not duplicates and unique_index else "WARNING",
+            },
+            "configs": active_webhooks,
+        },
         "filters": {
             "selected_project": selected_project,
-            "selected_warehouse": selected_warehouse
-        }
+            "selected_warehouse": selected_warehouse,
+        },
     }
 
 
@@ -1372,6 +1439,11 @@ def get_item_group_dashboard_data(selected_project='All', selected_warehouse='Al
     Retorna os dados consolidados do catálogo e grupos de itens para a rota /app/item-group.
     Calcula quantidade de grupos, total de produtos, valor em estoque (R$) e itens por categoria.
     """
+    _require_stock_dashboard_access()
+    _require_read_permission("Item Group")
+    _require_read_permission("Item")
+    _require_read_permission("Warehouse")
+
     # 1. Lista de grupos de itens
     raw_groups = frappe.db.sql("""
         SELECT 

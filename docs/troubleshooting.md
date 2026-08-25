@@ -215,7 +215,7 @@ Esta seção documenta problemas reais ocorridos durante a homologação e teste
 ### Ocorrência 03: Erro de Acesso Negado ao Banco de Dados (Access Denied / HTTP 500)
 *   **Sintoma**: O ERPNext local retornava `HTTP 500` na API e os logs do backend mostravam `pymysql.err.OperationalError: (1045, "Access denied for user '_5e5899d8398b5f7b'...")`.
 *   **Causa**: O container de subida inicial (`create-site`) havia criado o site `frontend` com uma senha de banco de dados gerada aleatoriamente. Quando copiamos o arquivo de configuração de produção `site_config.json` (que contém a senha de produção antiga) e restauramos os dados, o usuário interno do MariaDB permaneceu associado à senha aleatória criada no primeiro boot, resultando em desalinhamento de credenciais.
-*   **Solução Aplicada**: Acessado o container de banco MariaDB (`nexterp-db-1`) e executada a alteração manual da senha do usuário do site para coincidir com o `site_config.json`: `ALTER USER '_5e5899d8398b5f7b'@'%' IDENTIFIED BY '4aeed6qdlEJYeyIN'; FLUSH PRIVILEGES;`.
+*   **Solução Aplicada**: Acessado o container de banco MariaDB (`nexterp-db-1`) e sincronizada a senha do usuário do site com o `site_config.json`, sem registrar a credencial em documentação ou histórico de comandos.
 *   **Lição Aprendida**: Em restaurações onde os contêineres realizam rotinas automáticas de criação de bancos antes de aplicar os dumps, certifique-se de forçar a sincronia da senha do banco de dados no MariaDB com o valor configurado no arquivo `site_config.json`.
 
 ### Ocorrência 04: Falha ao Criar Issues no GitHub Actions (`could not add label: 'x' not found`)

@@ -2,10 +2,27 @@
 # ==============================================================================
 # Script de Reinstalação e Limpeza Total do Ambiente Local (Docker + DB + Assets)
 # ==============================================================================
-set -e
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$PROJECT_ROOT/.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "Arquivo .env ausente. Copie .env.example e defina as credenciais locais."
+    exit 1
+fi
+set -a
+source "$ENV_FILE"
+set +a
+: "${DB_ROOT_PASSWORD:?Defina DB_ROOT_PASSWORD no arquivo .env}"
+: "${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}"
+: "${DB_NAME:?Defina DB_NAME no arquivo .env}"
+if [[ ! "$DB_PASSWORD" =~ ^[A-Za-z0-9._~!@#%^+=-]+$ ]]; then
+    echo "DB_PASSWORD contém caracteres não aceitos por este script de restauração."
+    exit 1
+fi
 
 echo "=== 1. Parando e removendo containers e volumes antigos... ==="
-cd /home/vier/Documentos/Code/CDC/NextERP
+cd "$PROJECT_ROOT"
 docker compose down -v --remove-orphans || true
 
 echo "=== 2. Subindo novos containers limpos... ==="
@@ -23,17 +40,17 @@ if [ -z "$DB_CONTAINER" ]; then
     exit 1
 fi
 
-DB_NAME="_5e5899d8398b5f7b"
-docker exec -i "$DB_CONTAINER" mysql -u root -p'admin' -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
-zcat /home/vier/Documentos/Code/CDC/NextERP/backups/gcp-prod-database.sql.gz | docker exec -i "$DB_CONTAINER" mysql -u root -p'admin' "$DB_NAME"
-docker exec -i "$DB_CONTAINER" mysql -u root -p'admin' -e "CREATE USER IF NOT EXISTS '$DB_NAME'@'%' IDENTIFIED BY 'admin'; GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_NAME'@'%'; FLUSH PRIVILEGES;"
+BACKUP_FILE="${GCP_DATABASE_BACKUP:-$PROJECT_ROOT/backups/gcp-prod-database.sql.gz}"
+docker exec -e MYSQL_PWD="$DB_ROOT_PASSWORD" -i "$DB_CONTAINER" mysql -u root -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
+zcat "$BACKUP_FILE" | docker exec -e MYSQL_PWD="$DB_ROOT_PASSWORD" -i "$DB_CONTAINER" mysql -u root "$DB_NAME"
+docker exec -e MYSQL_PWD="$DB_ROOT_PASSWORD" -i "$DB_CONTAINER" mysql -u root -e "CREATE USER IF NOT EXISTS '$DB_NAME'@'%' IDENTIFIED BY '$DB_PASSWORD'; GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_NAME'@'%'; FLUSH PRIVILEGES;"
 
 docker exec "$BACKEND_CONTAINER" bash -c "
 mkdir -p /home/frappe/frappe-bench/sites/frontend/logs
 cat << 'EOF' > /home/frappe/frappe-bench/sites/frontend/site_config.json
 {
- \"db_name\": \"_5e5899d8398b5f7b\",
- \"db_password\": \"admin\",
+ \"db_name\": \"$DB_NAME\",
+ \"db_password\": \"$DB_PASSWORD\",
  \"db_host\": \"db\"
 }
 EOF

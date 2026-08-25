@@ -285,7 +285,7 @@
                             <p>Pedidos de Produto aguardando conclusão, sem movimentação antecipada de estoque.</p>
                         </div>
                         <div class="cdc-pending-actions">
-                            <button class="btn btn-sm btn-primary" id="cdc-btn-pending-verify-now">🔄 Verificar Agora</button>
+                            <button class="btn btn-sm btn-primary" id="cdc-btn-pending-verify-now">🔄 Atualizar dados</button>
                             <div class="cdc-pending-last-sync"><small>Última sincronização: <strong>${escapeHTML(data.last_synced_at)}</strong></small></div>
                         </div>
                     </div>
@@ -321,86 +321,17 @@
 
                 bindDiagnosticActions(dashboard);
 
-                // HANDLER DO BOTÃO VERIFICAR AGORA COM TERMINAL AO VIVO
+                // Atualiza apenas o espelho persistido; a interface não simula execução externa.
                 var verifyNowBtn = document.getElementById('cdc-btn-pending-verify-now');
                 if (verifyNowBtn) {
                     verifyNowBtn.addEventListener('click', function() {
-                        var btn = this;
-                        btn.disabled = true;
-                        btn.innerHTML = '⏳ Executando Extrator...';
-
-                        var terminal = document.getElementById('cdc-live-terminal');
-                        if (!terminal) {
-                            terminal = document.createElement('div');
-                            terminal.id = 'cdc-live-terminal';
-                            terminal.className = 'cdc-terminal-box';
-                            var explainer = dashboard.querySelector('.cdc-pending-explainer');
-                            if (explainer) {
-                                dashboard.insertBefore(terminal, explainer);
-                            } else {
-                                dashboard.insertBefore(terminal, dashboard.children[1]);
-                            }
-                        }
-
-                        terminal.innerHTML = `
-                            <div class="cdc-terminal-header">
-                                <div class="cdc-terminal-dots">
-                                    <span class="cdc-terminal-dot red"></span>
-                                    <span class="cdc-terminal-dot yellow"></span>
-                                    <span class="cdc-terminal-dot green"></span>
-                                </div>
-                                <div class="cdc-terminal-title">CONSOLE DE EXECUÇÃO EM TEMPO REAL (CDC EXTRACTOR)</div>
-                                <div class="cdc-terminal-status" id="cdc-term-badge">⚡ EXECUTANDO</div>
-                            </div>
-                            <div class="cdc-terminal-body" id="cdc-term-body">
-                                <div class="cdc-terminal-line prompt">$ python3 extractor/5_sync_ongsys_pending.py --mode fast</div>
-                            </div>
-                        `;
-
-                        var steps = [
-                            { text: 'Conectando à API REST do ONGSYS (https://cdc.ongsys.com.br)...', type: 'info', delay: 300 },
-                            { text: 'Autenticado com sucesso. Consultando checkpoint de sincronização...', type: 'info', delay: 400 },
-                            { text: 'Varrendo páginas 25 a 27 da API de requisições de Produto...', type: 'info', delay: 500 },
-                            { text: '234 pedidos de Produto analisados na janela corrente.', type: 'info', delay: 400 },
-                            { text: 'Mapeando pendências ativas sem movimentação de estoque...', type: 'warning', delay: 500 },
-                            { text: '58 pedidos identificados como PENDENTES no espelho local.', type: 'success', delay: 400 },
-                            { text: 'Atualizando tabela tabCDC ONGSYS Pending Order no MariaDB...', type: 'info', delay: 400 },
-                            { text: 'Sincronização concluída com sucesso (Código 0 - OK).', type: 'success', delay: 300 }
-                        ];
-
-                        var body = document.getElementById('cdc-term-body');
-                        var stepIdx = 0;
-
-                        function stepRunner() {
-                            if (stepIdx < steps.length) {
-                                var s = steps[stepIdx];
-                                var line = document.createElement('div');
-                                line.className = 'cdc-terminal-line ' + s.type;
-                                line.innerHTML = `<span class="cdc-term-timestamp">[${new Date().toLocaleTimeString()}]</span> ${s.text}`;
-                                if (body) {
-                                    body.appendChild(line);
-                                    body.scrollTop = body.scrollHeight;
-                                }
-                                stepIdx++;
-                                setTimeout(stepRunner, s.delay);
-                            } else {
-                                var badge = document.getElementById('cdc-term-badge');
-                                if (badge) {
-                                    badge.className = 'cdc-terminal-status is-done';
-                                    badge.textContent = '✅ CONCLUÍDO';
-                                }
-                                setTimeout(function() {
-                                    delete dashboard.dataset.loaded;
-                                    loading = false;
-                                    render();
-                                    frappe.show_alert({
-                                        message: __('✅ Verificação em tempo real concluída! 58 pendências atualizadas.'),
-                                        indicator: 'green'
-                                    }, 5);
-                                }, 1200);
-                            }
-                        }
-                        stepRunner();
+                        delete dashboard.dataset.loaded;
+                        loading = false;
+                        render();
+                        frappe.show_alert({
+                            message: __('Dados locais atualizados. A execução do extrator é acompanhada pelo checkpoint real.'),
+                            indicator: 'blue'
+                        }, 4);
                     });
                 }
                 if (typeof window._cdc_setup_sortable_table === 'function') {
