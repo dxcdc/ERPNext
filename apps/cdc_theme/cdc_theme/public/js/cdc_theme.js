@@ -2805,9 +2805,6 @@
             body.insertBefore(dashboard, body.firstChild);
         }
         body.classList.add('cdc-custom-item-group-active');
-        if (body.parentNode && body.parentNode.classList) {
-            body.parentNode.classList.add('cdc-custom-item-group-active');
-        }
         if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-item-group-wrapper')) return;
         if (itemGroupLoading) return;
         itemGroupLoading = true;
@@ -3036,11 +3033,11 @@
 
     function init() {
         render();
-        if (isItemGroupRoute()) renderItemGroup();
+        renderItemGroup();
         if (observer) observer.disconnect();
         observer = new MutationObserver(function() {
             if (isMonitoringRoute()) render();
-            if (isItemGroupRoute()) renderItemGroup();
+            renderItemGroup();
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -3049,7 +3046,7 @@
                 routeGeneration++;
                 loading = false;
                 if (isMonitoringRoute()) render();
-                if (isItemGroupRoute()) renderItemGroup();
+                renderItemGroup();
             });
         }
     }
