@@ -58,6 +58,22 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("CDC ONGSYS Sync State", body)
         self.assertIn("_require_system_manager", body)
 
+    def test_monitoring_exposes_eight_honest_quality_gates(self):
+        api_source = API_PY.read_text()
+        theme_source = THEME_JS.read_text()
+        expected_ids = (
+            "item-group-route", "item-group-native-list", "real-telemetry",
+            "ongsys-integrity", "warehouse-rbac", "security-ci",
+            "automated-tests", "production-validation",
+        )
+        for gate_id in expected_ids:
+            with self.subTest(gate_id=gate_id):
+                self.assertEqual(api_source.count(f'"{gate_id}"'), 1)
+        self.assertIn('"ready_to_publish"', api_source)
+        self.assertIn("tab-validacoes", theme_source)
+        self.assertIn("Executar testes novamente", theme_source)
+        self.assertNotIn("Todos os testes foram aprovados", theme_source)
+
 
 if __name__ == "__main__":
     unittest.main()

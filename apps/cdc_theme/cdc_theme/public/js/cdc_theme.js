@@ -2249,6 +2249,23 @@
                 var tabJob = data.tab_job || {};
                 var tabPerfis = data.tab_perfis || {};
                 var tabAvisos = data.tab_avisos || {};
+                var validationSuite = data.validation_suite || { summary: {}, checks: [] };
+                var validationSummary = validationSuite.summary || {};
+                var validationStatusLabels = {
+                    passed: 'Aprovado', warning: 'Atenção', blocked: 'Bloqueado'
+                };
+                var validationChecksHTML = (validationSuite.checks || []).map(function(check) {
+                    var status = ['passed', 'warning', 'blocked'].indexOf(check.status) !== -1 ? check.status : 'warning';
+                    return `
+                        <article class="cdc-quality-gate is-${status}" data-quality-gate="${escapeHTML(check.id)}">
+                            <div class="cdc-quality-gate-status">${status === 'passed' ? '✓' : (status === 'blocked' ? '×' : '!')}</div>
+                            <div class="cdc-quality-gate-copy">
+                                <h3>${escapeHTML(check.title)}</h3>
+                                <p>${escapeHTML(check.evidence)}</p>
+                            </div>
+                            <span class="cdc-quality-gate-badge">${validationStatusLabels[status]}</span>
+                        </article>`;
+                }).join('');
 
                 var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Monitoramento', 'Central de Exceções & Ferramentas') : '';
 
@@ -2287,6 +2304,9 @@
                             <button type="button" class="cdc-control-card" data-tab="tab-avisos">
                                 <span class="cdc-control-card-icon">🔔</span><span><strong>Avisos</strong><small>Mattermost e antiduplicidade</small></span>
                             </button>
+                            <button type="button" class="cdc-control-card ${validationSummary.ready_to_publish ? 'is-success' : 'is-warning'}" data-tab="tab-validacoes">
+                                <span class="cdc-control-card-icon">🧪</span><span><strong>Validações</strong><small>${validationSummary.passed || 0} de ${validationSummary.total || 8} gates aprovados</small></span>
+                            </button>
                         </div>
 
                         <div class="cdc-monitoring-header">
@@ -2316,6 +2336,9 @@
                             </li>
                             <li class="${activeTab === 'tab-avisos' ? 'is-active' : ''}" data-tab="tab-avisos">
                                 <span class="cdc-tab-icon">🔔</span> 6. Avisos & Trava
+                            </li>
+                            <li class="${activeTab === 'tab-validacoes' ? 'is-active' : ''}" data-tab="tab-validacoes">
+                                <span class="cdc-tab-icon">🧪</span> 7. Validações
                             </li>
                         </ul>
 
@@ -2623,6 +2646,29 @@
                                         <button class="btn btn-xs btn-default cdc-btn-refresh-live">🛡️ Atualizar auditoria</button>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- GUIA 7: GATES DE QUALIDADE -->
+                        <div class="cdc-tab-pane ${activeTab === 'tab-validacoes' ? 'is-active' : ''}" id="tab-validacoes">
+                            <section class="cdc-quality-summary ${validationSummary.ready_to_publish ? 'is-ready' : 'is-blocked'}">
+                                <div>
+                                    <span class="cdc-quality-eyebrow">Gate de publicação</span>
+                                    <h2>${validationSummary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</h2>
+                                    <p>Última execução: ${escapeHTML(validationSuite.checked_at || 'não informada')}</p>
+                                </div>
+                                <div class="cdc-quality-summary-metrics">
+                                    <span class="is-passed"><strong>${validationSummary.passed || 0}</strong>Aprovados</span>
+                                    <span class="is-warning"><strong>${validationSummary.warnings || 0}</strong>Atenções</span>
+                                    <span class="is-blocked"><strong>${validationSummary.blocked || 0}</strong>Bloqueios</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary cdc-btn-refresh-live">Executar testes novamente</button>
+                            </section>
+                            <div class="cdc-quality-gates" aria-label="Gates de qualidade para publicação">
+                                ${validationChecksHTML || '<div class="cdc-monitoring-state">Nenhum gate retornado pelo servidor.</div>'}
+                            </div>
+                            <div class="cdc-quality-note">
+                                <strong>Critério de liberação:</strong> publicar somente quando não houver bloqueios nem atenções e repetir a validação autenticada no domínio de produção.
                             </div>
                         </div>
                     </div>

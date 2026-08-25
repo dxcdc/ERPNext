@@ -1226,6 +1226,128 @@ def diagnostico_mattermost():
     }
 
 
+def _monitoring_quality_gate(gate_id, title, status, evidence):
+    return {"id": gate_id, "title": title, "status": status, "evidence": evidence}
+
+
+def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
+    """Executa gates somente leitura; estados não verificáveis nunca viram aprovação."""
+    asset_paths = {
+        "theme": frappe.get_app_path("cdc_theme", "public", "js", "cdc_theme.js"),
+        "pending": frappe.get_app_path("cdc_theme", "public", "js", "cdc_pending.js"),
+        "api": __file__,
+    }
+    sources = {}
+    for name, path in asset_paths.items():
+        try:
+            with open(path, encoding="utf-8") as source_file:
+                sources[name] = source_file.read()
+        except OSError:
+            sources[name] = ""
+
+    theme_source = sources["theme"]
+    pending_source = sources["pending"]
+    route_start = theme_source.find("function isItemGroupRoute()")
+    route_end = theme_source.find("function removeItemGroupDashboard()", route_start)
+    route_source = theme_source[route_start:route_end] if route_start >= 0 and route_end > route_start else ""
+    render_end = theme_source.find("function init()", route_start)
+    render_source = theme_source[route_start:render_end] if route_start >= 0 and render_end > route_start else ""
+
+    exact_route = (
+        "routeType === 'list' && routeDoctype === 'item-group'" in route_source
+        and "window.location.href" not in route_source
+        and "window.location.hash" not in route_source
+    )
+    native_list_preserved = (
+        "currentBody.insertBefore(dashboard, currentListBody)" in render_source
+        and "cdc-custom-item-group-active" not in render_source
+        and "document.body" not in render_source
+    )
+    fake_markers = (
+        "58 pendências atualizadas",
+        "Sincronização concluída com sucesso (Código 0",
+        "234 pedidos de Produto analisados",
+    )
+    telemetry_is_real = (
+        all(marker not in pending_source and marker not in theme_source for marker in fake_markers)
+        and "cdc-btn-refresh-live" in theme_source
+    )
+    source_has_role_guard = "_require_stock_dashboard_access()" in sources["api"]
+    source_has_warehouse_scope = callable(globals().get("_warehouse_permission_sql"))
+
+    ongsys_status = "passed" if unique_index and not duplicates and not sync_stale else "warning"
+    ongsys_evidence = (
+        f"Índice único: {'ativo' if unique_index else 'ausente'}; "
+        f"duplicidades: {int(duplicates)}; checkpoint: "
+        f"{'desatualizado' if sync_stale else 'recente'}. "
+        "A normalização é validada pela suíte automatizada do repositório."
+    )
+    site_url = (frappe.utils.get_url() or "").lower()
+    authenticated_production = (
+        "stok.cdc.org.br" in site_url
+        and frappe.session.user != "Guest"
+        and "System Manager" in frappe.get_roles(frappe.session.user)
+    )
+
+    checks = [
+        _monitoring_quality_gate(
+            "item-group-route", "1. Rota exata de Item Group",
+            "passed" if exact_route else "blocked",
+            "Detecção limitada à lista Item Group e ao pathname oficial."
+            if exact_route else "A assinatura exata da rota não foi encontrada no asset instalado.",
+        ),
+        _monitoring_quality_gate(
+            "item-group-native-list", "2. Lista nativa e cards superiores",
+            "passed" if native_list_preserved else "blocked",
+            "Dashboard montado antes da lista oficial, sem ocultar o conteúdo nativo."
+            if native_list_preserved else "A montagem segura acima da lista não pôde ser confirmada.",
+        ),
+        _monitoring_quality_gate(
+            "real-telemetry", "3. Telemetria e botões reais",
+            "passed" if telemetry_is_real else "blocked",
+            "Sem mensagens simuladas; os botões atualizam medições persistidas."
+            if telemetry_is_real else "Foram encontrados marcadores de simulação ou ausência de atualização real.",
+        ),
+        _monitoring_quality_gate(
+            "ongsys-integrity", "4. Normalização, job e idempotência ONGSYS",
+            ongsys_status, ongsys_evidence,
+        ),
+        _monitoring_quality_gate(
+            "warehouse-rbac", "5. RBAC por armazém nas consultas",
+            "passed" if source_has_role_guard and source_has_warehouse_scope else "blocked",
+            "Papel e User Permission de Warehouse aplicados aos SQL agregados."
+            if source_has_role_guard and source_has_warehouse_scope
+            else "O papel está protegido, mas o escopo por User Permission de Warehouse ainda exige implementação.",
+        ),
+        _monitoring_quality_gate(
+            "security-ci", "6. Segredos, backups e workflow de PR", "warning",
+            "O ERP não acessa o host e o repositório completos. Confirmação obrigatória pela CI e auditoria do servidor.",
+        ),
+        _monitoring_quality_gate(
+            "automated-tests", "7. Rotas, permissões e integrações", "warning",
+            "Testes do repositório não são executados pelo processo web. Consulte o resultado da CI antes de publicar.",
+        ),
+        _monitoring_quality_gate(
+            "production-validation", "8. Publicação e validação autenticada",
+            "passed" if authenticated_production else "blocked",
+            "Painel atual executado autenticado no domínio de produção."
+            if authenticated_production else "Somente aprovar após deploy e acesso autenticado em stok.cdc.org.br.",
+        ),
+    ]
+    summary = {
+        "total": len(checks),
+        "passed": sum(check["status"] == "passed" for check in checks),
+        "warnings": sum(check["status"] == "warning" for check in checks),
+        "blocked": sum(check["status"] == "blocked" for check in checks),
+    }
+    summary["ready_to_publish"] = summary["blocked"] == 0 and summary["warnings"] == 0
+    return {
+        "summary": summary,
+        "checks": checks,
+        "checked_at": frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy HH:mm:ss"),
+    }
+
+
 
 @frappe.whitelist()
 def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="All"):
@@ -1341,6 +1463,11 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
         "exit_code": "—",
         "status": "Checkpoint desatualizado" if sync_stale else "Checkpoint recente",
     }]
+    validation_suite = _build_monitoring_quality_gates(
+        sync_stale=sync_stale,
+        duplicates=duplicates,
+        unique_index=bool(unique_index),
+    )
 
     return {
         "summary": {
@@ -1426,6 +1553,7 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
             },
             "configs": active_webhooks,
         },
+        "validation_suite": validation_suite,
         "filters": {
             "selected_project": selected_project,
             "selected_warehouse": selected_warehouse,
