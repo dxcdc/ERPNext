@@ -70,6 +70,8 @@
             {label: 'Integrações', href: '/app/cdc-integrações'},
             {label: 'Pendências', href: '/app/cdc-pendências'},
             {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
+            {label: 'Testes', href: '/app/cdc-testes'},
+            {label: 'Grupos', href: '/app/cdc-grupos'},
             {label: 'Admin', href: '/app/cdc-admin'}
         ];
         var current = sections.find(function(item) { return item.label === section; });
@@ -1838,9 +1840,9 @@
         }
     });
 
-    // SANITIZAÇÃO DINÂMICA DA SIDEBAR: Exibe estritamente Estoque, Usuários e Integrações
+    // SANITIZAÇÃO DINÂMICA DA SIDEBAR: mantém somente as áreas CDC aprovadas
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc admin'];
+        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc grupos', 'cdc admin'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -1850,9 +1852,10 @@
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
-                /^\/app\/cdc-(estoque|usuarios|integracoes|pendencias|monitoramento|admin)(\/|$)/.test(href);
-            var isAdminWorkspace = primaryLabel === 'cdc admin' || /^\/app\/cdc-admin(\/|$)/.test(href);
-            if (isAdminWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
+                /^\/app\/cdc-(estoque|usuarios|integracoes|pendencias|monitoramento|testes|grupos|admin)(\/|$)/.test(href);
+            var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
+                /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
+            if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
                 isAllowed = false;
             }
             el.classList.toggle('cdc-workspace-hidden', labelText && !isAllowed);
@@ -1939,10 +1942,12 @@
             'cdc usuarios',
             'cdc integracoes',
             'cdc pendencias',
-            'cdc monitoramento'
+            'cdc monitoramento',
+            'cdc grupos'
         ];
 
         if (window.frappe && Array.isArray(frappe.user_roles) && frappe.user_roles.indexOf('System Manager') !== -1) {
+            requiredTokens.push('cdc testes');
             requiredTokens.push('cdc admin');
         }
 
@@ -2243,29 +2248,15 @@
                 }
 
                 var activeTab = sessionStorage.getItem('cdc_monitoring_active_tab') || 'tab-pendencias';
+                if (['tab-pendencias', 'tab-armazem', 'tab-entradas', 'tab-job', 'tab-perfis', 'tab-avisos'].indexOf(activeTab) === -1) {
+                    activeTab = 'tab-pendencias';
+                }
                 var tabPendencias = data.tab_pendencias || {};
                 var tabWarehouses = data.tab_warehouses || {};
                 var tabEntradas = data.tab_entradas || {};
                 var tabJob = data.tab_job || {};
                 var tabPerfis = data.tab_perfis || {};
                 var tabAvisos = data.tab_avisos || {};
-                var validationSuite = data.validation_suite || { summary: {}, checks: [] };
-                var validationSummary = validationSuite.summary || {};
-                var validationStatusLabels = {
-                    passed: 'Aprovado', warning: 'Atenção', blocked: 'Bloqueado'
-                };
-                var validationChecksHTML = (validationSuite.checks || []).map(function(check) {
-                    var status = ['passed', 'warning', 'blocked'].indexOf(check.status) !== -1 ? check.status : 'warning';
-                    return `
-                        <article class="cdc-quality-gate is-${status}" data-quality-gate="${escapeHTML(check.id)}">
-                            <div class="cdc-quality-gate-status">${status === 'passed' ? '✓' : (status === 'blocked' ? '×' : '!')}</div>
-                            <div class="cdc-quality-gate-copy">
-                                <h3>${escapeHTML(check.title)}</h3>
-                                <p>${escapeHTML(check.evidence)}</p>
-                            </div>
-                            <span class="cdc-quality-gate-badge">${validationStatusLabels[status]}</span>
-                        </article>`;
-                }).join('');
 
                 var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Monitoramento', 'Central de Exceções & Ferramentas') : '';
 
@@ -2304,9 +2295,6 @@
                             <button type="button" class="cdc-control-card" data-tab="tab-avisos">
                                 <span class="cdc-control-card-icon">🔔</span><span><strong>Avisos</strong><small>Mattermost e antiduplicidade</small></span>
                             </button>
-                            <button type="button" class="cdc-control-card ${validationSummary.ready_to_publish ? 'is-success' : 'is-warning'}" data-tab="tab-validacoes">
-                                <span class="cdc-control-card-icon">🧪</span><span><strong>Validações</strong><small>${validationSummary.passed || 0} de ${validationSummary.total || 8} gates aprovados</small></span>
-                            </button>
                         </div>
 
                         <div class="cdc-monitoring-header">
@@ -2336,9 +2324,6 @@
                             </li>
                             <li class="${activeTab === 'tab-avisos' ? 'is-active' : ''}" data-tab="tab-avisos">
                                 <span class="cdc-tab-icon">🔔</span> 6. Avisos & Trava
-                            </li>
-                            <li class="${activeTab === 'tab-validacoes' ? 'is-active' : ''}" data-tab="tab-validacoes">
-                                <span class="cdc-tab-icon">🧪</span> 7. Validações
                             </li>
                         </ul>
 
@@ -2649,28 +2634,6 @@
                             </div>
                         </div>
 
-                        <!-- GUIA 7: GATES DE QUALIDADE -->
-                        <div class="cdc-tab-pane ${activeTab === 'tab-validacoes' ? 'is-active' : ''}" id="tab-validacoes">
-                            <section class="cdc-quality-summary ${validationSummary.ready_to_publish ? 'is-ready' : 'is-blocked'}">
-                                <div>
-                                    <span class="cdc-quality-eyebrow">Gate de publicação</span>
-                                    <h2>${validationSummary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</h2>
-                                    <p>Última execução: ${escapeHTML(validationSuite.checked_at || 'não informada')}</p>
-                                </div>
-                                <div class="cdc-quality-summary-metrics">
-                                    <span class="is-passed"><strong>${validationSummary.passed || 0}</strong>Aprovados</span>
-                                    <span class="is-warning"><strong>${validationSummary.warnings || 0}</strong>Atenções</span>
-                                    <span class="is-blocked"><strong>${validationSummary.blocked || 0}</strong>Bloqueios</span>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-primary cdc-btn-refresh-live">Executar testes novamente</button>
-                            </section>
-                            <div class="cdc-quality-gates" aria-label="Gates de qualidade para publicação">
-                                ${validationChecksHTML || '<div class="cdc-monitoring-state">Nenhum gate retornado pelo servidor.</div>'}
-                            </div>
-                            <div class="cdc-quality-note">
-                                <strong>Critério de liberação:</strong> publicar somente quando não houver bloqueios nem atenções e repetir a validação autenticada no domínio de produção.
-                            </div>
-                        </div>
                     </div>
                     ${getDiagnosticPanelHTML('API REST conectada com sucesso (HTTP 200)', false)}
                 `;

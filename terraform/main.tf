@@ -128,7 +128,7 @@ resource "null_resource" "workspace_sanitization" {
 
   triggers = {
     database_backup_hash = filesha256("../${var.gcp_backup_path}")
-    workspace_schema     = "20260801-production-shortcuts-v2"
+    workspace_schema     = "20260825-cdc-tests-groups-v3"
   }
 
   provisioner "local-exec" {
@@ -136,7 +136,7 @@ resource "null_resource" "workspace_sanitization" {
       echo "🗺️ Garantindo as Workspaces e Tabelas-Filhas do CDC..."
       docker exec -i nexterp-db-1 mysql -u root -p'${var.db_password}' "${var.db_name}" -e "
         DELETE FROM tabWorkspace WHERE name IN ('cdc-estoque', 'cdc-usuarios', 'cdc-integracoes', 'cdc-integrações', 'CDC Usuários dup');
-        DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Admin');
+        DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Grupos', 'CDC Admin');
 
         INSERT INTO tabWorkspace (name, creation, modified, modified_by, owner, docstatus, idx, label, title, sequence_id, module, icon, public, is_hidden, content) VALUES
         ('CDC Estoque', NOW(), NOW(), 'Administrator', 'Administrator', 0, 1, 'CDC Estoque', 'CDC Estoque', 1.0, 'Stock', 'stock', 1, 0, '[]'),
@@ -144,13 +144,17 @@ resource "null_resource" "workspace_sanitization" {
         ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Integrações', 'CDC Integrações', 3.0, 'Integrations', 'share-2', 1, 0, '[{\"id\":\"NPK_AfSLQ2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"lDOo58F7ZI\",\"type\":\"card\",\"data\":{\"card_name\":\"Backup\",\"col\":4}},{\"id\":\"ij1pcK8jst\",\"type\":\"card\",\"data\":{\"card_name\":\"Google Services\",\"col\":4}},{\"id\":\"aTlMujEHpN\",\"type\":\"card\",\"data\":{\"card_name\":\"Authentication\",\"col\":4}},{\"id\":\"gY5NXKtXss\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"n_CI3GGqW-\",\"type\":\"card\",\"data\":{\"card_name\":\"Push Notifications\",\"col\":4}}]'),
         ('CDC Pendências', NOW(), NOW(), 'Administrator', 'Administrator', 0, 4, 'CDC Pendências', 'CDC Pendências', 4.0, 'Core', 'list-checks', 1, 0, '[{\"id\":\"cdc-pendencias-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Pendências</b></span>\",\"col\":12}},{\"id\":\"cdc-pendencias-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}}]'),
         ('CDC Monitoramento', NOW(), NOW(), 'Administrator', 'Administrator', 0, 5, 'CDC Monitoramento', 'CDC Monitoramento', 5.0, 'Core', 'dashboard', 1, 0, '[{\"id\":\"cdc-monitoring-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Monitoramento</b></span>\",\"col\":12}}]'),
-        ('CDC Admin', NOW(), NOW(), 'Administrator', 'Administrator', 0, 6, 'CDC Admin', 'CDC Admin', 6.0, 'Core', 'tool', 1, 0, '[]');
+        ('CDC Testes', NOW(), NOW(), 'Administrator', 'Administrator', 0, 6, 'CDC Testes', 'CDC Testes', 6.0, 'Core', 'check-square', 1, 0, '[]'),
+        ('CDC Grupos', NOW(), NOW(), 'Administrator', 'Administrator', 0, 7, 'CDC Grupos', 'CDC Grupos', 7.0, 'Core', 'folder', 1, 0, '[]'),
+        ('CDC Admin', NOW(), NOW(), 'Administrator', 'Administrator', 0, 8, 'CDC Admin', 'CDC Admin', 8.0, 'Core', 'tool', 1, 0, '[]');
 
-        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Admin');
-        UPDATE tabWorkspace SET is_hidden = 0 WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Admin');
+        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Grupos', 'CDC Admin');
+        UPDATE tabWorkspace SET is_hidden = 0 WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Grupos', 'CDC Admin');
         UPDATE tabWorkspace SET icon = 'integration' WHERE name = 'CDC Integrações';
         UPDATE tabWorkspace SET icon = 'list-alt' WHERE name = 'CDC Pendências';
         UPDATE tabWorkspace SET icon = 'dashboard' WHERE name = 'CDC Monitoramento';
+        UPDATE tabWorkspace SET icon = 'check-square' WHERE name = 'CDC Testes';
+        UPDATE tabWorkspace SET icon = 'folder' WHERE name = 'CDC Grupos';
         UPDATE tabWorkspace SET icon = 'tool' WHERE name = 'CDC Admin';
         UPDATE tabWorkspace SET content = '[]' WHERE name = 'CDC Estoque';
 
@@ -165,7 +169,6 @@ resource "null_resource" "workspace_sanitization" {
 
         UPDATE \`tabWorkspace Link\` SET parent = 'CDC Integrações' WHERE parent = 'Integrations';
 
-        UPDATE tabUser SET desk_theme = 'Light';
       "
       docker exec nexterp-backend-1 bench --site ${var.site_name} clear-cache
     EOT

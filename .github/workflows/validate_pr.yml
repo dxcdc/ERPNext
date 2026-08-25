@@ -31,6 +31,8 @@ jobs:
         run: |
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_theme.js
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_pending.js
+          node --check apps/cdc_theme/cdc_theme/public/js/cdc_tests.js
+          node --check apps/cdc_theme/cdc_theme/public/js/cdc_groups.js
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_admin.js
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_users.js
 

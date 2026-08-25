@@ -7,15 +7,17 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260825_quality_v9"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260825_pages_v12"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260825_quality_v9",
-    "/assets/cdc_theme/js/cdc_pending.js?v=20260825_quality_v9",
-    "/assets/cdc_theme/js/cdc_admin.js?v=20260825_quality_v9",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260825_pages_v12",
+    "/assets/cdc_theme/js/cdc_pending.js?v=20260825_pages_v12",
+    "/assets/cdc_theme/js/cdc_tests.js?v=20260825_pages_v12",
+    "/assets/cdc_theme/js/cdc_groups.js?v=20260825_pages_v12",
+    "/assets/cdc_theme/js/cdc_admin.js?v=20260825_pages_v12",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260825_quality_v9"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260825_quality_v9"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260825_pages_v12"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260825_pages_v12"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"

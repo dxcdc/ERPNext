@@ -6,10 +6,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 THEME_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_theme.js"
 PENDING_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_pending.js"
+TESTS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_tests.js"
+GROUPS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_groups.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
 TERRAFORM_VARIABLES = ROOT / "terraform/variables.tf"
 TERRAFORM_TELEMETRY = ROOT / "terraform/telemetry.tf"
+TERRAFORM_MAIN = ROOT / "terraform/main.tf"
 TROUBLESHOOTING_DOC = ROOT / "docs/troubleshooting.md"
 
 
@@ -38,6 +41,7 @@ class StaticSafetyTest(unittest.TestCase):
         source = THEME_JS.read_text()
         self.assertNotIn("sessionStorage.clear()", source)
         self.assertNotIn("frappe.boot.user.desk_theme = 'Light'", source)
+        self.assertNotIn("UPDATE tabUser SET desk_theme", TERRAFORM_MAIN.read_text())
 
     def test_infrastructure_has_no_default_admin_password(self):
         self.assertNotIn("MYSQL_ROOT_PASSWORD: admin", COMPOSE_YML.read_text())
@@ -58,9 +62,10 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("CDC ONGSYS Sync State", body)
         self.assertIn("_require_system_manager", body)
 
-    def test_monitoring_exposes_eight_honest_quality_gates(self):
+    def test_cdc_tests_page_exposes_eight_honest_quality_gates(self):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
+        tests_source = TESTS_JS.read_text()
         expected_ids = (
             "item-group-route", "item-group-native-list", "real-telemetry",
             "ongsys-integrity", "warehouse-rbac", "security-ci",
@@ -70,9 +75,27 @@ class StaticSafetyTest(unittest.TestCase):
             with self.subTest(gate_id=gate_id):
                 self.assertEqual(api_source.count(f'"{gate_id}"'), 1)
         self.assertIn('"ready_to_publish"', api_source)
-        self.assertIn("tab-validacoes", theme_source)
-        self.assertIn("Executar testes novamente", theme_source)
-        self.assertNotIn("Todos os testes foram aprovados", theme_source)
+        self.assertIn("get_cdc_tests_dashboard", api_source)
+        self.assertNotIn("tab-validacoes", theme_source)
+        self.assertIn("Executar testes novamente", tests_source)
+        self.assertNotIn("Todos os testes foram aprovados", tests_source)
+
+    def test_cdc_groups_is_only_a_shortcut_to_native_item_group(self):
+        source = GROUPS_JS.read_text()
+        self.assertIn("frappe.set_route('List', 'Item Group', 'List')", source)
+        self.assertNotIn("get_item_group_dashboard_data", source)
+        self.assertNotIn("frappe.db", source)
+
+    def test_new_workspaces_are_preserved_in_backend_sidebar_and_terraform(self):
+        api_source = API_PY.read_text()
+        theme_source = THEME_JS.read_text()
+        terraform_source = TERRAFORM_MAIN.read_text()
+        for workspace in ("CDC Testes", "CDC Grupos"):
+            with self.subTest(workspace=workspace):
+                self.assertIn(workspace, api_source)
+                self.assertIn(workspace, terraform_source)
+        self.assertIn("'cdc testes'", theme_source)
+        self.assertIn("'cdc grupos'", theme_source)
 
 
 if __name__ == "__main__":

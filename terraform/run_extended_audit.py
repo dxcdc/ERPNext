@@ -108,7 +108,8 @@ def main():
           (SELECT COUNT(*) FROM `tabStock Entry` se WHERE docstatus=1 AND NOT EXISTS
             (SELECT 1 FROM `tabStock Entry Detail` d WHERE d.parent=se.name)),
           (SELECT COUNT(*) FROM `tabCDC ONGSYS Pending Order` WHERE active=1 AND
-            (order_type<>'Produto' OR status='Ordem finalizada' OR LOWER(status) LIKE '%cancel%'));
+            (LOWER(TRIM(order_type)) NOT IN ('produto', 'pedido de produto')
+             OR status='Ordem finalizada' OR LOWER(status) LIKE '%cancel%'));
     """
     integrity = [int(value) for value in db(args.database, args.password, integrity_sql).split("\t")]
     if any(integrity):
