@@ -1760,3 +1760,23 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     white-space: pre-wrap;
     word-break: break-all;
 }
+
+/* CDC ITEM GROUP DASHBOARD ---------------------------------------------- */
+.cdc-custom-item-group-active > :not(#cdc-item-group-dashboard) {
+    display: none !important;
+}
+
+#cdc-item-group-dashboard {
+    color: var(--text-color);
+    animation: cdcFadeIn .25s ease-out;
+}
+
+.cdc-item-group-wrapper {
+    padding: 1rem 0;
+}
+
+.cdc-group-icon {
+    font-size: 1.2rem;
+    margin-right: 6px;
+    vertical-align: middle;
+}

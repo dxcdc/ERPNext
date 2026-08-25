@@ -1364,3 +1364,124 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
             "selected_warehouse": selected_warehouse
         }
     }
+
+
+@frappe.whitelist()
+def get_item_group_dashboard_data(selected_project='All', selected_warehouse='All', period='quarter'):
+    """
+    Retorna os dados consolidados do catálogo e grupos de itens para a rota /app/item-group.
+    Calcula quantidade de grupos, total de produtos, valor em estoque (R$) e itens por categoria.
+    """
+    # 1. Lista de grupos de itens
+    raw_groups = frappe.db.sql("""
+        SELECT 
+            ig.name, 
+            ig.parent_item_group, 
+            ig.is_group,
+            COUNT(i.name) AS items_count
+        FROM `tabItem Group` ig
+        LEFT JOIN `tabItem` i ON i.item_group = ig.name
+        GROUP BY ig.name
+        ORDER BY items_count DESC, ig.name ASC
+    """, as_dict=True)
+
+    # 2. Saldos de estoque por grupo a partir da tabBin
+    bin_values = frappe.db.sql("""
+        SELECT 
+            i.item_group,
+            SUM(b.actual_qty) AS total_qty,
+            SUM(b.stock_value) AS total_value
+        FROM `tabBin` b
+        JOIN `tabItem` i ON b.item_code = i.name
+        GROUP BY i.item_group
+    """, as_dict=True)
+
+    bin_map = {row['item_group']: row for row in bin_values}
+
+    # 图标 e Mapeamento de categorias populares
+    icon_map = {
+        "Alimentos": "🍚",
+        "Material Pedagógico": "📚",
+        "Higiene e Limpeza": "🧹",
+        "Equipamentos de TI": "🖥️",
+        "Eletrodomésticos": "🔌",
+        "Mobiliário": "🪑",
+        "Vestuário": "👕",
+        "Medicamentos": "💊",
+        "Expediente": "📦",
+        "Todos os Grupos": "🏷️",
+        "Produtos": "📦",
+        "Serviços": "🛠️"
+    }
+
+    groups_list = []
+    total_items = 0
+    total_stock_value = 0.0
+    total_stock_qty = 0.0
+    critical_groups_count = 0
+
+    for g in raw_groups:
+        g_name = g['name']
+        b_data = bin_map.get(g_name, {})
+        items_cnt = g['items_count'] or 0
+        s_qty = float(b_data.get('total_qty') or 0.0)
+        s_val = float(b_data.get('total_value') or 0.0)
+
+        total_items += items_cnt
+        total_stock_value += s_val
+        total_stock_qty += s_qty
+
+        if items_cnt > 0 and s_qty == 0:
+            status = "Sem Estoque"
+            critical_groups_count += 1
+        elif items_cnt > 0 and s_qty < 10:
+            status = "Estoque Baixo"
+        else:
+            status = "Ativo"
+
+        icon = icon_map.get(g_name, "📁")
+
+        groups_list.append({
+            "name": g_name,
+            "parent_item_group": g['parent_item_group'] or "—",
+            "is_group": "Sim" if g['is_group'] else "Não",
+            "items_count": items_cnt,
+            "stock_qty": round(s_qty, 2),
+            "stock_value": round(s_val, 2),
+            "formatted_value": f"R$ {s_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            "status": status,
+            "icon": icon
+        })
+
+    # Top grupos por valor
+    top_groups = sorted(groups_list, key=lambda x: x['stock_value'], reverse=True)[:5]
+
+    # Projetos e Armazéns para filtro
+    projects_list = [
+        {"value": "Projeto Atitude II.I", "label": "Projeto Atitude II.I"},
+        {"value": "Institucional / Geral", "label": "Institucional / Geral"},
+        {"value": "Projeto Atitude", "label": "Projeto Atitude"},
+        {"value": "Projeto Bem Viver", "label": "Projeto Bem Viver"},
+        {"value": "Projeto Cais", "label": "Projeto Cais"},
+        {"value": "Projeto ATM", "label": "Projeto ATM"}
+    ]
+
+    return {
+        "summary": {
+            "total_groups": len(groups_list),
+            "total_items": total_items,
+            "total_stock_value": round(total_stock_value, 2),
+            "formatted_total_value": f"R$ {total_stock_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            "total_stock_qty": round(total_stock_qty, 2),
+            "critical_groups_count": critical_groups_count
+        },
+        "groups": groups_list,
+        "top_groups": top_groups,
+        "filters": {
+            "projects": projects_list,
+            "selected_project": selected_project,
+            "selected_warehouse": selected_warehouse,
+            "period": period
+        }
+    }
+

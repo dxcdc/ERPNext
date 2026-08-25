@@ -2744,11 +2744,287 @@
         });
     }
 
+    function isItemGroupRoute() {
+        var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
+        if (route && route.length) {
+            var parts = route.map(normalizeRoute);
+            return parts.some(function(part) {
+                return part === 'item-group' || part === 'item-groups' || part === 'grupos-de-itens';
+            });
+        }
+        var path = normalizeRoute(window.location.pathname);
+        return path.indexOf('/app/item-group') !== -1 || path.indexOf('/app/item-groups') !== -1;
+    }
+
+    function removeItemGroupDashboard() {
+        var dashboard = document.getElementById('cdc-item-group-dashboard');
+        if (dashboard) {
+            if (dashboard.parentNode) dashboard.parentNode.classList.remove('cdc-custom-item-group-active');
+            dashboard.remove();
+        }
+        document.querySelectorAll('.cdc-custom-item-group-active').forEach(function(element) {
+            element.classList.remove('cdc-custom-item-group-active');
+        });
+    }
+
+    var itemGroupLoading = false;
+    var selectedItemGroupProject = sessionStorage.getItem('cdc_ig_project') || 'All';
+    var selectedItemGroupWarehouse = sessionStorage.getItem('cdc_ig_warehouse') || 'All';
+    var selectedItemGroupPeriod = sessionStorage.getItem('cdc_ig_period') || 'quarter';
+
+    function renderItemGroup() {
+        if (!isItemGroupRoute()) {
+            removeItemGroupDashboard();
+            return;
+        }
+        var body = document.querySelector('.layout-main-section') || 
+                   document.querySelector('.workspace-page-content') ||
+                   document.querySelector('.page-body') ||
+                   document.querySelector('.page-content') ||
+                   document.querySelector('.page-container');
+        if (!body) return;
+        var dashboard = document.getElementById('cdc-item-group-dashboard');
+        if (!dashboard) {
+            dashboard = document.createElement('section');
+            dashboard.id = 'cdc-item-group-dashboard';
+        }
+        if (dashboard.parentNode !== body) {
+            body.insertBefore(dashboard, body.firstChild);
+        }
+        body.classList.add('cdc-custom-item-group-active');
+        if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-item-group-wrapper')) return;
+        if (itemGroupLoading) return;
+        itemGroupLoading = true;
+
+        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando catálogo e grupos de itens...</div>' + getDiagnosticPanelHTML('Carregando dados da API de Grupos...', false);
+        bindDiagnosticActions(dashboard);
+
+        frappe.call({
+            method: 'cdc_theme.api.get_item_group_dashboard_data',
+            args: {
+                selected_project: selectedItemGroupProject,
+                selected_warehouse: selectedItemGroupWarehouse,
+                period: selectedItemGroupPeriod
+            },
+            callback: function(response) {
+                itemGroupLoading = false;
+                if (!isItemGroupRoute()) {
+                    removeItemGroupDashboard();
+                    return;
+                }
+                var currentBody = document.querySelector('.layout-main-section') || 
+                                  document.querySelector('.workspace-page-content') ||
+                                  document.querySelector('.page-body') ||
+                                  document.querySelector('.page-content') ||
+                                  document.querySelector('.page-container');
+                if (currentBody) {
+                    var currentDash = document.getElementById('cdc-item-group-dashboard');
+                    if (!currentDash) {
+                        dashboard = document.createElement('section');
+                        dashboard.id = 'cdc-item-group-dashboard';
+                    } else {
+                        dashboard = currentDash;
+                    }
+                    if (dashboard.parentNode !== currentBody) {
+                        currentBody.insertBefore(dashboard, currentBody.firstChild);
+                    }
+                    currentBody.classList.add('cdc-custom-item-group-active');
+                }
+                dashboard.dataset.loaded = '1';
+                suppressFalsePositive404();
+
+                var data = response && response.message;
+                if (!data) {
+                    dashboard.innerHTML = getDiagnosticPanelHTML('Falha ao obter resposta da API de Grupos de Itens.', true);
+                    bindDiagnosticActions(dashboard);
+                    return;
+                }
+
+                var summary = data.summary || {};
+                var groups = data.groups || [];
+                var topGroups = data.top_groups || [];
+                var filters = data.filters || {};
+                var projects = filters.projects || [];
+
+                var projectOptionsHTML = '<option value="All">Todos os Projetos</option>' + projects.map(function(p) {
+                    return `<option value="${escapeHTML(p.value)}" ${p.value === selectedItemGroupProject ? 'selected' : ''}>${escapeHTML(p.label)}</option>`;
+                }).join('');
+
+                var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Estoque', 'Grupos de Itens & Catálogo') : '';
+
+                var rowsHTML = groups.map(function(g) {
+                    var badgeClass = g.status === 'Sem Estoque' ? 'cdc-badge-danger' : (g.status === 'Estoque Baixo' ? 'cdc-badge-warning' : 'cdc-badge-success');
+                    return `
+                        <tr data-search="${escapeHTML([g.name, g.parent_item_group, g.status].join(' ').toLowerCase())}">
+                            <td><span class="cdc-group-icon">${g.icon}</span> <strong>${escapeHTML(g.name)}</strong></td>
+                            <td>${escapeHTML(g.parent_item_group)}</td>
+                            <td>${escapeHTML(g.is_group)}</td>
+                            <td><span class="cdc-badge cdc-badge-info">${g.items_count} produtos</span></td>
+                            <td><strong>${g.stock_qty.toLocaleString()} un.</strong></td>
+                            <td><strong style="color:#059669">${escapeHTML(g.formatted_value)}</strong></td>
+                            <td><span class="cdc-badge ${badgeClass}">${escapeHTML(g.status)}</span></td>
+                            <td>
+                                <a href="/app/item?item_group=${encodeURIComponent(g.name)}" class="btn btn-xs btn-default">👁️ Ver Produtos</a>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                dashboard.innerHTML = `
+                    ${breadcrumbHTML}
+                    <div class="cdc-item-group-wrapper">
+                        <div class="cdc-monitoring-header">
+                            <div class="cdc-monitoring-title-box">
+                                <h1 class="cdc-monitoring-h1">🏷️ Gestão de Grupos de Itens & Catálogo</h1>
+                                <p class="cdc-monitoring-sub">Painel executivo de categorias de produto, saldos estocados em R$ e integridade do catálogo</p>
+                            </div>
+                            <div>
+                                <a href="/app/item-group/new-item-group-1" class="btn btn-sm btn-primary">➕ Novo Grupo</a>
+                                <button class="btn btn-sm btn-default" id="cdc-btn-refresh-ig">🔄 Atualizar Dados</button>
+                            </div>
+                        </div>
+
+                        <!-- CARDS KPI -->
+                        <div class="cdc-monitoring-cards-grid">
+                            <div class="cdc-monitoring-card is-info">
+                                <div class="cdc-card-label">Categorias & Grupos</div>
+                                <div class="cdc-card-value">${summary.total_groups || 0}</div>
+                                <div class="cdc-card-desc">Grupos cadastrados</div>
+                            </div>
+                            <div class="cdc-monitoring-card is-status">
+                                <div class="cdc-card-label">Total de Produtos</div>
+                                <div class="cdc-card-value">${summary.total_items || 0}</div>
+                                <div class="cdc-card-desc">Itens no catálogo</div>
+                            </div>
+                            <div class="cdc-monitoring-card is-warning">
+                                <div class="cdc-card-label">Valor Total Estocado</div>
+                                <div class="cdc-card-value" style="font-size:1.5rem;color:#059669">${summary.formatted_total_value || 'R$ 0,00'}</div>
+                                <div class="cdc-card-desc">Saldo acumulado em R$</div>
+                            </div>
+                            <div class="cdc-monitoring-card ${summary.critical_groups_count > 0 ? 'is-danger' : 'is-status'}">
+                                <div class="cdc-card-label">Grupos Sem Estoque</div>
+                                <div class="cdc-card-value">${summary.critical_groups_count || 0}</div>
+                                <div class="cdc-card-desc">Grupos que precisam de reposição</div>
+                            </div>
+                        </div>
+
+                        <!-- BARRA DE FILTROS -->
+                        <div class="cdc-linked-filters" aria-label="Filtros de Grupos">
+                            <label><span>Projeto Piloto</span><select id="cdc-ig-project-filter">${projectOptionsHTML}</select></label>
+                            <label><span>Período</span>
+                                <select id="cdc-ig-period-filter">
+                                    <option value="month" ${selectedItemGroupPeriod === 'month' ? 'selected' : ''}>Este Mês</option>
+                                    <option value="quarter" ${selectedItemGroupPeriod === 'quarter' ? 'selected' : ''}>Trimestre Atual</option>
+                                    <option value="year" ${selectedItemGroupPeriod === 'year' ? 'selected' : ''}>Ano Vigente</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <!-- SEÇÃO DE GRÁFICOS VISUAIS -->
+                        <div class="cdc-monitoring-section-block">
+                            <h3 class="cdc-section-block-title">📊 Top Categorias com Maior Valor Estocado (R$)</h3>
+                            <div class="cdc-extractors-grid">
+                                ${topGroups.map(function(tg) {
+                                    return `
+                                        <div class="cdc-extractor-card">
+                                            <div class="cdc-extractor-header">
+                                                <span class="cdc-extractor-title">${tg.icon} ${escapeHTML(tg.name)}</span>
+                                                <span class="cdc-badge cdc-badge-success">${escapeHTML(tg.formatted_value)}</span>
+                                            </div>
+                                            <div class="cdc-extractor-body">
+                                                <p><strong>Produtos cadastrados:</strong> ${tg.items_count} itens</p>
+                                                <p><strong>Quantidade em saldo:</strong> ${tg.stock_qty.toLocaleString()} un.</p>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- TABELA COMPLETA DE GRUPOS DE ITENS -->
+                        <div class="cdc-monitoring-table-section">
+                            <div class="cdc-table-header-flex">
+                                <div class="cdc-table-header-title">📋 Lista Completa de Grupos de Itens & Categorias</div>
+                                <input id="cdc-ig-search" type="search" aria-label="Buscar grupo de itens" placeholder="Buscar categoria..." style="padding:4px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;width:220px;">
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered cdc-monitoring-table" id="cdc-ig-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Grupo / Categoria</th>
+                                            <th>Grupo Pai</th>
+                                            <th>Possui Subgrupos?</th>
+                                            <th>Itens Vinculados</th>
+                                            <th>Saldo em Estoque</th>
+                                            <th>Valor Total (R$)</th>
+                                            <th>Status</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rowsHTML}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    ${getDiagnosticPanelHTML('API REST de Grupos Conectada com Êxito (HTTP 200 OK)', false)}
+                `;
+
+                dashboard.dataset.loaded = '1';
+                bindDiagnosticActions(dashboard);
+
+                var searchInput = dashboard.querySelector('#cdc-ig-search');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        var term = this.value.trim().toLowerCase();
+                        dashboard.querySelectorAll('#cdc-ig-table tbody tr').forEach(function(row) {
+                            row.hidden = term && row.dataset.search.indexOf(term) === -1;
+                        });
+                    });
+                }
+
+                var refreshBtn = dashboard.querySelector('#cdc-btn-refresh-ig');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', function() {
+                        delete dashboard.dataset.loaded;
+                        itemGroupLoading = false;
+                        renderItemGroup();
+                        frappe.show_alert({ message: __('🔄 Atualizando grupos de itens...'), indicator: 'green' }, 3);
+                    });
+                }
+
+                var projectFilter = dashboard.querySelector('#cdc-ig-project-filter');
+                if (projectFilter) {
+                    projectFilter.addEventListener('change', function() {
+                        selectedItemGroupProject = this.value;
+                        sessionStorage.setItem('cdc_ig_project', selectedItemGroupProject);
+                        delete dashboard.dataset.loaded;
+                        itemGroupLoading = false;
+                        renderItemGroup();
+                    });
+                }
+            },
+            error: function(err) {
+                itemGroupLoading = false;
+                if (!isItemGroupRoute()) {
+                    removeItemGroupDashboard();
+                    return;
+                }
+                dashboard.dataset.loaded = '0';
+                dashboard.innerHTML = getDiagnosticPanelHTML('Falha ao consultar grupos de itens: ' + JSON.stringify(err), true);
+                bindDiagnosticActions(dashboard);
+            }
+        });
+    }
+
     function init() {
         render();
+        if (isItemGroupRoute()) renderItemGroup();
         if (observer) observer.disconnect();
         observer = new MutationObserver(function() {
             if (isMonitoringRoute()) render();
+            if (isItemGroupRoute()) renderItemGroup();
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -2756,7 +3032,8 @@
             frappe.router.on('change', function() {
                 routeGeneration++;
                 loading = false;
-                render();
+                if (isMonitoringRoute()) render();
+                if (isItemGroupRoute()) renderItemGroup();
             });
         }
     }
