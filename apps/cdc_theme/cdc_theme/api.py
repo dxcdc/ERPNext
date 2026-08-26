@@ -1745,7 +1745,9 @@ def get_item_list_dashboard_data():
             "groups_in_use": len(active_groups),
         },
         "filters": {
-            "groups": [row.name for row in groups if not int(row.is_group or 0)],
+            # O legado possui itens vinculados também a grupos marcados como pai.
+            # Não ocultamos esses valores do filtro enquanto o cadastro é saneado.
+            "groups": [row.name for row in groups],
         },
     }
 
