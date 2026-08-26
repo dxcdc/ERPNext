@@ -391,6 +391,83 @@ def _dashboard_filter_options():
     ]
 
 
+def _catalog_filter_context(selected_project=None, selected_warehouse=None):
+    """Normaliza o escopo do catálogo usando apenas armazéns visíveis ao usuário."""
+    _require_read_permission("Warehouse")
+    _require_read_permission("Bin")
+    warehouses = frappe.get_list(
+        "Warehouse",
+        filters={"is_group": 0},
+        pluck="name",
+        order_by="name asc",
+        limit_page_length=0,
+    )
+    grouped = {project: [] for project in CDC_PROJECTS}
+    for warehouse in warehouses:
+        grouped[_warehouse_project(warehouse)].append(warehouse)
+
+    options = [
+        {"value": project, "label": project, "warehouses": grouped[project]}
+        for project in CDC_PROJECTS if grouped[project]
+    ]
+    valid_projects = {option["value"] for option in options}
+    requested_project = (selected_project or "All").strip()
+    requested_warehouse = (selected_warehouse or "All").strip()
+    if requested_project != "All" and requested_project not in valid_projects:
+        frappe.throw("Projeto indisponível para o usuário atual.", frappe.PermissionError)
+    if requested_warehouse != "All" and requested_warehouse not in warehouses:
+        frappe.throw("Armazém indisponível para o usuário atual.", frappe.PermissionError)
+    if (
+        requested_project != "All" and requested_warehouse != "All"
+        and _warehouse_project(requested_warehouse) != requested_project
+    ):
+        frappe.throw("O armazém não pertence ao projeto selecionado.", frappe.ValidationError)
+
+    if requested_warehouse != "All":
+        scoped_warehouses = [requested_warehouse]
+    elif requested_project != "All":
+        scoped_warehouses = grouped[requested_project]
+    else:
+        scoped_warehouses = warehouses
+    return (
+        requested_project,
+        requested_warehouse,
+        options,
+        scoped_warehouses,
+        requested_project != "All" or requested_warehouse != "All",
+    )
+
+
+def _catalog_positive_item_codes(scoped_warehouses, scope_active):
+    if not scope_active or not scoped_warehouses:
+        return None if not scope_active else set()
+    rows = frappe.get_list(
+        "Bin",
+        filters={
+            "warehouse": ["in", scoped_warehouses],
+            "actual_qty": [">", 0],
+        },
+        fields=["item_code"],
+        limit_page_length=0,
+    )
+    return {row.item_code for row in rows}
+
+
+def _catalog_filters_payload(project, warehouse, options, scope_active, scoped_warehouses):
+    return {
+        "projects": options,
+        "selected_project": project,
+        "selected_warehouse": warehouse,
+        "scope_active": scope_active,
+        "scope_label": (
+            warehouse if warehouse != "All"
+            else project if project != "All"
+            else "Todos os armazéns permitidos"
+        ),
+        "scoped_warehouses_count": len(scoped_warehouses),
+    }
+
+
 def _normalize_dashboard_filters(selected_project=None, selected_warehouse=None):
     project = selected_project if selected_project in CDC_PROJECTS else "All"
     warehouse = (selected_warehouse or "All").strip()
@@ -1701,15 +1778,18 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
 
 
 @frappe.whitelist()
-def get_item_list_dashboard_data():
-    """Resume o cadastro visível de Item sem consultar saldos por armazém."""
+def get_item_list_dashboard_data(selected_project=None, selected_warehouse=None):
+    """Resume e delimita a lista de Item por projeto/armazém permitido."""
     _require_read_permission("Item")
     _require_read_permission("Item Group")
+    project, warehouse, options, scoped_warehouses, scope_active = _catalog_filter_context(
+        selected_project, selected_warehouse,
+    )
+    scoped_codes = _catalog_positive_item_codes(scoped_warehouses, scope_active)
 
     item_rows = frappe.get_list(
         "Item",
-        fields=["disabled", "is_stock_item", "item_group", "count(name) as total"],
-        group_by="disabled, is_stock_item, item_group",
+        fields=["name", "disabled", "is_stock_item", "item_group"],
         limit_page_length=0,
     )
     groups = frappe.get_list(
@@ -1724,18 +1804,30 @@ def get_item_list_dashboard_data():
     active_stock_items = 0
     active_non_stock_items = 0
     active_groups = set()
+    visible_names = []
     for row in item_rows:
-        total = int(row.total or 0)
-        if int(row.disabled or 0):
-            disabled_items += total
+        if scope_active and row.name not in scoped_codes:
             continue
-        active_items += total
+        visible_names.append(row.name)
+        if int(row.disabled or 0):
+            disabled_items += 1
+            continue
+        active_items += 1
         active_groups.add(row.item_group)
         if int(row.is_stock_item or 0):
-            active_stock_items += total
+            active_stock_items += 1
         else:
-            active_non_stock_items += total
+            active_non_stock_items += 1
+    visible_names.sort()
 
+    filter_payload = _catalog_filters_payload(
+        project, warehouse, options, scope_active, scoped_warehouses,
+    )
+    filter_payload.update({
+        # O legado possui itens vinculados também a grupos marcados como pai.
+        # Não ocultamos esses valores do filtro enquanto o cadastro é saneado.
+        "groups": [row.name for row in groups],
+    })
     return {
         "summary": {
             "active_items": active_items,
@@ -1743,20 +1835,25 @@ def get_item_list_dashboard_data():
             "active_stock_items": active_stock_items,
             "active_non_stock_items": active_non_stock_items,
             "groups_in_use": len(active_groups),
+            "filtered_records": len(visible_names),
         },
-        "filters": {
-            # O legado possui itens vinculados também a grupos marcados como pai.
-            # Não ocultamos esses valores do filtro enquanto o cadastro é saneado.
-            "groups": [row.name for row in groups],
+        "scope": {
+            "active": scope_active,
+            "names": visible_names if scope_active else [],
         },
+        "filters": filter_payload,
     }
 
 
 @frappe.whitelist()
-def get_item_group_dashboard_data():
-    """Resume grupos e itens visíveis sem agregar estoque de armazéns."""
+def get_item_group_dashboard_data(selected_project=None, selected_warehouse=None):
+    """Resume e delimita Item Group por projeto/armazém permitido."""
     _require_read_permission("Item Group")
     _require_read_permission("Item")
+    project, warehouse, options, scoped_warehouses, scope_active = _catalog_filter_context(
+        selected_project, selected_warehouse,
+    )
+    scoped_codes = _catalog_positive_item_codes(scoped_warehouses, scope_active)
 
     groups = frappe.get_list(
         "Item Group",
@@ -1766,32 +1863,59 @@ def get_item_group_dashboard_data():
     )
     item_rows = frappe.get_list(
         "Item",
-        fields=["disabled", "item_group", "count(name) as total"],
-        group_by="disabled, item_group",
+        fields=["name", "disabled", "item_group"],
         limit_page_length=0,
     )
     active_by_group = {}
     active_items = 0
+    direct_scope_groups = set()
     for row in item_rows:
+        if scope_active and row.name not in scoped_codes:
+            continue
+        if row.item_group:
+            direct_scope_groups.add(row.item_group)
         if int(row.disabled or 0):
             continue
-        total = int(row.total or 0)
-        active_items += total
-        active_by_group[row.item_group] = active_by_group.get(row.item_group, 0) + total
+        active_items += 1
+        active_by_group[row.item_group] = active_by_group.get(row.item_group, 0) + 1
 
-    final_groups = [row for row in groups if not int(row.is_group or 0)]
-    parent_groups = [row for row in groups if int(row.is_group or 0)]
+    group_by_name = {row.name: row for row in groups}
+    relevant_groups = set(direct_scope_groups)
+    for group_name in tuple(direct_scope_groups):
+        current = group_by_name.get(group_name)
+        visited = set()
+        while current and current.parent_item_group and current.parent_item_group not in visited:
+            visited.add(current.parent_item_group)
+            relevant_groups.add(current.parent_item_group)
+            current = group_by_name.get(current.parent_item_group)
+
+    summary_groups = (
+        [row for row in groups if row.name in relevant_groups]
+        if scope_active else groups
+    )
+
+    final_groups = [row for row in summary_groups if not int(row.is_group or 0)]
+    parent_groups = [row for row in summary_groups if int(row.is_group or 0)]
     empty_final_groups = [row for row in final_groups if not active_by_group.get(row.name)]
 
+    filter_payload = _catalog_filters_payload(
+        project, warehouse, options, scope_active, scoped_warehouses,
+    )
+    filter_payload["parent_groups"] = [
+        row.name for row in groups if int(row.is_group or 0)
+    ]
     return {
         "summary": {
-            "total_groups": len(groups),
+            "total_groups": len(summary_groups),
             "parent_groups": len(parent_groups),
             "final_groups": len(final_groups),
             "active_items": active_items,
             "empty_final_groups": len(empty_final_groups),
+            "filtered_records": len(summary_groups),
         },
-        "filters": {
-            "parent_groups": [row.name for row in parent_groups],
+        "scope": {
+            "active": scope_active,
+            "names": sorted(relevant_groups) if scope_active else [],
         },
+        "filters": filter_payload,
     }

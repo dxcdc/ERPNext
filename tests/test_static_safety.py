@@ -54,6 +54,30 @@ class StaticSafetyTest(unittest.TestCase):
         ))
         self.assertIn("get_item_list_dashboard_data", api_source)
 
+    def test_catalog_project_and_warehouse_scope_uses_permitted_positive_stock(self):
+        theme_source = THEME_JS.read_text()
+        api_source = API_PY.read_text()
+        tree = ast.parse(api_source)
+        context_function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_catalog_filter_context"
+        )
+        stock_function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_catalog_positive_item_codes"
+        )
+        context_body = ast.get_source_segment(api_source, context_function)
+        stock_body = ast.get_source_segment(api_source, stock_function)
+        self.assertIn('frappe.get_list(', context_body)
+        self.assertNotIn('frappe.get_all(', context_body)
+        self.assertIn('"Warehouse"', context_body)
+        self.assertIn('"Bin"', stock_body)
+        self.assertIn('"actual_qty": [">", 0]', stock_body)
+        self.assertIn('data-cdc-catalog-project', theme_source)
+        self.assertIn('data-cdc-catalog-warehouse', theme_source)
+        self.assertIn("filters.push([this.doctype, 'name', 'in', names])", theme_source)
+        self.assertIn('window.cur_list', theme_source)
+
     def test_item_group_never_mounts_on_document_body(self):
         source = THEME_JS.read_text()
         render_block = source[source.index("function renderItemGroup"):source.index("function init()", source.index("function renderItemGroup"))]

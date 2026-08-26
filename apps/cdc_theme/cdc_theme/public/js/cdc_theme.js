@@ -2706,6 +2706,100 @@
         });
     }
 
+    var catalogScopeProject = sessionStorage.getItem('cdc_catalog_project') || 'All';
+    var catalogScopeWarehouse = sessionStorage.getItem('cdc_catalog_warehouse') || 'All';
+
+    function getCatalogScopeHTML(filters) {
+        filters = filters || {};
+        catalogScopeProject = filters.selected_project || 'All';
+        catalogScopeWarehouse = filters.selected_warehouse || 'All';
+        sessionStorage.setItem('cdc_catalog_project', catalogScopeProject);
+        sessionStorage.setItem('cdc_catalog_warehouse', catalogScopeWarehouse);
+        var projects = filters.projects || [];
+        var projectOptions = '<option value="All">Todos os projetos</option>' + projects.map(function(project) {
+            var selected = project.value === catalogScopeProject ? ' selected' : '';
+            return `<option value="${escapeHTML(project.value)}"${selected}>${escapeHTML(project.label)}</option>`;
+        }).join('');
+        var warehouses = [];
+        projects.forEach(function(project) {
+            if (catalogScopeProject === 'All' || project.value === catalogScopeProject) {
+                warehouses = warehouses.concat(project.warehouses || []);
+            }
+        });
+        warehouses = Array.from(new Set(warehouses)).sort(function(a, b) {
+            return a.localeCompare(b, 'pt-BR');
+        });
+        var warehouseOptions = '<option value="All">Todos os armazéns</option>' + warehouses.map(function(warehouse) {
+            var selected = warehouse === catalogScopeWarehouse ? ' selected' : '';
+            var label = warehouse.replace(/\s+-\s+C$/, '');
+            return `<option value="${escapeHTML(warehouse)}"${selected}>${escapeHTML(label)}</option>`;
+        }).join('');
+        var scopeLabel = filters.scope_active
+            ? `${escapeHTML(filters.scope_label)} · ${Number(filters.scoped_warehouses_count || 0)} armazém(ns)`
+            : 'Catálogo completo permitido';
+        return `<div class="cdc-linked-filters cdc-catalog-scope-filters" aria-label="Escopo por projeto e armazém">
+            <label><span>Projetos</span><select data-cdc-catalog-project>${projectOptions}</select></label>
+            <label><span>Armazéns</span><select data-cdc-catalog-warehouse>${warehouseOptions}</select></label>
+            <div class="cdc-catalog-scope-status"><strong>Visualização atual</strong><span>${scopeLabel}</span><small>Com filtro: somente itens com saldo positivo.</small></div>
+            <button type="button" class="btn btn-sm btn-default" data-cdc-catalog-clear-scope>Limpar escopo</button>
+        </div>`;
+    }
+
+    function bindCatalogScopeControls(dashboard, renderAgain, resetLoading) {
+        var projectSelect = dashboard.querySelector('[data-cdc-catalog-project]');
+        var warehouseSelect = dashboard.querySelector('[data-cdc-catalog-warehouse]');
+        function applyScope(project, warehouse) {
+            catalogScopeProject = project || 'All';
+            catalogScopeWarehouse = warehouse || 'All';
+            sessionStorage.setItem('cdc_catalog_project', catalogScopeProject);
+            sessionStorage.setItem('cdc_catalog_warehouse', catalogScopeWarehouse);
+            dashboard.dataset.loaded = '0';
+            resetLoading();
+            renderAgain();
+        }
+        if (projectSelect) projectSelect.addEventListener('change', function() {
+            applyScope(projectSelect.value, 'All');
+        });
+        if (warehouseSelect) warehouseSelect.addEventListener('change', function() {
+            applyScope(projectSelect ? projectSelect.value : catalogScopeProject, warehouseSelect.value);
+        });
+        var clearButton = dashboard.querySelector('[data-cdc-catalog-clear-scope]');
+        if (clearButton) clearButton.addEventListener('click', function() {
+            applyScope('All', 'All');
+        });
+    }
+
+    function bindCatalogNativeScope(doctype, scope) {
+        function bind() {
+            var list = window.cur_list;
+            if (!list || normalizeRoute(list.doctype) !== normalizeRoute(doctype)) return false;
+            if (!list._cdcOriginalGetFiltersForArgs) {
+                list._cdcOriginalGetFiltersForArgs = list.get_filters_for_args;
+                list.get_filters_for_args = function() {
+                    var filters = this._cdcOriginalGetFiltersForArgs.apply(this, arguments).slice();
+                    var currentScope = this._cdcCatalogScope;
+                    if (currentScope && currentScope.active) {
+                        var names = currentScope.names.length ? currentScope.names : ['__cdc_sem_resultado__'];
+                        filters.push([this.doctype, 'name', 'in', names]);
+                    }
+                    return filters;
+                };
+            }
+            var names = scope && Array.isArray(scope.names) ? scope.names : [];
+            var active = !!(scope && scope.active);
+            var scopeKey = [active ? '1' : '0', catalogScopeProject, catalogScopeWarehouse, names.length, names[0] || '', names[names.length - 1] || ''].join('|');
+            var previousKey = list._cdcCatalogScopeKey;
+            list._cdcCatalogScope = {active: active, names: names};
+            list._cdcCatalogScopeKey = scopeKey;
+            if ((previousKey !== undefined && previousKey !== scopeKey) || (previousKey === undefined && active)) {
+                list.start = 0;
+                list.refresh();
+            }
+            return true;
+        }
+        if (!bind()) [150, 500].forEach(function(delay) { setTimeout(bind, delay); });
+    }
+
     function isItemGroupRoute() {
         var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
         var routeType = normalizeRoute(route && route[0]);
@@ -2753,6 +2847,10 @@
 
         frappe.call({
             method: 'cdc_theme.api.get_item_group_dashboard_data',
+            args: {
+                selected_project: catalogScopeProject,
+                selected_warehouse: catalogScopeWarehouse
+            },
             callback: function(response) {
                 itemGroupLoading = false;
                 if (!isItemGroupRoute()) {
@@ -2785,6 +2883,7 @@
                 }
 
                 var summary = data.summary || {};
+                var scopeFiltersHTML = getCatalogScopeHTML(data.filters || {});
                 var parentGroups = (data.filters && data.filters.parent_groups) || [];
                 var parentOptionsHTML = '<option value="">Todos os grupos pais</option>' + parentGroups.map(function(parent) {
                     return `<option value="${escapeHTML(parent)}">${escapeHTML(parent)}</option>`;
@@ -2806,9 +2905,9 @@
                         <!-- CARDS KPI -->
                         <div class="cdc-monitoring-cards-grid">
                             <div class="cdc-monitoring-card is-info">
-                                <div class="cdc-card-label">Todos os grupos</div>
+                                <div class="cdc-card-label">${data.filters && data.filters.scope_active ? 'Grupos no escopo' : 'Todos os grupos'}</div>
                                 <div class="cdc-card-value">${summary.total_groups || 0}</div>
-                                <div class="cdc-card-desc">Estrutura completa visível</div>
+                                <div class="cdc-card-desc">${data.filters && data.filters.scope_active ? 'Com itens de saldo positivo' : 'Estrutura completa visível'}</div>
                             </div>
                             <div class="cdc-monitoring-card is-status">
                                 <div class="cdc-card-label">Grupos pais</div>
@@ -2832,6 +2931,8 @@
                             </div>
                         </div>
 
+                        ${scopeFiltersHTML}
+
                         <!-- BARRA DE FILTROS -->
                         <div class="cdc-linked-filters" aria-label="Filtros de Grupos">
                             <label><span>Pesquisar</span><input id="cdc-ig-search" type="search" aria-label="Pesquisar grupo de itens" placeholder="Nome do grupo"></label>
@@ -2845,6 +2946,10 @@
                 `;
 
                 dashboard.dataset.loaded = '1';
+                bindCatalogNativeScope('Item Group', data.scope || {});
+                bindCatalogScopeControls(dashboard, renderItemGroup, function() {
+                    itemGroupLoading = false;
+                });
 
                 var searchInput = dashboard.querySelector('#cdc-ig-search');
                 var parentFilter = dashboard.querySelector('#cdc-ig-parent-filter');
@@ -2955,6 +3060,10 @@
 
         frappe.call({
             method: 'cdc_theme.api.get_item_list_dashboard_data',
+            args: {
+                selected_project: catalogScopeProject,
+                selected_warehouse: catalogScopeWarehouse
+            },
             callback: function(response) {
                 itemListLoading = false;
                 if (!isItemRoute()) {
@@ -2983,6 +3092,7 @@
                     return;
                 }
                 var summary = data.summary || {};
+                var scopeFiltersHTML = getCatalogScopeHTML(data.filters || {});
                 var groups = (data.filters && data.filters.groups) || [];
                 var groupOptions = '<option value="">Todos os grupos</option>' + groups.map(function(group) {
                     return `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`;
@@ -3000,12 +3110,13 @@
                             <button class="btn btn-sm btn-default" id="cdc-btn-refresh-items">🔄 Atualizar indicadores</button>
                         </div>
                         <div class="cdc-monitoring-cards-grid">
-                            <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Itens ativos</div><div class="cdc-card-value">${summary.active_items || 0}</div><div class="cdc-card-desc">Disponíveis no catálogo</div></div>
+                            <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">${data.filters && data.filters.scope_active ? 'Itens no escopo' : 'Itens ativos'}</div><div class="cdc-card-value">${summary.active_items || 0}</div><div class="cdc-card-desc">${data.filters && data.filters.scope_active ? 'Ativos com saldo positivo' : 'Disponíveis no catálogo'}</div></div>
                             <div class="cdc-monitoring-card ${summary.disabled_items > 0 ? 'is-warning' : 'is-status'}"><div class="cdc-card-label">Desativados</div><div class="cdc-card-value">${summary.disabled_items || 0}</div><div class="cdc-card-desc">Mantidos no histórico</div></div>
                             <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Itens de estoque</div><div class="cdc-card-value">${summary.active_stock_items || 0}</div><div class="cdc-card-desc">Ativos e movimentáveis</div></div>
                             <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Não estocáveis</div><div class="cdc-card-value">${summary.active_non_stock_items || 0}</div><div class="cdc-card-desc">Serviços e itens sem saldo</div></div>
                             <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Grupos em uso</div><div class="cdc-card-value">${summary.groups_in_use || 0}</div><div class="cdc-card-desc">Com pelo menos um item ativo</div></div>
                         </div>
+                        ${scopeFiltersHTML}
                         <div class="cdc-linked-filters cdc-catalog-filters" aria-label="Filtros de Itens">
                             <label><span>Pesquisar</span><input id="cdc-item-search" type="search" aria-label="Pesquisar código do item" placeholder="Código do item"></label>
                             <label><span>Grupo</span><select id="cdc-item-group-filter">${groupOptions}</select></label>
@@ -3017,6 +3128,10 @@
                         <p class="cdc-catalog-filter-note">A pesquisa usa o código oficial do item. Edição, paginação, seleção de colunas e filtros salvos continuam nativos.</p>
                     </div>`;
                 dashboard.dataset.loaded = '1';
+                bindCatalogNativeScope('Item', data.scope || {});
+                bindCatalogScopeControls(dashboard, renderItemList, function() {
+                    itemListLoading = false;
+                });
 
                 var searchInput = dashboard.querySelector('#cdc-item-search');
                 var groupFilter = dashboard.querySelector('#cdc-item-group-filter');
