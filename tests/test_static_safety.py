@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 THEME_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_theme.js"
 PENDING_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_pending.js"
 TESTS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_tests.js"
+THEME_CSS = ROOT / "apps/cdc_theme/cdc_theme/public/css/cdc_theme.css"
 GROUPS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_groups.js"
 ITEMS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_items.js"
 ADMIN_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js"
@@ -120,6 +121,7 @@ class StaticSafetyTest(unittest.TestCase):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
         tests_source = TESTS_JS.read_text()
+        css_source = THEME_CSS.read_text()
         expected_ids = (
             "item-group-route", "item-group-native-list", "real-telemetry",
             "ongsys-integrity", "warehouse-rbac", "security-ci",
@@ -143,6 +145,15 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("data-cdc-gate-terminal", tests_source)
         self.assertIn("appendGateLog", tests_source)
         self.assertIn("data-cdc-action-gate", tests_source)
+        self.assertIn("data-cdc-overall-progress", tests_source)
+        self.assertIn("data-cdc-gate-progress", tests_source)
+        self.assertIn("cdc-stage-activity-bar", tests_source)
+        self.assertIn("Execução sequencial autenticada", tests_source)
+        self.assertIn("Aguardando resposta do servidor", tests_source)
+        self.assertIn(".cdc-overall-metro", css_source)
+        self.assertIn(".cdc-gate-metro", css_source)
+        self.assertIn(".cdc-stage-activity-bar", css_source)
+        self.assertIn("@keyframes cdcStageActivity", css_source)
         self.assertIn("Entender este teste", tests_source)
         self.assertIn("Executar este teste", tests_source)
         self.assertIn("cdc_theme.api.run_cdc_quality_gate", tests_source)
@@ -159,6 +170,10 @@ class StaticSafetyTest(unittest.TestCase):
             with self.subTest(explanation_gate=gate_id):
                 self.assertTrue(copy["summary"])
                 self.assertEqual(len(copy["details"]), 2)
+                self.assertIn(copy["execution_type"], {"Automático", "Híbrido", "Externo"})
+                self.assertGreaterEqual(len(copy["stages"]), 5)
+                self.assertEqual(copy["stages"][0], "Preparação")
+                self.assertIn("Resultado", copy["stages"][-1])
         self.assertIn('details.append(f"Resultado desta execução: {evidence}")', api_source)
         self.assertIn("repairBrowserThemeState", tests_source)
         self.assertIn("window.location.reload()", tests_source)

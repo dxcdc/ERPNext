@@ -18,6 +18,7 @@ function jquery() {
         },
         ready(handler) {
             handlers.set('ready', handler);
+            handler();
             return this;
         }
     };
@@ -33,16 +34,26 @@ const terminal = {
         return null;
     }
 };
-const gateTerminalOutput = {textContent: '', scrollTop: 0, scrollHeight: 100};
-const gateTerminalStatus = {textContent: ''};
-const gateTerminal = {
-    classList: {toggle() {}},
-    querySelector(selector) {
-        if (selector === '[data-cdc-gate-terminal-output]') return gateTerminalOutput;
-        if (selector === '[data-cdc-gate-terminal-status]') return gateTerminalStatus;
-        return null;
+const gateTerminals = new Map();
+function getGateTerminal(gateId) {
+    if (!gateTerminals.has(gateId)) {
+        const output = {textContent: '', scrollTop: 0, scrollHeight: 100};
+        const status = {textContent: ''};
+        gateTerminals.set(gateId, {
+            output,
+            status,
+            classList: {toggle() {}},
+            querySelector(selector) {
+                if (selector === '[data-cdc-gate-terminal-output]') return output;
+                if (selector === '[data-cdc-gate-terminal-status]') return status;
+                return null;
+            }
+        });
     }
-};
+    return gateTerminals.get(gateId);
+}
+const overallProgress = {innerHTML: ''};
+const gateProgress = {innerHTML: ''};
 const executionButton = {disabled: false, textContent: 'Executar testes novamente'};
 const expandedGateDetails = {open: false};
 const dashboard = {
@@ -69,7 +80,12 @@ const fakeDocument = {
     },
     querySelector(selector) {
         if (selector === '.cdc-test-terminal') return terminal;
-        if (selector.indexOf('[data-cdc-gate-terminal=') === 0) return gateTerminal;
+        if (selector === '[data-cdc-overall-progress]') return overallProgress;
+        if (selector.indexOf('[data-cdc-gate-progress=') === 0) return gateProgress;
+        if (selector.indexOf('[data-cdc-gate-terminal=') === 0) {
+            const match = selector.match(/="([^"]+)"/);
+            return getGateTerminal(match ? match[1] : 'unknown');
+        }
         return null;
     },
     querySelectorAll(selector) {
@@ -87,10 +103,11 @@ const fakeFrappe = {
         if (options.method === 'cdc_theme.api.get_cdc_tests_dashboard') {
             options.callback({message: {
                 checked_at: 'agora',
-                summary: {total: 2, passed: 1, warnings: 1, blocked: 0},
+                summary: {total: 3, passed: 1, warnings: 2, blocked: 0},
                 checks: [
-                    {id: 'item-group-route', title: 'Rotas', summary: 'Rotas corretas.', details: ['Um', 'Dois', 'Três'], evidence: 'Rotas válidas', status: 'passed'},
-                    {id: 'theme-integrity', title: 'Tema', summary: 'Tema íntegro.', details: ['Um', 'Dois', 'Três'], evidence: 'Validação externa pendente', status: 'warning'}
+                    {id: 'item-group-route', title: '1. Rotas', summary: 'Rotas corretas.', details: ['Um', 'Dois', 'Três'], evidence: 'Rotas válidas', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Rotas', 'Evidências', 'Resultado']},
+                    {id: 'automated-tests', title: '7. APIs', summary: 'APIs reais.', details: ['Um', 'Dois', 'Três'], evidence: 'CI externa pendente', status: 'warning', execution_type: 'Híbrido', stages: ['Preparação', 'Permissões', 'API Estoque', 'API Usuários', 'Evidências e CI', 'Resultado']},
+                    {id: 'theme-integrity', title: '9. Tema', summary: 'Tema íntegro.', details: ['Um', 'Dois', 'Três'], evidence: 'Validação externa pendente', status: 'warning', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Assets', 'Montagem', 'Resultado']}
                 ]
             }});
             return;
@@ -114,15 +131,22 @@ const fakeFrappe = {
             return;
         }
         if (options.method === 'cdc_theme.api.run_cdc_quality_gate') {
+            const sourceCheck = {
+                'item-group-route': {title: '1. Rotas', evidence: 'Rotas válidas novamente', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Rotas', 'Evidências', 'Resultado']},
+                'automated-tests': {title: '7. APIs', evidence: 'CI externa pendente', status: 'warning', execution_type: 'Híbrido', stages: ['Preparação', 'Permissões', 'API Estoque', 'API Usuários', 'Evidências e CI', 'Resultado']},
+                'theme-integrity': {title: '9. Tema', evidence: 'Tema íntegro novamente', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Assets', 'Montagem', 'Resultado']}
+            }[options.args.gate_id];
             options.callback({message: {
                 checked_at: 'agora mesmo',
                 check: {
                     id: options.args.gate_id,
-                    title: 'Rotas',
+                    title: sourceCheck.title,
                     summary: 'Rotas corretas.',
                     details: ['Explicação 1', 'Explicação 2', 'Resultado atual'],
-                    evidence: 'Rotas válidas novamente',
-                    status: 'passed'
+                    evidence: sourceCheck.evidence,
+                    status: sourceCheck.status,
+                    execution_type: sourceCheck.execution_type,
+                    stages: sourceCheck.stages
                 }
             }});
             return;
@@ -145,6 +169,10 @@ const fakeWindow = {
     frappe: fakeFrappe,
     location: {pathname: '/app/cdc-testes', reload() { reloadCalls += 1; }},
     setTimeout(callback) { callback(); },
+    setInterval() { return 1; },
+    _cdc_claim_active_dashboard() {
+        return {body: {classList: {add() {}}}, dashboard};
+    },
     _cdc_get_breadcrumb_html() { return ''; },
     _cdc_repair_theme_runtime() {
         browserRepairCalls += 1;
@@ -164,20 +192,25 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
 (async function() {
     const click = handlers.get('click:[data-cdc-tests-refresh]');
     assert.equal(typeof click, 'function', 'o clique do botão Executar testes deve estar registrado');
+    assert.match(dashboard.innerHTML, /data-cdc-overall-progress/);
+    assert.match(dashboard.innerHTML, /data-cdc-gate-progress="item-group-route"/);
+    assert.match(dashboard.innerHTML, /Linha deste teste/);
     click.call(executionButton);
 
     assert.deepEqual(calls, [
         'cdc_theme.api.get_cdc_tests_dashboard',
-        'cdc_theme.api.get_cdc_admin_diagnostics',
+        'cdc_theme.api.run_cdc_quality_gate',
+        'cdc_theme.api.run_cdc_quality_gate',
         'cdc_theme.api.get_stock_dashboard_data',
-        'cdc_theme.api.get_users_dashboard_data'
-    ], 'o botão deve consultar gates, diagnósticos e as duas APIs das páginas afetadas');
-    assert.match(terminalOutput.textContent, /\[START\].*Execução autenticada iniciada/s);
-    assert.match(terminalOutput.textContent, /\[PASS\] Rotas — Rotas válidas/);
-    assert.match(terminalOutput.textContent, /\[WARN\] Tema — Validação externa pendente/);
+        'cdc_theme.api.get_users_dashboard_data',
+        'cdc_theme.api.run_cdc_quality_gate',
+        'cdc_theme.api.get_cdc_admin_diagnostics'
+    ], 'o botão deve executar os gates em sequência, verificar as duas APIs reais e finalizar os diagnósticos');
+    assert.match(terminalOutput.textContent, /\[START\].*Execução sequencial autenticada/s);
+    assert.match(terminalOutput.textContent, /\[PASS\] 1\. Rotas — Rotas válidas novamente/);
+    assert.match(terminalOutput.textContent, /\[WARN\] 7\. APIs — CI externa pendente/);
+    assert.match(terminalOutput.textContent, /\[PASS\] 9\. Tema — Tema íntegro novamente/);
     assert.match(terminalOutput.textContent, /\[PASS\] Banco — Conectado/);
-    assert.match(terminalOutput.textContent, /\[PASS\] CDC Estoque — API respondeu com 41 itens e 6 armazéns/);
-    assert.match(terminalOutput.textContent, /\[PASS\] CDC Usuários — API respondeu com 12 usuários/);
     assert.match(terminalOutput.textContent, /\[DONE\] Execução finalizada/);
     assert.equal(executionButton.disabled, false, 'o botão deve ser reativado ao final');
     assert.equal(executionButton.textContent, 'Executar testes novamente');
@@ -193,10 +226,11 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     runGate.call(gateButton);
     assert.equal(calls.at(-1), 'cdc_theme.api.run_cdc_quality_gate');
     assert.match(terminalOutput.textContent, /Rotas — Rotas válidas novamente/);
-    assert.match(gateTerminalOutput.textContent, /\[START\].*Execução individual autenticada/s);
-    assert.match(gateTerminalOutput.textContent, /\[PASS\] Rotas válidas novamente/);
-    assert.match(gateTerminalOutput.textContent, /\[DONE\] Verificação concluída/);
-    assert.equal(gateTerminalStatus.textContent, 'APROVADO');
+    const itemTerminal = getGateTerminal('item-group-route');
+    assert.match(itemTerminal.output.textContent, /\[START\].*Execução individual autenticada/s);
+    assert.match(itemTerminal.output.textContent, /\[PASS\] Rotas válidas novamente/);
+    assert.match(itemTerminal.output.textContent, /\[DONE\] Verificação concluída/);
+    assert.equal(itemTerminal.status.textContent, 'APROVADO');
     assert.equal(expandedGateDetails.open, true, 'a explicação deve abrir após executar o item');
 
     const automatedGateButton = {
@@ -210,8 +244,11 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
         'cdc_theme.api.get_stock_dashboard_data',
         'cdc_theme.api.get_users_dashboard_data'
     ], 'o teste 7 individual deve verificar as duas APIs reais');
-    assert.match(gateTerminalOutput.textContent, /CDC Estoque respondeu: 41 itens e 6 armazéns/);
-    assert.match(gateTerminalOutput.textContent, /CDC Usuários respondeu: 12 usuários/);
+    const automatedTerminal = getGateTerminal('automated-tests');
+    assert.match(automatedTerminal.output.textContent, /CDC Estoque respondeu: 41 itens e 6 armazéns/);
+    assert.match(automatedTerminal.output.textContent, /CDC Usuários respondeu: 12 usuários/);
+    assert.match(overallProgress.innerHTML, /Execução concluída/);
+    assert.match(gateProgress.innerHTML, /cdc-gate-metro/);
 
     const repair = handlers.get('click:[data-cdc-tests-action]');
     const repairButton = {

@@ -1345,6 +1345,8 @@ def diagnostico_mattermost():
 
 QUALITY_GATE_COPY = {
     "item-group-route": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Rotas oficiais", "Evidências", "Resultado"),
         "summary": "Confere se Itens e Grupos de Itens abrem somente nas rotas corretas.",
         "details": (
             "Este teste verifica a leitura exata das URLs oficiais das listas de Item e Item Group.",
@@ -1352,6 +1354,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "item-group-native-list": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Lista nativa", "Cards e filtros", "Resultado"),
         "summary": "Confirma que os novos cards não substituem nem escondem a lista oficial do ERPNext.",
         "details": (
             "O painel personalizado deve aparecer acima da listagem nativa e preservar edição, paginação e filtros salvos.",
@@ -1359,6 +1363,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "real-telemetry": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Fontes reais", "Operações persistidas", "Resultado"),
         "summary": "Verifica se números e botões usam dados reais, sem mensagens ou resultados simulados.",
         "details": (
             "O teste procura marcadores de telemetria fictícia e confirma a existência das operações reais de atualização.",
@@ -1366,6 +1372,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "ongsys-integrity": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Normalização", "Idempotência e checkpoint", "Resultado"),
         "summary": "Protege a importação ONGSYS contra duplicidades e acompanha a atualização da sincronização.",
         "details": (
             "A idempotência garante que o mesmo pedido ONGSYS não gere duas movimentações de estoque.",
@@ -1373,6 +1381,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "warehouse-rbac": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Papel do usuário", "Escopo por armazém", "Resultado"),
         "summary": "Confere se cada consulta respeita o papel e os armazéns permitidos para o usuário.",
         "details": (
             "RBAC controla quem pode acessar o painel, enquanto User Permission limita quais armazéns essa pessoa pode consultar.",
@@ -1380,6 +1390,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "security-ci": {
+        "execution_type": "Externo",
+        "stages": ("Preparação", "Permissões", "Segredos e backup", "CI e proteção do PR", "Resultado externo"),
         "summary": "Lembra as verificações externas de segredos, backups e proteção do processo de publicação.",
         "details": (
             "A aplicação web não consegue examinar todo o histórico Git, as configurações do GitHub ou os arquivos privados do host.",
@@ -1387,6 +1399,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "automated-tests": {
+        "execution_type": "Híbrido",
+        "stages": ("Preparação", "Permissões", "API Estoque", "API Usuários", "Evidências e CI", "Resultado"),
         "summary": "Verifica as APIs autenticadas de Estoque e Usuários e indica o que ainda depende da suíte automatizada.",
         "details": (
             "Este botão consulta dados reais das páginas CDC Estoque e CDC Usuários para confirmar rota, permissão e resposta das APIs.",
@@ -1394,6 +1408,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "workspace-navigation": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Workspaces e ícones", "SPA e duplicidades", "Resultado"),
         "summary": "Procura páginas duplicadas, ordem incorreta, ícones ausentes e montagem na página SPA errada.",
         "details": (
             "O teste compara as nove workspaces CDC esperadas e valida nome, ordem, visibilidade e ícone.",
@@ -1401,6 +1417,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "theme-integrity": {
+        "execution_type": "Automático",
+        "stages": ("Preparação", "Permissões", "Assets e cache", "Montagem e watchdog", "Resultado"),
         "summary": "Detecta falhas de assets, cache, montagem SPA e render que causam tela branca ou carregamento infinito.",
         "details": (
             "A verificação confirma CSS, JavaScript, versão de cache e proteções contra exceção ou tempo limite durante a montagem no navegador.",
@@ -1408,6 +1426,8 @@ QUALITY_GATE_COPY = {
         ),
     },
     "production-validation": {
+        "execution_type": "Híbrido",
+        "stages": ("Preparação", "Permissões", "Versão publicada", "Sessão autenticada", "Resultado"),
         "summary": "Confirma que a versão foi publicada e verificada com uma sessão administrativa em produção.",
         "details": (
             "Responder HTTP 200 sem login não prova que cards, permissões e ações funcionam dentro do Desk autenticado.",
@@ -1428,6 +1448,8 @@ def _monitoring_quality_gate(gate_id, title, status, evidence, action=None, acti
         "summary": copy.get("summary", evidence),
         "details": details,
         "evidence": evidence,
+        "execution_type": copy.get("execution_type", "Automático"),
+        "stages": list(copy.get("stages", ("Preparação", "Permissões", "Evidências", "Resultado"))),
     }
     if action:
         gate["action"] = action

@@ -11,6 +11,11 @@
     var gateExecutionLogs = Object.create(null);
     var gateExecutionStatus = Object.create(null);
     var gateExecutionStartedAt = Object.create(null);
+    var gateProgressState = Object.create(null);
+    var progressMode = 'history';
+    var activityTicker = null;
+
+    var FINAL_PROGRESS_STATES = ['passed', 'warning', 'failed'];
 
     function normalize(value) {
         return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
@@ -31,6 +36,238 @@
 
     function executionTime() {
         return new Date().toLocaleTimeString('pt-BR', {hour12: false});
+    }
+
+    function findCheck(gateId) {
+        return ((latestDashboardData && latestDashboardData.checks) || []).find(function(check) {
+            return check.id === gateId;
+        }) || null;
+    }
+
+    function resultProgressStatus(status) {
+        if (status === 'passed') return 'passed';
+        if (status === 'warning') return 'warning';
+        return 'failed';
+    }
+
+    function progressStatusLabel(status) {
+        return {
+            pending: 'Aguardando', queued: 'Na fila', running: 'Executando',
+            passed: 'Aprovado', warning: 'Atenção', failed: 'Falhou'
+        }[status] || 'Aguardando';
+    }
+
+    function progressStatusSymbol(status) {
+        return {
+            pending: '○', queued: '○', running: '◉', passed: '✓', warning: '!', failed: '×'
+        }[status] || '○';
+    }
+
+    function stageDefinitions(check) {
+        var labels = check && Array.isArray(check.stages) && check.stages.length
+            ? check.stages
+            : ['Preparação', 'Permissões', 'Evidências', 'Resultado'];
+        return labels.map(function(label, index) {
+            return {id: `stage-${index + 1}`, label: String(label)};
+        });
+    }
+
+    function resetGateProgress(check, queued) {
+        var now = performance.now();
+        gateProgressState[check.id] = {
+            gateId: check.id,
+            status: queued ? 'queued' : 'pending',
+            startedAt: 0,
+            finishedAt: 0,
+            stages: stageDefinitions(check).map(function(stage) {
+                return {
+                    id: stage.id,
+                    label: stage.label,
+                    status: 'pending',
+                    detail: 'Aguardando a etapa anterior.',
+                    startedAt: 0,
+                    updatedAt: now,
+                    finishedAt: 0
+                };
+            })
+        };
+        return gateProgressState[check.id];
+    }
+
+    function setGateStage(gateId, index, status, detail) {
+        var state = gateProgressState[gateId];
+        var stage = state && state.stages[index];
+        if (!stage) return;
+        var now = performance.now();
+        if (status === 'running' && !stage.startedAt) stage.startedAt = now;
+        stage.status = status;
+        stage.detail = detail || stage.detail;
+        stage.updatedAt = now;
+        if (FINAL_PROGRESS_STATES.indexOf(status) !== -1) stage.finishedAt = now;
+        if (status === 'running') {
+            state.status = 'running';
+            if (!state.startedAt) state.startedAt = now;
+        }
+        syncProgressUI(gateId);
+    }
+
+    function completeGateProgress(gateId, status) {
+        var state = gateProgressState[gateId];
+        if (!state) return;
+        state.status = status;
+        state.finishedAt = performance.now();
+        syncProgressUI(gateId);
+    }
+
+    function elapsedLabel(milliseconds) {
+        if (!milliseconds || milliseconds < 0) return '—';
+        return milliseconds < 1000
+            ? `${Math.max(1, Math.round(milliseconds))}ms`
+            : `${(milliseconds / 1000).toFixed(1)}s`;
+    }
+
+    function stageDuration(stage) {
+        if (!stage.startedAt) return '—';
+        return elapsedLabel((stage.finishedAt || performance.now()) - stage.startedAt);
+    }
+
+    function overallProgressContentHTML(checks) {
+        var hasLiveState = Object.keys(gateProgressState).length > 0;
+        var stationStates = checks.map(function(check) {
+            var runtime = gateProgressState[check.id];
+            return runtime ? runtime.status : resultProgressStatus(check.status);
+        });
+        var completed = stationStates.filter(function(status) {
+            return FINAL_PROGRESS_STATES.indexOf(status) !== -1;
+        }).length;
+        var total = checks.length || 1;
+        var percent = Math.round((completed / total) * 100);
+        var currentIndex = stationStates.indexOf('running');
+        var headline = progressMode === 'suite' && currentIndex >= 0
+            ? `Executando teste ${currentIndex + 1} de ${total}`
+            : (progressMode === 'single' && currentIndex >= 0
+                ? `Execução individual — teste ${currentIndex + 1}`
+                : (hasLiveState ? 'Execução concluída' : 'Última avaliação registrada'));
+        var stations = checks.map(function(check, index) {
+            var state = stationStates[index];
+            var shortTitle = String(check.title || '').replace(/^\d+\.\s*/, '');
+            return `<li class="is-${state}" data-cdc-overall-station="${escapeHTML(check.id)}" title="${escapeHTML(check.title)} — ${progressStatusLabel(state)}">
+                <span class="cdc-metro-node" aria-hidden="true">${progressStatusSymbol(state)}</span>
+                <strong>${index + 1}</strong>
+                <small>${escapeHTML(shortTitle)}</small>
+                <em>${progressStatusLabel(state)}</em>
+            </li>`;
+        }).join('');
+        return `<div class="cdc-overall-progress-head">
+                <div><strong>${escapeHTML(headline)}</strong><span>${completed} de ${checks.length} testes concluídos — ${percent}%</span></div>
+                <b>${percent}%</b>
+            </div>
+            <div class="cdc-progress-track" role="progressbar" aria-label="Progresso geral dos testes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></div>
+            <ol class="cdc-overall-metro">${stations}</ol>
+            <footer class="cdc-progress-legend" aria-label="Legenda dos estados">
+                <span><i class="is-pending">○</i> Aguardando</span><span><i class="is-running">◉</i> Executando</span><span><i class="is-passed">✓</i> Aprovado</span><span><i class="is-warning">!</i> Atenção</span><span><i class="is-failed">×</i> Falhou</span>
+                <em>Percentuais avançam somente após eventos reais.</em>
+            </footer>`;
+    }
+
+    function overallProgressHTML(checks) {
+        return `<section class="cdc-overall-progress ${executionRunning ? 'is-running' : ''}" data-cdc-overall-progress aria-live="polite">${overallProgressContentHTML(checks)}</section>`;
+    }
+
+    function gateProgressContentHTML(check) {
+        var state = gateProgressState[check.id];
+        var stages = state ? state.stages : stageDefinitions(check).map(function(stage) {
+            return {id: stage.id, label: stage.label, status: 'pending', detail: 'Aguardando execução detalhada.', startedAt: 0, updatedAt: 0, finishedAt: 0};
+        });
+        var completed = stages.filter(function(stage) {
+            return FINAL_PROGRESS_STATES.indexOf(stage.status) !== -1;
+        }).length;
+        var percent = Math.round((completed / Math.max(stages.length, 1)) * 100);
+        var activeIndex = stages.findIndex(function(stage) { return stage.status === 'running'; });
+        var stations = stages.map(function(stage, index) {
+            var duration = stage.status === 'running'
+                ? `<span data-cdc-stage-elapsed="${escapeHTML(check.id)}:${index}">${stageDuration(stage)}</span>`
+                : stageDuration(stage);
+            return `<li class="is-${stage.status}">
+                <span class="cdc-stage-node" aria-hidden="true">${progressStatusSymbol(stage.status)}</span>
+                <strong>${escapeHTML(stage.label)}</strong>
+                <small>${progressStatusLabel(stage.status)} · ${duration}</small>
+                <div class="cdc-stage-mini-progress ${stage.status === 'running' ? 'is-indeterminate' : ''}"><i style="width:${FINAL_PROGRESS_STATES.indexOf(stage.status) !== -1 ? '100' : '0'}%"></i></div>
+            </li>`;
+        }).join('');
+        var activeStage = activeIndex >= 0 ? stages[activeIndex] : null;
+        var activity = activeStage ? `<div class="cdc-active-stage" data-cdc-active-stage="${escapeHTML(check.id)}:${activeIndex}">
+                <div><strong>${escapeHTML(activeStage.label)}</strong><span data-cdc-stage-health>Executando normalmente</span></div>
+                <div class="cdc-stage-activity-bar" aria-label="Atividade da etapa ${escapeHTML(activeStage.label)}"><i></i></div>
+                <p>${escapeHTML(activeStage.detail)} <span>Último evento há <b data-cdc-last-event>0s</b>.</span></p>
+            </div>` : `<p class="cdc-gate-progress-message">${state && FINAL_PROGRESS_STATES.indexOf(state.status) !== -1 ? `Execução finalizada: ${progressStatusLabel(state.status)}.` : 'Execute este teste para acompanhar cada etapa em tempo real.'}</p>`;
+        return `<header>
+                <div><strong>Linha deste teste</strong><span class="cdc-execution-type">${escapeHTML(check.execution_type || 'Automático')}</span></div>
+                <span>${completed} de ${stages.length} etapas — ${percent}%</span>
+            </header>
+            <div class="cdc-progress-track is-small" role="progressbar" aria-label="Progresso do teste ${escapeHTML(check.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></div>
+            <ol class="cdc-gate-metro">${stations}</ol>
+            ${activity}`;
+    }
+
+    function gateProgressHTML(check) {
+        return `<section class="cdc-gate-progress" data-cdc-gate-progress="${escapeHTML(check.id)}" aria-live="polite">${gateProgressContentHTML(check)}</section>`;
+    }
+
+    function syncProgressUI(gateId) {
+        var checks = (latestDashboardData && latestDashboardData.checks) || [];
+        var overall = document.querySelector('[data-cdc-overall-progress]');
+        if (overall) overall.innerHTML = overallProgressContentHTML(checks);
+        var ids = gateId ? [gateId] : checks.map(function(check) { return check.id; });
+        ids.forEach(function(id) {
+            var check = findCheck(id);
+            var element = document.querySelector(`[data-cdc-gate-progress="${id}"]`);
+            if (check && element) element.innerHTML = gateProgressContentHTML(check);
+        });
+        refreshElapsedIndicators();
+    }
+
+    function refreshElapsedIndicators() {
+        if (!isTestsRoute()) return;
+        document.querySelectorAll('[data-cdc-stage-elapsed]').forEach(function(element) {
+            var parts = String(element.getAttribute('data-cdc-stage-elapsed') || '').split(':');
+            var state = gateProgressState[parts[0]];
+            var stage = state && state.stages[Number(parts[1])];
+            if (stage) element.textContent = stageDuration(stage);
+        });
+        document.querySelectorAll('[data-cdc-active-stage]').forEach(function(element) {
+            var parts = String(element.getAttribute('data-cdc-active-stage') || '').split(':');
+            var state = gateProgressState[parts[0]];
+            var stage = state && state.stages[Number(parts[1])];
+            if (!stage) return;
+            var elapsed = performance.now() - stage.startedAt;
+            var sinceEvent = performance.now() - stage.updatedAt;
+            var health = element.querySelector('[data-cdc-stage-health]');
+            var lastEvent = element.querySelector('[data-cdc-last-event]');
+            var gateElement = document.querySelector(`[data-cdc-gate-progress="${parts[0]}"]`);
+            var stageElements = gateElement && gateElement.querySelectorAll('.cdc-gate-metro li');
+            var stageElement = stageElements && stageElements[Number(parts[1])];
+            var overallStation = document.querySelector(`[data-cdc-overall-station="${parts[0]}"]`);
+            element.classList.toggle('is-slow', elapsed >= 10000);
+            element.classList.toggle('is-waiting', sinceEvent >= 5000);
+            if (stageElement) {
+                stageElement.classList.toggle('is-slow', elapsed >= 10000);
+                stageElement.classList.toggle('is-waiting', sinceEvent >= 5000);
+            }
+            if (overallStation) {
+                overallStation.classList.toggle('is-slow', elapsed >= 10000);
+                overallStation.classList.toggle('is-waiting', sinceEvent >= 5000);
+            }
+            if (health) health.textContent = elapsed >= 10000
+                ? 'Demorando mais que o esperado, mas a solicitação continua ativa'
+                : (sinceEvent >= 5000 ? 'Aguardando resposta do servidor' : 'Executando normalmente');
+            if (lastEvent) lastEvent.textContent = elapsedLabel(sinceEvent);
+        });
+    }
+
+    function ensureActivityTicker() {
+        if (activityTicker || typeof window.setInterval !== 'function') return;
+        activityTicker = window.setInterval(refreshElapsedIndicators, 1000);
     }
 
     function terminalHTML() {
@@ -195,6 +432,7 @@
                     <button type="button" class="btn btn-xs btn-primary" data-cdc-run-gate="${escapeHTML(check.id)}">${runningGateId === check.id ? 'Executando...' : 'Executar este teste'}</button>
                     ${actionHTML}
                 </div>
+                ${gateProgressHTML(check)}
                 ${gateTerminalHTML(check.id, check.title)}
             </article>`;
         }).join('');
@@ -230,6 +468,8 @@
                     </div>
                 </section>
 
+                ${overallProgressHTML(data.checks || [])}
+
                 ${terminalHTML()}
 
                 <section class="cdc-quality-gates" aria-label="Gates de qualidade para publicação">
@@ -241,6 +481,8 @@
         setExecutionButtonState();
         syncTerminal();
         Object.keys(gateExecutionLogs).forEach(syncGateTerminal);
+        syncProgressUI();
+        ensureActivityTicker();
     }
 
     function load(force) {
@@ -295,138 +537,6 @@
         }
     }
 
-    function runWorkspaceDataDiagnostics(dashboard, testData, failed) {
-        appendExecutionLog('RUN', 'Validando as fontes reais das páginas CDC Estoque e CDC Usuários...');
-        appendGateLog('automated-tests', 'RUN', 'Consultando as APIs autenticadas das páginas CDC Estoque e CDC Usuários...');
-        var diagnosticFailed = !!failed;
-        var routeFailed = false;
-
-        function checkUsersRoute() {
-            frappe.call({
-                method: 'cdc_theme.api.get_users_dashboard_data',
-                args: {selected_project: 'All', selected_warehouse: 'All'},
-                callback: function(response) {
-                    var data = response && response.message;
-                    if (!data) {
-                        routeFailed = true;
-                        appendExecutionLog('FAIL', 'CDC Usuários — a API não retornou dados para montar a página.');
-                        appendGateLog('automated-tests', 'FAIL', 'CDC Usuários — API sem dados para montar a página.');
-                    } else {
-                        var summary = data.summary || {};
-                        appendExecutionLog('PASS', `CDC Usuários — API respondeu com ${summary.total || 0} usuários e filtros permitidos.`);
-                        appendGateLog('automated-tests', 'PASS', `CDC Usuários — ${summary.total || 0} usuários e filtros permitidos.`);
-                    }
-                    gateExecutionStatus['automated-tests'] = routeFailed ? 'FALHOU' : 'ATENÇÃO';
-                    syncGateTerminal('automated-tests');
-                    finishVisibleExecution(dashboard, testData, diagnosticFailed || routeFailed);
-                },
-                error: function() {
-                    appendExecutionLog('FAIL', 'CDC Usuários — falha autenticada ao consultar a API da página.');
-                    appendGateLog('automated-tests', 'FAIL', 'CDC Usuários — falha autenticada ao consultar a API.');
-                    gateExecutionStatus['automated-tests'] = 'FALHOU';
-                    finishVisibleExecution(dashboard, testData, true);
-                }
-            });
-        }
-
-        frappe.call({
-            method: 'cdc_theme.api.get_stock_dashboard_data',
-            args: {selected_unit: 'All', period: 'quarter', entry_type: 'receipt', table_type: 'all'},
-            callback: function(response) {
-                var data = response && response.message;
-                if (!data) {
-                    routeFailed = true;
-                    appendExecutionLog('FAIL', 'CDC Estoque — a API não retornou dados para montar a página.');
-                    appendGateLog('automated-tests', 'FAIL', 'CDC Estoque — API sem dados para montar a página.');
-                } else {
-                    appendExecutionLog('PASS', `CDC Estoque — API respondeu com ${data.total_items || 0} itens e ${data.total_warehouses || 0} armazéns no escopo.`);
-                    appendGateLog('automated-tests', 'PASS', `CDC Estoque — ${data.total_items || 0} itens e ${data.total_warehouses || 0} armazéns no escopo.`);
-                }
-                checkUsersRoute();
-            },
-            error: function() {
-                routeFailed = true;
-                appendExecutionLog('FAIL', 'CDC Estoque — falha autenticada ao consultar a API da página.');
-                appendGateLog('automated-tests', 'FAIL', 'CDC Estoque — falha autenticada ao consultar a API.');
-                checkUsersRoute();
-            }
-        });
-    }
-
-    function runVisibleTestExecution() {
-        if (executionRunning || runningGateId) {
-            frappe.show_alert({message: __('Os testes já estão em execução.'), indicator: 'orange'}, 3);
-            return;
-        }
-        var dashboard = document.getElementById('cdc-tests-dashboard');
-        if (!dashboard || !isTestsRoute()) return;
-        executionRunning = true;
-        executionStartedAt = performance.now();
-        executionLogs = [];
-        gateExecutionLogs = Object.create(null);
-        gateExecutionStatus = Object.create(null);
-        (latestDashboardData && latestDashboardData.checks || []).forEach(function(check) {
-            gateExecutionStatus[check.id] = 'AGUARDANDO';
-            syncGateTerminal(check.id);
-        });
-        setExecutionButtonState();
-        syncTerminal();
-        appendExecutionLog('START', 'Execução autenticada iniciada pelo usuário atual.');
-        appendExecutionLog('RUN', 'Consultando os 10 gates de qualidade no servidor...');
-
-        frappe.call({
-            method: 'cdc_theme.api.get_cdc_tests_dashboard',
-            callback: function(response) {
-                if (!isTestsRoute()) {
-                    executionRunning = false;
-                    return;
-                }
-                var testData = response && response.message;
-                if (!testData) {
-                    appendExecutionLog('FAIL', 'O servidor não retornou o resultado dos gates.');
-                    finishVisibleExecution(dashboard, latestDashboardData, true);
-                    return;
-                }
-                (testData.checks || []).forEach(function(check) {
-                    var level = check.status === 'passed' ? 'PASS' : (check.status === 'blocked' ? 'BLOCK' : 'WARN');
-                    appendExecutionLog(level, `${check.title} — ${check.evidence}`);
-                    appendGateLog(check.id, level, check.evidence);
-                    gateExecutionStatus[check.id] = check.status === 'passed' ? 'APROVADO' : (check.status === 'blocked' ? 'BLOQUEADO' : 'ATENÇÃO');
-                    syncGateTerminal(check.id);
-                });
-                var summary = testData.summary || {};
-                appendExecutionLog('INFO', `Gates: ${summary.passed || 0} aprovados, ${summary.warnings || 0} atenções, ${summary.blocked || 0} bloqueios.`);
-                appendExecutionLog('RUN', 'Executando diagnósticos de banco, Redis, app, assets, workspaces e logs...');
-
-                frappe.call({
-                    method: 'cdc_theme.api.get_cdc_admin_diagnostics',
-                    callback: function(diagnosticResponse) {
-                        var diagnostics = diagnosticResponse && diagnosticResponse.message;
-                        if (!diagnostics) {
-                            appendExecutionLog('FAIL', 'Os diagnósticos administrativos não retornaram resultado.');
-                            finishVisibleExecution(dashboard, testData, true);
-                            return;
-                        }
-                        (diagnostics.checks || []).forEach(function(check) {
-                            appendExecutionLog(check.status === 'ok' ? 'PASS' : 'FAIL', `${check.label} — ${check.detail}`);
-                        });
-                        var diagnosticSummary = diagnostics.summary || {};
-                        appendExecutionLog('INFO', `Diagnósticos: ${diagnosticSummary.ok || 0}/${diagnosticSummary.total || 0} saudáveis; ${diagnosticSummary.errors || 0} erros.`);
-                        runWorkspaceDataDiagnostics(dashboard, testData, Number(diagnosticSummary.errors || 0) > 0);
-                    },
-                    error: function() {
-                        appendExecutionLog('FAIL', 'Falha de comunicação ao executar os diagnósticos administrativos.');
-                        finishVisibleExecution(dashboard, testData, true);
-                    }
-                });
-            },
-            error: function() {
-                appendExecutionLog('FAIL', 'Falha de comunicação ao executar os gates de qualidade.');
-                finishVisibleExecution(dashboard, latestDashboardData, true);
-            }
-        });
-    }
-
     function updateSingleGate(gate, checkedAt) {
         if (!latestDashboardData || !gate) return;
         var checks = latestDashboardData.checks || [];
@@ -443,28 +553,128 @@
         latestDashboardData.summary.ready_to_publish = latestDashboardData.summary.warnings === 0 && latestDashboardData.summary.blocked === 0;
     }
 
-    function runSingleGate(gateId) {
-        if (executionRunning || runningGateId) {
-            frappe.show_alert({message: __('Aguarde a execução atual terminar.'), indicator: 'orange'}, 3);
+    function renderGateResult(gateId, openDetails) {
+        var dashboard = document.getElementById('cdc-tests-dashboard');
+        if (!dashboard || !latestDashboardData || !isTestsRoute()) {
+            setExecutionButtonState();
+            return;
+        }
+        renderDashboard(dashboard, latestDashboardData);
+        var card = dashboard.querySelector(`[data-quality-gate="${gateId}"]`);
+        var details = card && card.querySelector('details');
+        if (details && openDetails) details.open = true;
+    }
+
+    function finishGateRun(gateId, result, runtimeFailed, options, done) {
+        var resultStatus = runtimeFailed ? 'failed' : resultProgressStatus(result.check.status);
+        var state = gateProgressState[gateId];
+        var lastIndex = state.stages.length - 1;
+        setGateStage(gateId, lastIndex, 'running', 'Consolidando o resultado e as evidências desta execução.');
+        setGateStage(gateId, lastIndex, resultStatus, result.check.evidence);
+        completeGateProgress(gateId, resultStatus);
+        var consoleStatus = runtimeFailed ? 'FALHOU' : (result.check.status === 'passed' ? 'APROVADO' : (result.check.status === 'blocked' ? 'BLOQUEADO' : 'ATENÇÃO'));
+        finishGateConsole(gateId, consoleStatus, runtimeFailed ? 'A verificação terminou com falha.' : 'Verificação concluída.');
+        runningGateId = null;
+        renderGateResult(gateId, !options.fromSuite);
+        if (typeof done === 'function') done(runtimeFailed ? new Error('runtime-failed') : null, result);
+    }
+
+    function finishGenericEvidence(gateId, result, options, done) {
+        var state = gateProgressState[gateId];
+        var resultStatus = resultProgressStatus(result.check.status);
+        for (var index = 2; index < state.stages.length - 1; index++) {
+            setGateStage(gateId, index, 'running', `Validando ${state.stages[index].label.toLowerCase()} com a resposta real do servidor.`);
+            setGateStage(gateId, index, resultStatus, result.check.evidence);
+        }
+        finishGateRun(gateId, result, false, options, done);
+    }
+
+    function executeAutomatedRouteStages(gateId, result, options, done) {
+        var state = gateProgressState[gateId];
+        var stockIndex = 2;
+        var usersIndex = 3;
+        var evidenceIndex = Math.min(4, state.stages.length - 2);
+        var routeFailed = false;
+        setGateStage(gateId, stockIndex, 'running', 'Consultando dados reais e permissões dos armazéns.');
+        appendGateLog(gateId, 'RUN', 'Consultando a API autenticada de CDC Estoque...');
+        frappe.call({
+            method: 'cdc_theme.api.get_stock_dashboard_data',
+            args: {selected_unit: 'All', period: 'quarter', entry_type: 'receipt', table_type: 'all'},
+            callback: function(stockResponse) {
+                var stock = stockResponse && stockResponse.message;
+                routeFailed = !stock;
+                setGateStage(gateId, stockIndex, stock ? 'passed' : 'failed', stock
+                    ? `Resposta real: ${stock.total_items || 0} itens e ${stock.total_warehouses || 0} armazéns.`
+                    : 'A API não retornou dados para montar CDC Estoque.');
+                appendGateLog(gateId, stock ? 'PASS' : 'FAIL', stock
+                    ? `CDC Estoque respondeu: ${stock.total_items || 0} itens e ${stock.total_warehouses || 0} armazéns.`
+                    : 'CDC Estoque não retornou dados para montar a página.');
+                setGateStage(gateId, usersIndex, 'running', 'Consultando usuários reais e filtros permitidos.');
+                frappe.call({
+                    method: 'cdc_theme.api.get_users_dashboard_data',
+                    args: {selected_project: 'All', selected_warehouse: 'All'},
+                    callback: function(usersResponse) {
+                        var users = usersResponse && usersResponse.message;
+                        routeFailed = routeFailed || !users;
+                        setGateStage(gateId, usersIndex, users ? 'passed' : 'failed', users
+                            ? `Resposta real: ${(users.summary || {}).total || 0} usuários.`
+                            : 'A API não retornou dados para montar CDC Usuários.');
+                        appendGateLog(gateId, users ? 'PASS' : 'FAIL', users
+                            ? `CDC Usuários respondeu: ${(users.summary || {}).total || 0} usuários.`
+                            : 'CDC Usuários não retornou dados para montar a página.');
+                        setGateStage(gateId, evidenceIndex, 'running', 'Consolidando APIs verificadas e a dependência externa da CI.');
+                        setGateStage(gateId, evidenceIndex, routeFailed ? 'failed' : resultProgressStatus(result.check.status), result.check.evidence);
+                        finishGateRun(gateId, result, routeFailed, options, done);
+                    },
+                    error: function() {
+                        routeFailed = true;
+                        setGateStage(gateId, usersIndex, 'failed', 'Falha autenticada ao consultar CDC Usuários.');
+                        appendGateLog(gateId, 'FAIL', 'Falha autenticada ao consultar CDC Usuários.');
+                        setGateStage(gateId, evidenceIndex, 'failed', 'As APIs obrigatórias não foram concluídas.');
+                        finishGateRun(gateId, result, true, options, done);
+                    }
+                });
+            },
+            error: function() {
+                setGateStage(gateId, stockIndex, 'failed', 'Falha autenticada ao consultar CDC Estoque.');
+                appendGateLog(gateId, 'FAIL', 'Falha autenticada ao consultar CDC Estoque.');
+                finishGateRun(gateId, result, true, options, done);
+            }
+        });
+    }
+
+    function executeGate(gateId, options, done) {
+        options = options || {};
+        var check = findCheck(gateId);
+        if (!check) {
+            if (typeof done === 'function') done(new Error('unknown-gate'));
             return;
         }
         runningGateId = gateId;
-        startGateConsole(gateId, `Execução individual autenticada do teste ${gateId}.`);
+        resetGateProgress(check, false);
+        startGateConsole(gateId, `${options.fromSuite ? 'Execução sequencial' : 'Execução individual'} autenticada do teste ${gateId}.`);
         setExecutionButtonState();
-        appendExecutionLog('RUN', `Executando individualmente o teste ${gateId}...`);
-        appendGateLog(gateId, 'RUN', 'Consultando o gate e suas evidências no servidor...');
+        setGateStage(gateId, 0, 'running', 'Preparando contexto, identificação do teste e solicitação autenticada.');
+        appendExecutionLog('RUN', `Executando ${check.title}...`);
+        appendGateLog(gateId, 'RUN', 'Preparando a solicitação e aguardando o servidor...');
         frappe.call({
             method: 'cdc_theme.api.run_cdc_quality_gate',
             args: {gate_id: gateId},
             callback: function(response) {
                 var result = response && response.message;
                 if (!result || !result.check) {
+                    setGateStage(gateId, 0, 'failed', 'O servidor não retornou o gate solicitado.');
                     appendExecutionLog('FAIL', `O teste ${gateId} não retornou resultado.`);
                     finishGateConsole(gateId, 'FALHOU', 'O servidor não retornou o resultado do gate.');
+                    completeGateProgress(gateId, 'failed');
                     runningGateId = null;
                     setExecutionButtonState();
+                    if (typeof done === 'function') done(new Error('empty-result'));
                     return;
                 }
+                setGateStage(gateId, 0, 'passed', 'Contexto preparado e resposta recebida do servidor.');
+                setGateStage(gateId, 1, 'running', 'Confirmando autorização administrativa da execução.');
+                setGateStage(gateId, 1, 'passed', 'Permissão System Manager confirmada pelo endpoint protegido.');
                 updateSingleGate(result.check, result.checked_at);
                 appendExecutionLog(
                     result.check.status === 'passed' ? 'PASS' : (result.check.status === 'blocked' ? 'BLOCK' : 'WARN'),
@@ -475,68 +685,107 @@
                     result.check.status === 'passed' ? 'PASS' : (result.check.status === 'blocked' ? 'BLOCK' : 'WARN'),
                     result.check.evidence
                 );
-
-                function completeSingleGate(runtimeFailed) {
-                    var finalStatus = runtimeFailed ? 'FALHOU' : (result.check.status === 'passed' ? 'APROVADO' : (result.check.status === 'blocked' ? 'BLOQUEADO' : 'ATENÇÃO'));
-                    finishGateConsole(gateId, finalStatus, runtimeFailed ? 'A verificação terminou com falha.' : 'Verificação concluída.');
-                    runningGateId = null;
-                    var dashboard = document.getElementById('cdc-tests-dashboard');
-                    if (dashboard && latestDashboardData) {
-                        renderDashboard(dashboard, latestDashboardData);
-                        var card = dashboard.querySelector(`[data-quality-gate="${gateId}"]`);
-                        var details = card && card.querySelector('details');
-                        if (details) details.open = true;
-                        syncGateTerminal(gateId);
-                    } else {
-                        setExecutionButtonState();
-                    }
+                if (gateId === 'automated-tests') {
+                    executeAutomatedRouteStages(gateId, result, options, done);
+                } else {
+                    finishGenericEvidence(gateId, result, options, done);
                 }
-
-                if (gateId !== 'automated-tests') {
-                    completeSingleGate(false);
-                    return;
-                }
-
-                appendGateLog(gateId, 'RUN', 'Validando agora as APIs reais de CDC Estoque e CDC Usuários...');
-                var routeFailed = false;
-                frappe.call({
-                    method: 'cdc_theme.api.get_stock_dashboard_data',
-                    args: {selected_unit: 'All', period: 'quarter', entry_type: 'receipt', table_type: 'all'},
-                    callback: function(stockResponse) {
-                        var stock = stockResponse && stockResponse.message;
-                        routeFailed = !stock;
-                        appendGateLog(gateId, stock ? 'PASS' : 'FAIL', stock
-                            ? `CDC Estoque respondeu: ${stock.total_items || 0} itens e ${stock.total_warehouses || 0} armazéns.`
-                            : 'CDC Estoque não retornou dados para montar a página.');
-                        frappe.call({
-                            method: 'cdc_theme.api.get_users_dashboard_data',
-                            args: {selected_project: 'All', selected_warehouse: 'All'},
-                            callback: function(usersResponse) {
-                                var users = usersResponse && usersResponse.message;
-                                routeFailed = routeFailed || !users;
-                                appendGateLog(gateId, users ? 'PASS' : 'FAIL', users
-                                    ? `CDC Usuários respondeu: ${(users.summary || {}).total || 0} usuários.`
-                                    : 'CDC Usuários não retornou dados para montar a página.');
-                                completeSingleGate(routeFailed);
-                            },
-                            error: function() {
-                                appendGateLog(gateId, 'FAIL', 'Falha autenticada ao consultar CDC Usuários.');
-                                completeSingleGate(true);
-                            }
-                        });
-                    },
-                    error: function() {
-                        appendGateLog(gateId, 'FAIL', 'Falha autenticada ao consultar CDC Estoque.');
-                        completeSingleGate(true);
-                    }
-                });
             },
             error: function() {
+                setGateStage(gateId, 0, 'failed', 'Falha de comunicação durante a preparação.');
                 appendExecutionLog('FAIL', `Falha de comunicação ao executar o teste ${gateId}.`);
                 finishGateConsole(gateId, 'FALHOU', 'Falha de comunicação com o servidor.');
+                completeGateProgress(gateId, 'failed');
                 runningGateId = null;
                 setExecutionButtonState();
+                if (typeof done === 'function') done(new Error('request-failed'));
             }
+        });
+    }
+
+    function runFinalDiagnostics(dashboard, failed) {
+        appendExecutionLog('RUN', 'Finalizando com diagnósticos de banco, Redis, app, assets, workspaces e logs...');
+        frappe.call({
+            method: 'cdc_theme.api.get_cdc_admin_diagnostics',
+            callback: function(response) {
+                var diagnostics = response && response.message;
+                if (!diagnostics) {
+                    appendExecutionLog('FAIL', 'Os diagnósticos administrativos não retornaram resultado.');
+                    finishVisibleExecution(dashboard, latestDashboardData, true);
+                    return;
+                }
+                (diagnostics.checks || []).forEach(function(check) {
+                    appendExecutionLog(check.status === 'ok' ? 'PASS' : 'FAIL', `${check.label} — ${check.detail}`);
+                });
+                var summary = diagnostics.summary || {};
+                appendExecutionLog('INFO', `Diagnósticos finais: ${summary.ok || 0}/${summary.total || 0} saudáveis; ${summary.errors || 0} erros.`);
+                finishVisibleExecution(dashboard, latestDashboardData, failed || Number(summary.errors || 0) > 0);
+            },
+            error: function() {
+                appendExecutionLog('FAIL', 'Falha de comunicação nos diagnósticos administrativos finais.');
+                finishVisibleExecution(dashboard, latestDashboardData, true);
+            }
+        });
+    }
+
+    function runVisibleTestExecution() {
+        if (executionRunning || runningGateId) {
+            frappe.show_alert({message: __('Os testes já estão em execução.'), indicator: 'orange'}, 3);
+            return;
+        }
+        var dashboard = document.getElementById('cdc-tests-dashboard');
+        var checks = (latestDashboardData && latestDashboardData.checks) || [];
+        if (!dashboard || !isTestsRoute() || !checks.length) return;
+        executionRunning = true;
+        progressMode = 'suite';
+        executionStartedAt = performance.now();
+        executionLogs = [];
+        gateExecutionLogs = Object.create(null);
+        gateExecutionStatus = Object.create(null);
+        gateProgressState = Object.create(null);
+        checks.forEach(function(check) {
+            gateExecutionStatus[check.id] = 'AGUARDANDO';
+            resetGateProgress(check, true);
+        });
+        renderDashboard(dashboard, latestDashboardData);
+        appendExecutionLog('START', 'Execução sequencial autenticada dos 10 testes iniciada.');
+        appendExecutionLog('INFO', 'Cada estação avançará somente após a operação real correspondente responder.');
+        var index = 0;
+        var failed = false;
+
+        function nextGate() {
+            if (!isTestsRoute()) {
+                executionRunning = false;
+                runningGateId = null;
+                return;
+            }
+            if (index >= checks.length) {
+                runningGateId = null;
+                syncProgressUI();
+                var summary = latestDashboardData.summary || {};
+                appendExecutionLog('INFO', `Resultado dos gates: ${summary.passed || 0} aprovados, ${summary.warnings || 0} atenções e ${summary.blocked || 0} bloqueios.`);
+                runFinalDiagnostics(dashboard, failed);
+                return;
+            }
+            var check = checks[index++];
+            executeGate(check.id, {fromSuite: true}, function(error) {
+                failed = failed || !!error;
+                nextGate();
+            });
+        }
+        nextGate();
+    }
+
+    function runSingleGate(gateId) {
+        if (executionRunning || runningGateId) {
+            frappe.show_alert({message: __('Aguarde a execução atual terminar.'), indicator: 'orange'}, 3);
+            return;
+        }
+        progressMode = 'single';
+        executeGate(gateId, {fromSuite: false}, function() {
+            runningGateId = null;
+            setExecutionButtonState();
+            syncProgressUI(gateId);
         });
     }
 
@@ -560,7 +809,12 @@
             __('Reconciliar as workspaces CDC e limpar os caches do tema agora?'),
             function() {
                 button.disabled = true;
+                progressMode = 'single';
+                runningGateId = gateId;
+                var repairCheck = findCheck(gateId);
+                if (repairCheck) resetGateProgress(repairCheck, false);
                 startGateConsole(gateId, 'Reparo controlado do tema solicitado pelo usuário.');
+                setGateStage(gateId, 0, 'running', 'Preparando a reconciliação controlada do tema.');
                 appendGateLog(gateId, 'RUN', 'Reconciliando workspaces, caches e assets no servidor...');
                 frappe.call({
                     method: 'cdc_theme.api.run_cdc_admin_action',
@@ -569,10 +823,16 @@
                         var result = response && response.message;
                         if (!result || !result.ok) {
                             button.disabled = false;
+                            setGateStage(gateId, 0, 'failed', 'O servidor não confirmou o reparo solicitado.');
+                            completeGateProgress(gateId, 'failed');
+                            runningGateId = null;
                             finishGateConsole(gateId, 'FALHOU', 'O servidor não confirmou o reparo.');
                             frappe.msgprint(__('O reparo do tema não foi confirmado pelo servidor.'));
                             return;
                         }
+                        setGateStage(gateId, 0, 'passed', 'Solicitação preparada e processada pelo servidor.');
+                        setGateStage(gateId, 1, 'running', 'Confirmando autorização administrativa.');
+                        setGateStage(gateId, 1, 'passed', 'Permissão System Manager confirmada.');
                         button.textContent = 'Revalidando tema...';
                         var repairSummary = result.diagnostics && result.diagnostics.summary;
                         if (repairSummary) {
@@ -582,10 +842,20 @@
                             );
                             appendGateLog(gateId, Number(repairSummary.errors || 0) === 0 ? 'PASS' : 'WARN', `Servidor: ${repairSummary.ok || 0}/${repairSummary.total || 0} diagnósticos saudáveis.`);
                         }
+                        setGateStage(gateId, 2, 'running', 'Reconciliando assets, workspaces e caches no servidor.');
+                        setGateStage(gateId, 2, repairSummary && Number(repairSummary.errors || 0) > 0 ? 'warning' : 'passed', repairSummary
+                            ? `${repairSummary.ok || 0}/${repairSummary.total || 0} diagnósticos saudáveis após o reparo.`
+                            : 'Servidor reconciliado; diagnóstico detalhado indisponível.');
+                        setGateStage(gateId, 3, 'running', 'Limpando o estado local e preparando a remontagem SPA.');
                         appendExecutionLog('REPAIR', 'Servidor reconciliado; limpando o estado do navegador e revalidando os assets...');
                         appendGateLog(gateId, 'REPAIR', 'Servidor reconciliado; limpando o estado local e revalidando assets...');
                         repairBrowserThemeState().then(function() {
                             appendExecutionLog('DONE', 'Reparo concluído. Recarregando o Desk para remontar as páginas CDC.');
+                            setGateStage(gateId, 3, 'passed', 'Estado local limpo; o watchdog será revalidado após recarregar.');
+                            setGateStage(gateId, 4, 'running', 'Consolidando o resultado do reparo.');
+                            setGateStage(gateId, 4, 'passed', 'Reparo concluído; o Desk será recarregado.');
+                            completeGateProgress(gateId, 'passed');
+                            runningGateId = null;
                             finishGateConsole(gateId, 'APROVADO', 'Reparo concluído; o Desk será recarregado.');
                             frappe.show_alert({message: __(result.message + ' O Desk será recarregado.'), indicator: 'green'}, 6);
                             button.disabled = false;
@@ -593,6 +863,10 @@
                             window.setTimeout(function() { window.location.reload(); }, 1800);
                         }).catch(function() {
                             appendExecutionLog('WARN', 'O navegador não confirmou toda a limpeza; o Desk ainda será recarregado.');
+                            setGateStage(gateId, 3, 'warning', 'O navegador não confirmou toda a limpeza local.');
+                            setGateStage(gateId, 4, 'warning', 'Recarregamento necessário para concluir a validação.');
+                            completeGateProgress(gateId, 'warning');
+                            runningGateId = null;
                             finishGateConsole(gateId, 'ATENÇÃO', 'O navegador não confirmou toda a limpeza; o Desk será recarregado.');
                             button.disabled = false;
                             button.textContent = 'Reparar tema e caches';
@@ -601,6 +875,9 @@
                     },
                     error: function() {
                         button.disabled = false;
+                        setGateStage(gateId, 0, 'failed', 'Falha de comunicação durante o reparo.');
+                        completeGateProgress(gateId, 'failed');
+                        runningGateId = null;
                         finishGateConsole(gateId, 'FALHOU', 'Falha de comunicação durante o reparo.');
                         frappe.msgprint(__('Falha ao executar o reparo controlado do tema.'));
                     }
@@ -610,7 +887,7 @@
     });
     function schedule() {
         generation += 1;
-        [0, 200, 700].forEach(function(delay) { setTimeout(function() { load(false); }, delay); });
+        [0, 200, 700].forEach(function(delay) { window.setTimeout(function() { load(false); }, delay); });
     }
     $(document).ready(schedule);
     $(document).on('page-change', schedule);

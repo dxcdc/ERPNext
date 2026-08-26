@@ -1813,6 +1813,72 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-quality-gate.is-blocked .cdc-quality-gate-badge { background: #fee2e2; color: #991b1b; }
 .cdc-quality-gate[data-quality-gate="theme-integrity"] { border-left: 4px solid #2563eb; background: linear-gradient(135deg, var(--card-bg, #fff), rgba(37, 99, 235, .055)); }
 .cdc-quality-gate[data-quality-gate="theme-integrity"] .btn { white-space: nowrap; }
+.cdc-overall-progress { position: relative; margin: 0 0 14px; padding: 16px; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 13px; background: linear-gradient(180deg, #fff, #f8fafc); box-shadow: 0 8px 22px rgba(15, 23, 42, .06); }
+.cdc-overall-progress.is-running { position: sticky; top: 58px; z-index: 8; border-color: #93c5fd; box-shadow: 0 12px 28px rgba(37, 99, 235, .14); }
+.cdc-overall-progress-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+.cdc-overall-progress-head > div { display: grid; gap: 2px; }
+.cdc-overall-progress-head strong { color: #0f172a; font-size: 13px; }
+.cdc-overall-progress-head span { color: #64748b; font-size: 11px; }
+.cdc-overall-progress-head b { color: #2563eb; font-size: 20px; }
+.cdc-progress-track { position: relative; height: 9px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.cdc-progress-track > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #22c55e); transition: width .28s ease; }
+.cdc-progress-track.is-small { height: 6px; }
+.cdc-overall-metro, .cdc-gate-metro { display: grid; margin: 15px 0 0; padding: 0; list-style: none; }
+.cdc-overall-metro { grid-template-columns: repeat(10, minmax(82px, 1fr)); overflow-x: auto; padding: 2px 2px 8px; }
+.cdc-overall-metro li { position: relative; display: grid; justify-items: center; min-width: 82px; padding: 0 5px; text-align: center; }
+.cdc-overall-metro li::before { content: ""; position: absolute; top: 14px; left: 0; right: 0; height: 3px; background: #cbd5e1; }
+.cdc-overall-metro li:first-child::before { left: 50%; }
+.cdc-overall-metro li:last-child::before { right: 50%; }
+.cdc-metro-node, .cdc-stage-node { position: relative; z-index: 1; display: grid; place-items: center; border-radius: 50%; background: #fff; font-weight: 900; }
+.cdc-metro-node { width: 30px; height: 30px; border: 3px solid #94a3b8; color: #64748b; }
+.cdc-overall-metro strong { margin-top: 5px; color: #334155; font-size: 10px; }
+.cdc-overall-metro small { display: block; max-width: 105px; overflow: hidden; color: #475569; font-size: 9px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.cdc-overall-metro em { color: #64748b; font-size: 8px; font-style: normal; font-weight: 800; text-transform: uppercase; }
+.cdc-overall-metro li.is-running::before, .cdc-overall-metro li.is-passed::before { background: #22c55e; }
+.cdc-overall-metro li.is-running .cdc-metro-node { border-color: #2563eb; background: #dbeafe; color: #1d4ed8; animation: cdcTerminalPulse 1s ease-in-out infinite; }
+.cdc-overall-metro li.is-passed .cdc-metro-node { border-color: #22a06b; background: #dcfce7; color: #166534; }
+.cdc-overall-metro li.is-warning .cdc-metro-node { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
+.cdc-overall-metro li.is-failed .cdc-metro-node { border-color: #dc3545; background: #fee2e2; color: #991b1b; }
+.cdc-overall-metro li.is-running.is-waiting .cdc-metro-node, .cdc-gate-metro li.is-running.is-waiting .cdc-stage-node { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
+.cdc-overall-metro li.is-running.is-slow .cdc-metro-node, .cdc-gate-metro li.is-running.is-slow .cdc-stage-node { border-color: #f97316; background: #ffedd5; color: #c2410c; }
+.cdc-progress-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 12px; margin-top: 9px; color: #64748b; font-size: 9px; }
+.cdc-progress-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.cdc-progress-legend i { font-style: normal; font-weight: 900; }.cdc-progress-legend i.is-running { color: #2563eb; }.cdc-progress-legend i.is-passed { color: #22a06b; }.cdc-progress-legend i.is-warning { color: #d97706; }.cdc-progress-legend i.is-failed { color: #dc3545; }
+.cdc-progress-legend em { margin-left: auto; color: #475569; font-style: normal; font-weight: 700; }
+.cdc-gate-progress { grid-column: 2 / -1; padding: 12px; border: 1px solid #dbe4ef; border-radius: 10px; background: #f8fafc; }
+.cdc-gate-progress > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.cdc-gate-progress > header > div { display: flex; align-items: center; gap: 8px; }
+.cdc-gate-progress > header strong { color: #0f172a; font-size: 11px; }
+.cdc-gate-progress > header > span { color: #475569; font-size: 10px; font-weight: 750; }
+.cdc-execution-type { padding: 3px 7px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+.cdc-gate-metro { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 7px; }
+.cdc-gate-metro li { position: relative; min-width: 0; padding: 9px; border: 1px solid #dbe4ef; border-radius: 8px; background: #fff; }
+.cdc-stage-node { width: 23px; height: 23px; margin-bottom: 5px; border: 2px solid #94a3b8; color: #64748b; font-size: 11px; }
+.cdc-gate-metro strong { display: block; overflow: hidden; color: #334155; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.cdc-gate-metro small { display: block; margin-top: 2px; color: #64748b; font-size: 8px; }
+.cdc-stage-mini-progress { height: 3px; margin-top: 7px; overflow: hidden; border-radius: 99px; background: #e2e8f0; }
+.cdc-stage-mini-progress i { display: block; height: 100%; background: #94a3b8; transition: width .2s ease; }
+.cdc-gate-metro li.is-running { border-color: #93c5fd; background: #eff6ff; }
+.cdc-gate-metro li.is-running .cdc-stage-node { border-color: #2563eb; color: #1d4ed8; animation: cdcTerminalPulse 1s ease-in-out infinite; }
+.cdc-gate-metro li.is-passed .cdc-stage-node { border-color: #22a06b; background: #dcfce7; color: #166534; }
+.cdc-gate-metro li.is-passed .cdc-stage-mini-progress i { background: #22a06b; }
+.cdc-gate-metro li.is-warning .cdc-stage-node { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
+.cdc-gate-metro li.is-warning .cdc-stage-mini-progress i { background: #f59e0b; }
+.cdc-gate-metro li.is-failed .cdc-stage-node { border-color: #dc3545; background: #fee2e2; color: #991b1b; }
+.cdc-gate-metro li.is-failed .cdc-stage-mini-progress i { background: #dc3545; }
+.cdc-stage-mini-progress.is-indeterminate i, .cdc-stage-activity-bar i { width: 35% !important; background: linear-gradient(90deg, transparent, #2563eb, transparent); animation: cdcStageActivity 1.25s linear infinite; }
+.cdc-active-stage { margin-top: 9px; padding: 10px 12px; border-left: 3px solid #2563eb; border-radius: 0 8px 8px 0; background: #fff; }
+.cdc-active-stage > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cdc-active-stage strong { color: #0f172a; font-size: 11px; }
+.cdc-active-stage [data-cdc-stage-health] { color: #2563eb; font-size: 9px; font-weight: 800; }
+.cdc-active-stage p, .cdc-gate-progress-message { margin: 7px 0 0; color: #475569; font-size: 10px; line-height: 1.45; }
+.cdc-active-stage p span { color: #64748b; white-space: nowrap; }
+.cdc-stage-activity-bar { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #dbeafe; }
+.cdc-active-stage.is-waiting { border-left-color: #f59e0b; background: #fffbeb; }
+.cdc-active-stage.is-waiting [data-cdc-stage-health] { color: #b45309; }
+.cdc-active-stage.is-slow { border-left-color: #f97316; background: #fff7ed; }
+.cdc-active-stage.is-slow [data-cdc-stage-health] { color: #c2410c; }
+@keyframes cdcStageActivity { from { transform: translateX(-120%); } to { transform: translateX(310%); } }
 .cdc-gate-terminal { grid-column: 2 / -1; overflow: hidden; border: 1px solid #263244; border-radius: 9px; background: #030712; }
 .cdc-gate-terminal header { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 6px 10px; border-bottom: 1px solid #1f2937; background: #0b1220; color: #cbd5e1; }
 .cdc-gate-terminal header strong { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; }
@@ -1828,7 +1894,7 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     .cdc-quality-summary-metrics { display: grid; grid-template-columns: repeat(3, 1fr); }
     .cdc-quality-gate { grid-template-columns: 30px 1fr; }
     .cdc-quality-gate-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
-    .cdc-gate-terminal { grid-column: 1 / -1; }
+    .cdc-gate-progress, .cdc-gate-terminal { grid-column: 1 / -1; }
 }
 
 /* Páginas dedicadas CDC Testes e CDC Grupos */
