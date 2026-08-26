@@ -116,7 +116,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("CDC ONGSYS Sync State", body)
         self.assertIn("_require_system_manager", body)
 
-    def test_cdc_tests_page_exposes_nine_honest_quality_gates(self):
+    def test_cdc_tests_page_exposes_ten_honest_quality_gates_and_theme_repair(self):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
         tests_source = TESTS_JS.read_text()
@@ -124,7 +124,7 @@ class StaticSafetyTest(unittest.TestCase):
             "item-group-route", "item-group-native-list", "real-telemetry",
             "ongsys-integrity", "warehouse-rbac", "security-ci",
             "automated-tests", "production-validation",
-            "workspace-navigation",
+            "workspace-navigation", "theme-integrity",
         )
         for gate_id in expected_ids:
             with self.subTest(gate_id=gate_id):
@@ -133,6 +133,10 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("get_cdc_tests_dashboard", api_source)
         self.assertNotIn("tab-validacoes", theme_source)
         self.assertIn("Executar testes novamente", tests_source)
+        self.assertIn("Reparar tema e caches", api_source)
+        self.assertIn("data-cdc-tests-action", tests_source)
+        self.assertIn('"repair_theme"', api_source)
+        self.assertIn("_theme_integrity_health", api_source)
         self.assertNotIn("Todos os testes foram aprovados", tests_source)
 
     def test_cdc_groups_is_only_a_shortcut_to_native_item_group(self):

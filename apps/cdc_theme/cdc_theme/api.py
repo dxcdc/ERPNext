@@ -228,6 +228,15 @@ def _repair_cdc_support_workspaces():
     ]
 
 
+def _clear_cdc_theme_caches():
+    frappe.clear_cache()
+    try:
+        from frappe.website.utils import clear_cache as clear_website_cache
+        clear_website_cache()
+    except ImportError:
+        pass
+
+
 @frappe.whitelist()
 def ensure_cdc_admin_workspace():
     _require_system_manager()
@@ -330,23 +339,26 @@ def get_cdc_admin_diagnostics():
 def run_cdc_admin_action(action):
     """Executa somente correcoes administrativas enumeradas e auditaveis."""
     _require_system_manager()
-    allowed = {"clear_cache", "repair_workspace", "apply_light_theme"}
+    allowed = {"clear_cache", "repair_workspace", "repair_theme", "apply_light_theme"}
     if action not in allowed:
         frappe.throw("Ação administrativa não permitida.", frappe.PermissionError)
 
     if action == "clear_cache":
-        frappe.clear_cache()
-        try:
-            from frappe.website.utils import clear_cache as clear_website_cache
-            clear_website_cache()
-        except ImportError:
-            pass
+        _clear_cdc_theme_caches()
         message = "Caches do Frappe e do website foram limpos."
     elif action == "repair_workspace":
         _repair_cdc_support_workspaces()
         frappe.db.commit()
-        frappe.clear_cache()
-        message = "Workspaces CDC Monitoramento, Testes, Grupos e Admin reparadas."
+        _clear_cdc_theme_caches()
+        message = "As 9 workspaces CDC foram reconciliadas e os caches foram limpos."
+    elif action == "repair_theme":
+        names = _repair_cdc_support_workspaces()
+        frappe.db.commit()
+        _clear_cdc_theme_caches()
+        message = (
+            f"Tema CDC reparado: {len(names)} workspaces reconciliadas; "
+            "caches do Desk e do website limpos."
+        )
     else:
         frappe.db.set_value("User", frappe.session.user, "desk_theme", "Light", update_modified=False)
         frappe.db.commit()
@@ -1323,8 +1335,12 @@ def diagnostico_mattermost():
     }
 
 
-def _monitoring_quality_gate(gate_id, title, status, evidence):
-    return {"id": gate_id, "title": title, "status": status, "evidence": evidence}
+def _monitoring_quality_gate(gate_id, title, status, evidence, action=None, action_label=None):
+    gate = {"id": gate_id, "title": title, "status": status, "evidence": evidence}
+    if action:
+        gate["action"] = action
+        gate["action_label"] = action_label or "Executar correção"
+    return gate
 
 
 def _normalize_workspace_identity(value):
@@ -1396,6 +1412,56 @@ def _workspace_navigation_health(sources):
     )
 
 
+def _theme_integrity_health(asset_paths, sources):
+    """Confirma fontes, links publicados, versão de cache e montagem SPA do tema."""
+    public_assets = {
+        "theme": "js/cdc_theme.js",
+        "pending": "js/cdc_pending.js",
+        "tests": "js/cdc_tests.js",
+        "groups": "js/cdc_groups.js",
+        "items": "js/cdc_items.js",
+        "admin": "js/cdc_admin.js",
+        "css": "css/cdc_theme.css",
+    }
+    missing_sources = [name for name in public_assets if not sources.get(name)]
+    app_package_path = frappe.get_app_path("cdc_theme")
+    bench_path = os.path.dirname(os.path.dirname(os.path.dirname(app_package_path)))
+    public_root = os.path.join(bench_path, "sites", "assets", "cdc_theme")
+    unpublished = []
+    for name, relative_path in public_assets.items():
+        published_path = os.path.join(public_root, relative_path)
+        source_path = asset_paths[name]
+        if not os.path.isfile(published_path) or os.path.realpath(published_path) != os.path.realpath(source_path):
+            unpublished.append(relative_path)
+
+    hook_source = sources.get("hooks", "")
+    versions = set(re.findall(r"cdc_theme/[^\"']+\?v=([0-9A-Za-z_-]+)", hook_source))
+    version_consistent = len(versions) == 1
+    spa_signatures = (
+        "function claimActiveDashboard" in sources.get("theme", "")
+        and "function isItemRoute" in sources.get("theme", "")
+        and "function isItemGroupRoute" in sources.get("theme", "")
+        and "window._cdc_claim_active_dashboard" in sources.get("tests", "")
+    )
+    healthy = not missing_sources and not unpublished and version_consistent and spa_signatures
+    if healthy:
+        version = next(iter(versions))
+        return True, (
+            f"7 assets presentes e ligados ao volume público; cache {version} consistente; "
+            "montagem SPA ativa para prevenir telas brancas."
+        )
+    details = []
+    if missing_sources:
+        details.append("fontes ausentes: " + ", ".join(missing_sources))
+    if unpublished:
+        details.append("assets não publicados: " + ", ".join(unpublished))
+    if not version_consistent:
+        details.append("versões de cache divergentes ou ausentes")
+    if not spa_signatures:
+        details.append("assinaturas de montagem SPA incompletas")
+    return False, "; ".join(details)
+
+
 def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
     """Executa gates somente leitura; estados não verificáveis nunca viram aprovação."""
     asset_paths = {
@@ -1405,6 +1471,8 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
         "groups": frappe.get_app_path("cdc_theme", "public", "js", "cdc_groups.js"),
         "items": frappe.get_app_path("cdc_theme", "public", "js", "cdc_items.js"),
         "admin": frappe.get_app_path("cdc_theme", "public", "js", "cdc_admin.js"),
+        "css": frappe.get_app_path("cdc_theme", "public", "css", "cdc_theme.css"),
+        "hooks": frappe.get_app_path("cdc_theme", "hooks.py"),
         "api": __file__,
     }
     sources = {}
@@ -1472,6 +1540,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
         and "System Manager" in frappe.get_roles(frappe.session.user)
     )
     workspace_navigation_ok, workspace_navigation_evidence = _workspace_navigation_health(sources)
+    theme_integrity_ok, theme_integrity_evidence = _theme_integrity_health(asset_paths, sources)
 
     checks = [
         _monitoring_quality_gate(
@@ -1517,7 +1586,14 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
             workspace_navigation_evidence,
         ),
         _monitoring_quality_gate(
-            "production-validation", "9. Publicação e validação autenticada",
+            "theme-integrity", "9. Tema CDC, assets e prevenção de telas brancas",
+            "passed" if theme_integrity_ok else "blocked",
+            theme_integrity_evidence,
+            action="repair_theme",
+            action_label="Reparar tema e caches",
+        ),
+        _monitoring_quality_gate(
+            "production-validation", "10. Publicação e validação autenticada",
             "passed" if authenticated_production else "blocked",
             "Painel atual executado autenticado no domínio de produção."
             if authenticated_production else "Somente aprovar após deploy e acesso autenticado em stok.cdc.org.br.",

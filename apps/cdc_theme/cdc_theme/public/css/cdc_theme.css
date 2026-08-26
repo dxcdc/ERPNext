@@ -1795,9 +1795,12 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-quality-gate.is-blocked .cdc-quality-gate-status { background: #dc3545; }
 .cdc-quality-gate-copy h3 { margin: 0 0 3px; font-size: 14px; }
 .cdc-quality-gate-copy p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+.cdc-quality-gate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .cdc-quality-gate-badge { padding: 4px 8px; border-radius: 999px; background: #fff3cd; color: #7a5600; font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .cdc-quality-gate.is-passed .cdc-quality-gate-badge { background: #dcfce7; color: #166534; }
 .cdc-quality-gate.is-blocked .cdc-quality-gate-badge { background: #fee2e2; color: #991b1b; }
+.cdc-quality-gate[data-quality-gate="theme-integrity"] { border-left: 4px solid #2563eb; background: linear-gradient(135deg, var(--card-bg, #fff), rgba(37, 99, 235, .055)); }
+.cdc-quality-gate[data-quality-gate="theme-integrity"] .btn { white-space: nowrap; }
 .cdc-quality-note { margin-top: 12px; padding: 12px 14px; border-radius: 9px; background: var(--subtle-fg); color: var(--text-muted); font-size: 12px; }
 @media (max-width: 900px) {
     .cdc-quality-summary { grid-template-columns: 1fr; }
@@ -1806,7 +1809,7 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 @media (max-width: 560px) {
     .cdc-quality-summary-metrics { display: grid; grid-template-columns: repeat(3, 1fr); }
     .cdc-quality-gate { grid-template-columns: 30px 1fr; }
-    .cdc-quality-gate-badge { grid-column: 1 / -1; justify-self: start; }
+    .cdc-quality-gate-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
 }
 
 /* Páginas dedicadas CDC Testes e CDC Grupos */

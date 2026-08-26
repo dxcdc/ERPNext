@@ -33,10 +33,13 @@
         var labels = {passed: 'Aprovado', warning: 'Atenção', blocked: 'Bloqueado'};
         var checksHTML = (data.checks || []).map(function(check) {
             var status = ['passed', 'warning', 'blocked'].indexOf(check.status) !== -1 ? check.status : 'warning';
+            var actionHTML = check.action
+                ? `<button type="button" class="btn btn-xs btn-default" data-cdc-tests-action="${escapeHTML(check.action)}">${escapeHTML(check.action_label || 'Executar correção')}</button>`
+                : '';
             return `<article class="cdc-quality-gate is-${status}" data-quality-gate="${escapeHTML(check.id)}">
                 <div class="cdc-quality-gate-status">${status === 'passed' ? '✓' : (status === 'blocked' ? '×' : '!')}</div>
                 <div class="cdc-quality-gate-copy"><h3>${escapeHTML(check.title)}</h3><p>${escapeHTML(check.evidence)}</p></div>
-                <span class="cdc-quality-gate-badge">${labels[status]}</span>
+                <div class="cdc-quality-gate-actions"><span class="cdc-quality-gate-badge">${labels[status]}</span>${actionHTML}</div>
             </article>`;
         }).join('');
 
@@ -52,7 +55,7 @@
                     </div>
                     <div class="cdc-tests-release-state">
                         <span>${summary.ready_to_publish ? '✓' : '!'}</span>
-                        <div><strong>${summary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</strong><small>${summary.passed || 0} de ${summary.total || 9} gates aprovados</small></div>
+                        <div><strong>${summary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</strong><small>${summary.passed || 0} de ${summary.total || 10} gates aprovados</small></div>
                     </div>
                 </header>
 
@@ -74,6 +77,7 @@
                 <section class="cdc-quality-gates" aria-label="Gates de qualidade para publicação">
                     ${checksHTML || '<div class="cdc-tests-state is-error">Nenhum teste retornado pelo servidor.</div>'}
                 </section>
+                <p class="cdc-quality-note"><strong>Recuperação do tema:</strong> o botão “Reparar tema e caches” atua quando o ERP está acessível. Se o Desk ou o backend não carregarem, use no servidor <code>./scripts/reparar_tema.sh</code>, que também verifica sintaxe, serviços e publicação dos assets.</p>
                 <p class="cdc-quality-note"><strong>Política:</strong> resultados indisponíveis permanecem como atenção ou bloqueio. Esta tela não executa sincronizações externas nem publica código.</p>
             </div>`;
     }
@@ -121,6 +125,40 @@
         var dashboard = document.getElementById('cdc-tests-dashboard');
         if (dashboard) dashboard.dataset.loaded = '0';
         load(true);
+    });
+    $(document).on('click', '[data-cdc-tests-action]', function() {
+        var button = this;
+        var action = button.getAttribute('data-cdc-tests-action');
+        if (action !== 'repair_theme') return;
+        frappe.confirm(
+            __('Reconciliar as workspaces CDC e limpar os caches do tema agora?'),
+            function() {
+                button.disabled = true;
+                frappe.call({
+                    method: 'cdc_theme.api.run_cdc_admin_action',
+                    args: {action: action},
+                    callback: function(response) {
+                        button.disabled = false;
+                        var result = response && response.message;
+                        if (!result || !result.ok) {
+                            frappe.msgprint(__('O reparo do tema não foi confirmado pelo servidor.'));
+                            return;
+                        }
+                        ['cdc_catalog_project', 'cdc_catalog_warehouse'].forEach(function(key) {
+                            sessionStorage.removeItem(key);
+                        });
+                        frappe.show_alert({message: __(result.message), indicator: 'green'}, 6);
+                        var dashboard = document.getElementById('cdc-tests-dashboard');
+                        if (dashboard) dashboard.dataset.loaded = '0';
+                        load(true);
+                    },
+                    error: function() {
+                        button.disabled = false;
+                        frappe.msgprint(__('Falha ao executar o reparo controlado do tema.'));
+                    }
+                });
+            }
+        );
     });
     function schedule() {
         generation += 1;
