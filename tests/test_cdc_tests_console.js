@@ -56,6 +56,8 @@ const fakeDocument = {
 };
 
 const calls = [];
+let browserRepairCalls = 0;
+let reloadCalls = 0;
 const fakeFrappe = {
     get_route() { return ['cdc-testes']; },
     call(options) {
@@ -79,16 +81,39 @@ const fakeFrappe = {
                     {label: 'Assets', detail: 'Publicados', status: 'ok'}
                 ]
             }});
+            return;
+        }
+        if (options.method === 'cdc_theme.api.get_stock_dashboard_data') {
+            options.callback({message: {total_items: 41, total_warehouses: 6}});
+            return;
+        }
+        if (options.method === 'cdc_theme.api.get_users_dashboard_data') {
+            options.callback({message: {summary: {total: 12}}});
+            return;
+        }
+        if (options.method === 'cdc_theme.api.run_cdc_admin_action') {
+            options.callback({message: {
+                ok: true,
+                message: 'Tema reparado.',
+                diagnostics: {summary: {total: 7, ok: 7, errors: 0}}
+            }});
         }
     },
     show_alert() {},
+    msgprint() {},
+    confirm(message, callback) { callback(); },
     router: {on() {}},
     user_roles: ['System Manager']
 };
 const fakeWindow = {
     frappe: fakeFrappe,
-    location: {pathname: '/app/cdc-testes'},
-    _cdc_get_breadcrumb_html() { return ''; }
+    location: {pathname: '/app/cdc-testes', reload() { reloadCalls += 1; }},
+    setTimeout(callback) { callback(); },
+    _cdc_get_breadcrumb_html() { return ''; },
+    _cdc_repair_theme_runtime() {
+        browserRepairCalls += 1;
+        return Promise.resolve([]);
+    }
 };
 
 new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source)(
@@ -100,21 +125,47 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     {removeItem() {}}
 );
 
-const click = handlers.get('click:[data-cdc-tests-refresh]');
-assert.equal(typeof click, 'function', 'o clique do botão Executar testes deve estar registrado');
-click.call(executionButton);
+(async function() {
+    const click = handlers.get('click:[data-cdc-tests-refresh]');
+    assert.equal(typeof click, 'function', 'o clique do botão Executar testes deve estar registrado');
+    click.call(executionButton);
 
-assert.deepEqual(calls, [
-    'cdc_theme.api.get_cdc_tests_dashboard',
-    'cdc_theme.api.get_cdc_admin_diagnostics'
-], 'o botão deve consultar gates e diagnósticos reais');
-assert.match(terminalOutput.textContent, /\[START\].*Execução autenticada iniciada/s);
-assert.match(terminalOutput.textContent, /\[PASS\] Rotas — Rotas válidas/);
-assert.match(terminalOutput.textContent, /\[WARN\] Tema — Validação externa pendente/);
-assert.match(terminalOutput.textContent, /\[PASS\] Banco — Conectado/);
-assert.match(terminalOutput.textContent, /\[DONE\] Execução finalizada/);
-assert.equal(executionButton.disabled, false, 'o botão deve ser reativado ao final');
-assert.equal(executionButton.textContent, 'Executar testes novamente');
-assert.equal(terminalStatus.textContent, 'PRONTO');
+    assert.deepEqual(calls, [
+        'cdc_theme.api.get_cdc_tests_dashboard',
+        'cdc_theme.api.get_cdc_admin_diagnostics',
+        'cdc_theme.api.get_stock_dashboard_data',
+        'cdc_theme.api.get_users_dashboard_data'
+    ], 'o botão deve consultar gates, diagnósticos e as duas APIs das páginas afetadas');
+    assert.match(terminalOutput.textContent, /\[START\].*Execução autenticada iniciada/s);
+    assert.match(terminalOutput.textContent, /\[PASS\] Rotas — Rotas válidas/);
+    assert.match(terminalOutput.textContent, /\[WARN\] Tema — Validação externa pendente/);
+    assert.match(terminalOutput.textContent, /\[PASS\] Banco — Conectado/);
+    assert.match(terminalOutput.textContent, /\[PASS\] CDC Estoque — API respondeu com 41 itens e 6 armazéns/);
+    assert.match(terminalOutput.textContent, /\[PASS\] CDC Usuários — API respondeu com 12 usuários/);
+    assert.match(terminalOutput.textContent, /\[DONE\] Execução finalizada/);
+    assert.equal(executionButton.disabled, false, 'o botão deve ser reativado ao final');
+    assert.equal(executionButton.textContent, 'Executar testes novamente');
+    assert.equal(terminalStatus.textContent, 'PRONTO');
 
-console.log('CDC tests console interaction test: OK');
+    const repair = handlers.get('click:[data-cdc-tests-action]');
+    const repairButton = {
+        disabled: false,
+        textContent: 'Reparar tema e caches',
+        getAttribute(name) { return name === 'data-cdc-tests-action' ? 'repair_theme' : null; }
+    };
+    assert.equal(typeof repair, 'function', 'o reparo do tema deve estar registrado');
+    repair.call(repairButton);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.equal(calls.at(-1), 'cdc_theme.api.run_cdc_admin_action');
+    assert.equal(browserRepairCalls, 1, 'o reparo deve limpar e revalidar o estado do navegador');
+    assert.equal(reloadCalls, 1, 'o Desk deve ser recarregado depois do reparo');
+    assert.match(terminalOutput.textContent, /Pós-reparo no servidor: 7\/7 diagnósticos saudáveis/);
+    assert.match(terminalOutput.textContent, /Reparo concluído/);
+
+    console.log('CDC tests console interaction test: OK');
+})().catch(function(error) {
+    console.error(error);
+    process.exitCode = 1;
+});

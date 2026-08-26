@@ -365,8 +365,16 @@ def run_cdc_admin_action(action):
         frappe.clear_cache(user=frappe.session.user)
         message = "Tema claro reaplicado ao usuário atual."
 
+    diagnostics = get_cdc_admin_diagnostics() if action == "repair_theme" else None
     frappe.logger("cdc_admin").info("CDC Admin action=%s user=%s", action, frappe.session.user)
-    return {"ok": True, "action": action, "message": message}
+    return {
+        "ok": True,
+        "action": action,
+        "message": message,
+        "reload_required": action == "repair_theme",
+        "browser_repair_required": action == "repair_theme",
+        "diagnostics": diagnostics,
+    }
 
 
 CDC_PROJECTS = (
@@ -1388,8 +1396,11 @@ def _workspace_navigation_health(sources):
     ]
 
     routed_assets = ("pending", "tests", "groups", "items", "admin")
+    main_theme_source = sources.get("theme", "").split("CDC MONITORING WORKSPACE DASHBOARD INITIALIZER", 1)[0]
     active_mount_safe = (
         "function claimActiveDashboard" in sources.get("theme", "")
+        and "function claimCDCActiveDashboard" in main_theme_source
+        and "claimActiveDashboard(" not in main_theme_source
         and all("window._cdc_claim_active_dashboard" in sources.get(asset, "") for asset in routed_assets)
     )
     healthy = not any((duplicates, missing, unexpected, order_errors, icon_errors)) and active_mount_safe
@@ -1439,9 +1450,12 @@ def _theme_integrity_health(asset_paths, sources):
     version_consistent = len(versions) == 1
     spa_signatures = (
         "function claimActiveDashboard" in sources.get("theme", "")
+        and "function claimCDCActiveDashboard" in sources.get("theme", "")
+        and "window._cdc_repair_theme_runtime" in sources.get("theme", "")
         and "function isItemRoute" in sources.get("theme", "")
         and "function isItemGroupRoute" in sources.get("theme", "")
         and "window._cdc_claim_active_dashboard" in sources.get("tests", "")
+        and "repairBrowserThemeState" in sources.get("tests", "")
     )
     healthy = not missing_sources and not unpublished and version_consistent and spa_signatures
     if healthy:

@@ -139,6 +139,12 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("runVisibleTestExecution", tests_source)
         self.assertIn("cdc_theme.api.get_cdc_admin_diagnostics", tests_source)
         self.assertIn("data-cdc-test-terminal-output", tests_source)
+        self.assertIn("repairBrowserThemeState", tests_source)
+        self.assertIn("window.location.reload()", tests_source)
+        self.assertIn("window._cdc_repair_theme_runtime", theme_source)
+        self.assertIn("claimCDCActiveDashboard", theme_source)
+        main_theme_source = theme_source.split("CDC MONITORING WORKSPACE DASHBOARD INITIALIZER", 1)[0]
+        self.assertNotIn("var claim = claimActiveDashboard", main_theme_source)
         self.assertIn('"repair_theme"', api_source)
         self.assertIn("_theme_integrity_health", api_source)
         self.assertNotIn("Todos os testes foram aprovados", tests_source)

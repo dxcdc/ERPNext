@@ -18,6 +18,11 @@
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
 
+    function claimCDCActiveDashboard(id, tagName) {
+        var claim = window._cdc_claim_active_dashboard;
+        return typeof claim === 'function' ? claim(id, tagName) : null;
+    }
+
     function getPilotProjectContext() {
         var slug = decodeURIComponent(window.location.pathname || '').split('/').filter(Boolean)[2] || '';
         var legacyProject = new URL(window.location.href).searchParams.get('cdc_project');
@@ -398,7 +403,7 @@
             return;
         }
 
-        var claim = claimActiveDashboard('cdc-users-dashboard', 'section');
+        var claim = claimCDCActiveDashboard('cdc-users-dashboard', 'section');
         if (!claim) return;
         var workspaceBody = claim.body;
         var dashboard = claim.dashboard;
@@ -418,7 +423,7 @@
             },
             callback: function(r) {
                 if (!isUsersWorkspacePage()) return;
-                var currentClaim = claimActiveDashboard('cdc-users-dashboard', 'section');
+                var currentClaim = claimCDCActiveDashboard('cdc-users-dashboard', 'section');
                 if (!currentClaim) return;
                 workspaceBody = currentClaim.body;
                 dashboard = currentClaim.dashboard;
@@ -517,6 +522,12 @@
                     dashboard.dataset.loaded = '0';
                     renderUsersDashboard();
                 });
+            },
+            error: function() {
+                var currentClaim = claimCDCActiveDashboard('cdc-users-dashboard', 'section');
+                if (!currentClaim || !isUsersWorkspacePage()) return;
+                currentClaim.dashboard.dataset.loading = '0';
+                currentClaim.dashboard.innerHTML = '<div class="cdc-users-empty"><strong>Falha ao carregar os usuários.</strong><br><button type="button" class="btn btn-sm btn-default" data-cdc-dashboard-retry="users">Tentar novamente</button></div>';
             }
         });
     }
@@ -533,7 +544,7 @@
             if (staleBanner) staleBanner.remove();
             return;
         }
-        var claim = claimActiveDashboard('cdc-integracoes-banner', 'div');
+        var claim = claimCDCActiveDashboard('cdc-integracoes-banner', 'div');
         if (!claim) return;
         var target = claim.body;
         var banner = claim.dashboard;
@@ -947,6 +958,14 @@
         update();
     }
 
+    function renderStockDashboardFailure(message) {
+        isDashboardLoading = false;
+        var claim = claimCDCActiveDashboard('cdc-stock-exec-dashboard', 'div');
+        if (!claim || !isStockWorkspacePage()) return;
+        claim.dashboard.innerHTML = `<div class="cdc-dashboard-load-state is-error"><strong>${escapeHTML(message)}</strong><span>A lista nativa foi preservada e você pode tentar montar o painel novamente.</span><button type="button" class="btn btn-sm btn-primary" data-cdc-dashboard-retry="stock">Tentar novamente</button></div>`;
+        restoreNativeStockWorkspaceContent();
+    }
+
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) {
             document.querySelectorAll('#cdc-stock-exec-dashboard').forEach(function(dashboard) { dashboard.remove(); });
@@ -969,11 +988,12 @@
             currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
         }
 
-        var claim = claimActiveDashboard('cdc-stock-exec-dashboard', 'div');
+        var claim = claimCDCActiveDashboard('cdc-stock-exec-dashboard', 'div');
         if (!claim) return;
         var workspaceBody = claim.body;
         var dashDiv = claim.dashboard;
         dashDiv.style.cssText = 'margin-bottom: 0; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
+        dashDiv.innerHTML = '<div class="cdc-dashboard-load-state"><span class="cdc-dashboard-spinner" aria-hidden="true"></span><strong>Carregando o painel de estoque...</strong><span>Consultando dados reais e permissões dos armazéns.</span></div>';
         hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
         isDashboardLoading = true;
@@ -990,9 +1010,12 @@
             },
             callback: function(r) {
                 isDashboardLoading = false;
-                if (!r || !r.message) return;
+                if (!r || !r.message) {
+                    renderStockDashboardFailure('O servidor não retornou os dados do estoque.');
+                    return;
+                }
                 if (!isStockWorkspacePage()) return;
-                var activeClaim = claimActiveDashboard('cdc-stock-exec-dashboard', 'div');
+                var activeClaim = claimCDCActiveDashboard('cdc-stock-exec-dashboard', 'div');
                 if (!activeClaim) return;
                 workspaceBody = activeClaim.body;
                 dashDiv = activeClaim.dashboard;
@@ -1639,7 +1662,7 @@
                 }, 200);
             },
             error: function(err) {
-                isDashboardLoading = false;
+                renderStockDashboardFailure('Falha ao consultar o painel de estoque.');
             }
         });
     }
@@ -1862,22 +1885,40 @@
     // DISPARADOR GERAL DE COMPONENTES DO TEMA CDC
     function checkAndRenderThemeComponents() {
         if (isStockWorkspacePage()) {
-            renderStockDashboard();
+            try {
+                renderStockDashboard();
+            } catch (error) {
+                console.error('[CDC Theme] Falha ao montar CDC Estoque:', error);
+                renderStockDashboardFailure('A montagem do painel de estoque foi interrompida.');
+            }
         } else {
             removeStockPageNavigator();
             restoreNativeStockWorkspaceContent();
         }
         if (isIntegrationPage()) {
-            renderIntegrationsDiagnosticBanner();
+            try {
+                renderIntegrationsDiagnosticBanner();
+            } catch (error) {
+                console.error('[CDC Theme] Falha ao montar CDC Integrações:', error);
+            }
         } else {
             var integrationsBanner = document.getElementById('cdc-integracoes-banner');
             if (integrationsBanner) integrationsBanner.remove();
         }
-        renderUsersDashboard();
+        try {
+            renderUsersDashboard();
+        } catch (error) {
+            console.error('[CDC Theme] Falha ao montar CDC Usuários:', error);
+            var usersClaim = claimCDCActiveDashboard('cdc-users-dashboard', 'section');
+            if (usersClaim && isUsersWorkspacePage()) {
+                usersClaim.dashboard.dataset.loading = '0';
+                usersClaim.dashboard.innerHTML = '<div class="cdc-users-empty"><strong>A montagem da página de usuários foi interrompida.</strong><br><button type="button" class="btn btn-sm btn-default" data-cdc-dashboard-retry="users">Tentar novamente</button></div>';
+            }
+        }
     }
 
     function scheduleThemeRender() {
-        [0, 250, 700, 1500].forEach(function(delay) {
+        [0, 250, 700, 1500, 3500].forEach(function(delay) {
             setTimeout(function() {
                 syncCDCBrandLogos();
                 sanitizeSidebarWorkspaces();
@@ -1959,6 +2000,75 @@
             } catch(e) {}
         }
     }
+
+    function resetThemeBrowserState() {
+        try {
+            ['desktop:workspaces', 'workspace_sidebar_items', 'frappe:boot', 'cdc_theme_version'].forEach(function(key) {
+                localStorage.removeItem(key);
+            });
+            [
+                'cdc_unit', 'cdc_period', 'cdc_occ_type', 'cdc_table_type',
+                'cdc_project_filter', 'cdc_users_project', 'cdc_users_warehouse',
+                'cdc_catalog_project', 'cdc_catalog_warehouse'
+            ].forEach(function(key) { sessionStorage.removeItem(key); });
+        } catch (error) {
+            console.warn('[CDC Theme] O navegador impediu a limpeza completa do armazenamento:', error);
+        }
+        currentSelectedUnit = 'All';
+        currentSelectedPeriod = 'quarter';
+        currentOccurrencesType = 'all';
+        currentTableTypeFilter = 'all';
+        currentSelectedProjectFilter = 'all';
+        currentUsersProject = 'All';
+        currentUsersWarehouse = 'All';
+        isDashboardLoading = false;
+        lastFetchTime = 0;
+        removeStockPageNavigator();
+        restoreNativeStockWorkspaceContent();
+        document.querySelectorAll('#cdc-stock-exec-dashboard, #cdc-users-dashboard').forEach(function(dashboard) {
+            dashboard.remove();
+        });
+    }
+
+    window._cdc_repair_theme_runtime = function() {
+        resetThemeBrowserState();
+        var tasks = [];
+        if (window.caches && typeof window.caches.keys === 'function') {
+            tasks.push(window.caches.keys().then(function(names) {
+                return Promise.all(names.filter(function(name) {
+                    return String(name).toLowerCase().indexOf('cdc') !== -1;
+                }).map(function(name) { return window.caches.delete(name); }));
+            }));
+        }
+        if (typeof window.fetch === 'function') {
+            document.querySelectorAll('script[src*="/assets/cdc_theme/"], link[href*="/assets/cdc_theme/"]').forEach(function(asset) {
+                var url = asset.src || asset.href;
+                if (url) tasks.push(window.fetch(url, {cache: 'reload', credentials: 'same-origin'}));
+            });
+        }
+        scheduleThemeRender();
+        return Promise.all(tasks.map(function(task) {
+            return Promise.resolve(task).catch(function(error) {
+                console.warn('[CDC Theme] Falha não bloqueante ao revalidar cache:', error);
+                return null;
+            });
+        }));
+    };
+
+    $(document).on('click', '[data-cdc-dashboard-retry]', function() {
+        var target = this.getAttribute('data-cdc-dashboard-retry');
+        if (target === 'stock') {
+            isDashboardLoading = false;
+            renderStockDashboard();
+        } else if (target === 'users') {
+            var dashboard = document.getElementById('cdc-users-dashboard');
+            if (dashboard) {
+                dashboard.dataset.loaded = '0';
+                dashboard.dataset.loading = '0';
+            }
+            renderUsersDashboard();
+        }
+    });
 
 
 

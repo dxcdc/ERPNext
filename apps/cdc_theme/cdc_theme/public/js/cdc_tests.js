@@ -65,6 +65,43 @@
         });
     }
 
+    function getTestsDashboardClaim() {
+        if (typeof window._cdc_claim_active_dashboard === 'function') {
+            return window._cdc_claim_active_dashboard('cdc-tests-dashboard', 'section');
+        }
+        var currentPage = window.frappe && frappe.container && frappe.container.page;
+        var body = currentPage && currentPage.querySelector && (
+            currentPage.querySelector('.layout-main-section') ||
+            currentPage.querySelector('.workspace-page-content') ||
+            currentPage.querySelector('.page-body')
+        );
+        if (!body || !body.isConnected) return null;
+        var dashboard = body.querySelector('#cdc-tests-dashboard');
+        if (!dashboard) {
+            dashboard = document.createElement('section');
+            dashboard.id = 'cdc-tests-dashboard';
+            body.insertBefore(dashboard, body.firstChild);
+        }
+        return {body: body, dashboard: dashboard};
+    }
+
+    function repairBrowserThemeState() {
+        if (typeof window._cdc_repair_theme_runtime === 'function') {
+            return Promise.resolve(window._cdc_repair_theme_runtime());
+        }
+        try {
+            ['desktop:workspaces', 'workspace_sidebar_items', 'frappe:boot', 'cdc_theme_version'].forEach(function(key) {
+                localStorage.removeItem(key);
+            });
+            [
+                'cdc_unit', 'cdc_period', 'cdc_occ_type', 'cdc_table_type',
+                'cdc_project_filter', 'cdc_users_project', 'cdc_users_warehouse',
+                'cdc_catalog_project', 'cdc_catalog_warehouse'
+            ].forEach(function(key) { sessionStorage.removeItem(key); });
+        } catch (error) {}
+        return Promise.resolve([]);
+    }
+
     function removeDashboard() {
         document.querySelectorAll('#cdc-tests-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(element) {
@@ -133,7 +170,7 @@
 
     function load(force) {
         if (!isTestsRoute()) { removeDashboard(); return; }
-        var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-tests-dashboard', 'section');
+        var claim = getTestsDashboardClaim();
         if (!claim || loading) return;
         var body = claim.body;
         var dashboard = claim.dashboard;
@@ -151,7 +188,7 @@
             callback: function(response) {
                 loading = false;
                 if (requestGeneration !== generation || !isTestsRoute()) return;
-                var currentClaim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-tests-dashboard', 'section');
+                var currentClaim = getTestsDashboardClaim();
                 if (!currentClaim) return;
                 body = currentClaim.body;
                 dashboard = currentClaim.dashboard;
@@ -181,6 +218,53 @@
             setExecutionButtonState();
             syncTerminal();
         }
+    }
+
+    function runWorkspaceDataDiagnostics(dashboard, testData, failed) {
+        appendExecutionLog('RUN', 'Validando as fontes reais das páginas CDC Estoque e CDC Usuários...');
+        var routeFailed = !!failed;
+
+        function checkUsersRoute() {
+            frappe.call({
+                method: 'cdc_theme.api.get_users_dashboard_data',
+                args: {selected_project: 'All', selected_warehouse: 'All'},
+                callback: function(response) {
+                    var data = response && response.message;
+                    if (!data) {
+                        routeFailed = true;
+                        appendExecutionLog('FAIL', 'CDC Usuários — a API não retornou dados para montar a página.');
+                    } else {
+                        var summary = data.summary || {};
+                        appendExecutionLog('PASS', `CDC Usuários — API respondeu com ${summary.total || 0} usuários e filtros permitidos.`);
+                    }
+                    finishVisibleExecution(dashboard, testData, routeFailed);
+                },
+                error: function() {
+                    appendExecutionLog('FAIL', 'CDC Usuários — falha autenticada ao consultar a API da página.');
+                    finishVisibleExecution(dashboard, testData, true);
+                }
+            });
+        }
+
+        frappe.call({
+            method: 'cdc_theme.api.get_stock_dashboard_data',
+            args: {selected_unit: 'All', period: 'quarter', entry_type: 'receipt', table_type: 'all'},
+            callback: function(response) {
+                var data = response && response.message;
+                if (!data) {
+                    routeFailed = true;
+                    appendExecutionLog('FAIL', 'CDC Estoque — a API não retornou dados para montar a página.');
+                } else {
+                    appendExecutionLog('PASS', `CDC Estoque — API respondeu com ${data.total_items || 0} itens e ${data.total_warehouses || 0} armazéns no escopo.`);
+                }
+                checkUsersRoute();
+            },
+            error: function() {
+                routeFailed = true;
+                appendExecutionLog('FAIL', 'CDC Estoque — falha autenticada ao consultar a API da página.');
+                checkUsersRoute();
+            }
+        });
     }
 
     function runVisibleTestExecution() {
@@ -233,7 +317,7 @@
                         });
                         var diagnosticSummary = diagnostics.summary || {};
                         appendExecutionLog('INFO', `Diagnósticos: ${diagnosticSummary.ok || 0}/${diagnosticSummary.total || 0} saudáveis; ${diagnosticSummary.errors || 0} erros.`);
-                        finishVisibleExecution(dashboard, testData, Number(diagnosticSummary.errors || 0) > 0);
+                        runWorkspaceDataDiagnostics(dashboard, testData, Number(diagnosticSummary.errors || 0) > 0);
                     },
                     error: function() {
                         appendExecutionLog('FAIL', 'Falha de comunicação ao executar os diagnósticos administrativos.');
@@ -268,19 +352,33 @@
                     method: 'cdc_theme.api.run_cdc_admin_action',
                     args: {action: action},
                     callback: function(response) {
-                        button.disabled = false;
                         var result = response && response.message;
                         if (!result || !result.ok) {
+                            button.disabled = false;
                             frappe.msgprint(__('O reparo do tema não foi confirmado pelo servidor.'));
                             return;
                         }
-                        ['cdc_catalog_project', 'cdc_catalog_warehouse'].forEach(function(key) {
-                            sessionStorage.removeItem(key);
+                        button.textContent = 'Revalidando tema...';
+                        var repairSummary = result.diagnostics && result.diagnostics.summary;
+                        if (repairSummary) {
+                            appendExecutionLog(
+                                Number(repairSummary.errors || 0) === 0 ? 'PASS' : 'WARN',
+                                `Pós-reparo no servidor: ${repairSummary.ok || 0}/${repairSummary.total || 0} diagnósticos saudáveis.`
+                            );
+                        }
+                        appendExecutionLog('REPAIR', 'Servidor reconciliado; limpando o estado do navegador e revalidando os assets...');
+                        repairBrowserThemeState().then(function() {
+                            appendExecutionLog('DONE', 'Reparo concluído. Recarregando o Desk para remontar as páginas CDC.');
+                            frappe.show_alert({message: __(result.message + ' O Desk será recarregado.'), indicator: 'green'}, 6);
+                            button.disabled = false;
+                            button.textContent = 'Reparar tema e caches';
+                            window.setTimeout(function() { window.location.reload(); }, 900);
+                        }).catch(function() {
+                            appendExecutionLog('WARN', 'O navegador não confirmou toda a limpeza; o Desk ainda será recarregado.');
+                            button.disabled = false;
+                            button.textContent = 'Reparar tema e caches';
+                            window.setTimeout(function() { window.location.reload(); }, 900);
                         });
-                        frappe.show_alert({message: __(result.message), indicator: 'green'}, 6);
-                        var dashboard = document.getElementById('cdc-tests-dashboard');
-                        if (dashboard) dashboard.dataset.loaded = '0';
-                        load(true);
                     },
                     error: function() {
                         button.disabled = false;
