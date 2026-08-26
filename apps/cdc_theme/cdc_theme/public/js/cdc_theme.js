@@ -2713,11 +2713,14 @@
         if (routeType === 'list' && routeDoctype === 'item-group') return true;
 
         var pathname = normalizeRoute(decodeURIComponent(window.location.pathname || ''));
-        return pathname === '/app/item-group';
+        return pathname === '/app/item-group' || pathname === '/app/item-group/view/list';
     }
 
     function removeItemGroupDashboard() {
         document.querySelectorAll('#cdc-item-group-dashboard').forEach(function(dashboard) { dashboard.remove(); });
+        document.querySelectorAll('.cdc-catalog-list-enhanced.is-item-group-list').forEach(function(list) {
+            list.classList.remove('cdc-catalog-list-enhanced', 'is-item-group-list');
+        });
     }
 
     var itemGroupLoading = false;
@@ -2730,6 +2733,7 @@
         var listBody = getActiveWorkspaceBody();
         var body = listBody && listBody.parentNode;
         if (!body) return;
+        listBody.classList.add('cdc-catalog-list-enhanced', 'is-item-group-list');
         var dashboard = body.querySelector('#cdc-item-group-dashboard');
         document.querySelectorAll('#cdc-item-group-dashboard').forEach(function(candidate) {
             if (candidate !== dashboard) candidate.remove();
@@ -2758,6 +2762,7 @@
                 var currentListBody = getActiveWorkspaceBody();
                 var currentBody = currentListBody && currentListBody.parentNode;
                 if (currentBody) {
+                    currentListBody.classList.add('cdc-catalog-list-enhanced', 'is-item-group-list');
                     var currentDash = currentBody.querySelector('#cdc-item-group-dashboard');
                     document.querySelectorAll('#cdc-item-group-dashboard').forEach(function(candidate) {
                         if (candidate !== currentDash) candidate.remove();
@@ -2780,14 +2785,7 @@
                 }
 
                 var summary = data.summary || {};
-                var groups = data.groups || [];
-                var parentGroups = Array.from(new Set(groups.map(function(g) {
-                    return g.parent_item_group;
-                }).filter(function(parent) {
-                    return parent && parent !== '—';
-                }))).sort(function(a, b) {
-                    return a.localeCompare(b, 'pt-BR');
-                });
+                var parentGroups = (data.filters && data.filters.parent_groups) || [];
                 var parentOptionsHTML = '<option value="">Todos os grupos pais</option>' + parentGroups.map(function(parent) {
                     return `<option value="${escapeHTML(parent)}">${escapeHTML(parent)}</option>`;
                 }).join('');
@@ -2799,8 +2797,8 @@
                     <div class="cdc-item-group-wrapper">
                         <div class="cdc-monitoring-header">
                             <div class="cdc-monitoring-title-box">
-                                <h1 class="cdc-monitoring-h1">🏷️ Gestão de Grupos de Itens & Catálogo</h1>
-                                <p class="cdc-monitoring-sub">Painel executivo de categorias de produto, saldos estocados em R$ e integridade do catálogo</p>
+                                <h1 class="cdc-monitoring-h1">🏷️ Grupos de Itens</h1>
+                                <p class="cdc-monitoring-sub">Organização do catálogo com indicadores cadastrais e filtros ligados à lista oficial</p>
                             </div>
                             <button class="btn btn-sm btn-default" id="cdc-btn-refresh-ig">🔄 Atualizar indicadores</button>
                         </div>
@@ -2808,29 +2806,29 @@
                         <!-- CARDS KPI -->
                         <div class="cdc-monitoring-cards-grid">
                             <div class="cdc-monitoring-card is-info">
-                                <div class="cdc-card-label">Categorias & Grupos</div>
+                                <div class="cdc-card-label">Todos os grupos</div>
                                 <div class="cdc-card-value">${summary.total_groups || 0}</div>
-                                <div class="cdc-card-desc">Grupos cadastrados</div>
+                                <div class="cdc-card-desc">Estrutura completa visível</div>
                             </div>
                             <div class="cdc-monitoring-card is-status">
-                                <div class="cdc-card-label">Total de Produtos</div>
-                                <div class="cdc-card-value">${summary.total_items || 0}</div>
-                                <div class="cdc-card-desc">Itens no catálogo</div>
+                                <div class="cdc-card-label">Grupos pais</div>
+                                <div class="cdc-card-value">${summary.parent_groups || 0}</div>
+                                <div class="cdc-card-desc">Categorias com subgrupos</div>
                             </div>
-                            <div class="cdc-monitoring-card is-warning">
-                                <div class="cdc-card-label">Valor Total Estocado</div>
-                                <div class="cdc-card-value" style="font-size:1.5rem;color:#059669">${summary.formatted_total_value || 'R$ 0,00'}</div>
-                                <div class="cdc-card-desc">Saldo acumulado em R$</div>
+                            <div class="cdc-monitoring-card is-info">
+                                <div class="cdc-card-label">Grupos finais</div>
+                                <div class="cdc-card-value">${summary.final_groups || 0}</div>
+                                <div class="cdc-card-desc">Categorias disponíveis para itens</div>
                             </div>
-                            <div class="cdc-monitoring-card ${summary.critical_groups_count > 0 ? 'is-danger' : 'is-status'}">
-                                <div class="cdc-card-label">Grupos Sem Estoque</div>
-                                <div class="cdc-card-value">${summary.critical_groups_count || 0}</div>
-                                <div class="cdc-card-desc">Grupos que precisam de reposição</div>
+                            <div class="cdc-monitoring-card is-status">
+                                <div class="cdc-card-label">Itens ativos</div>
+                                <div class="cdc-card-value">${summary.active_items || 0}</div>
+                                <div class="cdc-card-desc">Produtos e serviços habilitados</div>
                             </div>
-                            <div class="cdc-monitoring-card ${summary.low_stock_groups_count > 0 ? 'is-warning' : 'is-status'}">
-                                <div class="cdc-card-label">Estoque Baixo</div>
-                                <div class="cdc-card-value">${summary.low_stock_groups_count || 0}</div>
-                                <div class="cdc-card-desc">Grupos com saldo abaixo de 10</div>
+                            <div class="cdc-monitoring-card ${summary.empty_final_groups > 0 ? 'is-warning' : 'is-status'}">
+                                <div class="cdc-card-label">Grupos vazios</div>
+                                <div class="cdc-card-value">${summary.empty_final_groups || 0}</div>
+                                <div class="cdc-card-desc">Grupos finais sem item ativo</div>
                             </div>
                         </div>
 
@@ -2842,7 +2840,7 @@
                             <button type="button" class="btn btn-sm btn-primary" id="cdc-ig-apply-filters">Aplicar filtros</button>
                             <button type="button" class="btn btn-sm btn-default" id="cdc-ig-clear-filters">Limpar filtros</button>
                         </div>
-                        <p class="text-muted">Os filtros abaixo são aplicados à lista oficial do ERPNext, preservando edição, visualizações e filtros salvos.</p>
+                        <p class="cdc-catalog-filter-note">Os filtros são aplicados à lista oficial do ERPNext, preservando edição, paginação, visualizações e filtros salvos.</p>
                     </div>
                 `;
 
@@ -2851,6 +2849,9 @@
                 var searchInput = dashboard.querySelector('#cdc-ig-search');
                 var parentFilter = dashboard.querySelector('#cdc-ig-parent-filter');
                 var kindFilter = dashboard.querySelector('#cdc-ig-kind-filter');
+                if (searchInput) searchInput.value = getCatalogRouteValue('name').replace(/^%|%$/g, '');
+                if (parentFilter) parentFilter.value = getCatalogRouteValue('parent_item_group');
+                if (kindFilter) kindFilter.value = getCatalogRouteValue('is_group');
                 function navigateWithItemGroupFilters() {
                     var filters = {};
                     var term = searchInput ? searchInput.value.trim() : '';
@@ -2900,13 +2901,178 @@
         });
     }
 
+    function isItemRoute() {
+        var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
+        var routeType = normalizeRoute(route && route[0]);
+        var routeDoctype = normalizeRoute(route && route[1]);
+        if (routeType === 'list' && routeDoctype === 'item') return true;
+
+        var pathname = normalizeRoute(decodeURIComponent(window.location.pathname || ''));
+        return pathname === '/app/item' || pathname === '/app/item/view/list';
+    }
+
+    function getCatalogRouteValue(fieldname) {
+        var params = new URLSearchParams(window.location.search || '');
+        if (params.has(fieldname)) return params.get(fieldname) || '';
+        var options = window.frappe && frappe.get_route_options ? frappe.get_route_options() : (window.frappe && frappe.route_options);
+        var value = options && options[fieldname];
+        if (Array.isArray(value)) value = value[value.length - 1];
+        return value === undefined || value === null ? '' : String(value);
+    }
+
+    function removeItemDashboard() {
+        document.querySelectorAll('#cdc-item-list-dashboard').forEach(function(dashboard) { dashboard.remove(); });
+        document.querySelectorAll('.cdc-catalog-list-enhanced.is-item-list').forEach(function(list) {
+            list.classList.remove('cdc-catalog-list-enhanced', 'is-item-list');
+        });
+    }
+
+    var itemListLoading = false;
+
+    function renderItemList() {
+        if (!isItemRoute()) {
+            removeItemDashboard();
+            return;
+        }
+        var listBody = getActiveWorkspaceBody();
+        var body = listBody && listBody.parentNode;
+        if (!body) return;
+        listBody.classList.add('cdc-catalog-list-enhanced', 'is-item-list');
+
+        var dashboard = body.querySelector('#cdc-item-list-dashboard');
+        document.querySelectorAll('#cdc-item-list-dashboard').forEach(function(candidate) {
+            if (candidate !== dashboard) candidate.remove();
+        });
+        if (!dashboard) {
+            dashboard = document.createElement('section');
+            dashboard.id = 'cdc-item-list-dashboard';
+        }
+        if (dashboard.parentNode !== body) body.insertBefore(dashboard, listBody);
+        if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-item-list-wrapper')) return;
+        if (itemListLoading) return;
+        itemListLoading = true;
+        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando indicadores do catálogo...</div>';
+
+        frappe.call({
+            method: 'cdc_theme.api.get_item_list_dashboard_data',
+            callback: function(response) {
+                itemListLoading = false;
+                if (!isItemRoute()) {
+                    removeItemDashboard();
+                    return;
+                }
+                var currentListBody = getActiveWorkspaceBody();
+                var currentBody = currentListBody && currentListBody.parentNode;
+                if (!currentBody) return;
+                currentListBody.classList.add('cdc-catalog-list-enhanced', 'is-item-list');
+                var currentDash = currentBody.querySelector('#cdc-item-list-dashboard');
+                document.querySelectorAll('#cdc-item-list-dashboard').forEach(function(candidate) {
+                    if (candidate !== currentDash) candidate.remove();
+                });
+                if (!currentDash) {
+                    dashboard = document.createElement('section');
+                    dashboard.id = 'cdc-item-list-dashboard';
+                } else {
+                    dashboard = currentDash;
+                }
+                if (dashboard.parentNode !== currentBody) currentBody.insertBefore(dashboard, currentListBody);
+
+                var data = response && response.message;
+                if (!data) {
+                    dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Falha ao obter os indicadores dos itens.</div>';
+                    return;
+                }
+                var summary = data.summary || {};
+                var groups = (data.filters && data.filters.groups) || [];
+                var groupOptions = '<option value="">Todos os grupos</option>' + groups.map(function(group) {
+                    return `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`;
+                }).join('');
+                var breadcrumbHTML = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Estoque', 'Itens do Catálogo') : '';
+
+                dashboard.innerHTML = `
+                    ${breadcrumbHTML}
+                    <div class="cdc-item-list-wrapper">
+                        <div class="cdc-monitoring-header">
+                            <div class="cdc-monitoring-title-box">
+                                <h1 class="cdc-monitoring-h1">📦 Itens do Catálogo</h1>
+                                <p class="cdc-monitoring-sub">Visão cadastral com busca e filtros ligados à lista oficial do ERPNext</p>
+                            </div>
+                            <button class="btn btn-sm btn-default" id="cdc-btn-refresh-items">🔄 Atualizar indicadores</button>
+                        </div>
+                        <div class="cdc-monitoring-cards-grid">
+                            <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Itens ativos</div><div class="cdc-card-value">${summary.active_items || 0}</div><div class="cdc-card-desc">Disponíveis no catálogo</div></div>
+                            <div class="cdc-monitoring-card ${summary.disabled_items > 0 ? 'is-warning' : 'is-status'}"><div class="cdc-card-label">Desativados</div><div class="cdc-card-value">${summary.disabled_items || 0}</div><div class="cdc-card-desc">Mantidos no histórico</div></div>
+                            <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Itens de estoque</div><div class="cdc-card-value">${summary.active_stock_items || 0}</div><div class="cdc-card-desc">Ativos e movimentáveis</div></div>
+                            <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Não estocáveis</div><div class="cdc-card-value">${summary.active_non_stock_items || 0}</div><div class="cdc-card-desc">Serviços e itens sem saldo</div></div>
+                            <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Grupos em uso</div><div class="cdc-card-value">${summary.groups_in_use || 0}</div><div class="cdc-card-desc">Com pelo menos um item ativo</div></div>
+                        </div>
+                        <div class="cdc-linked-filters cdc-catalog-filters" aria-label="Filtros de Itens">
+                            <label><span>Pesquisar</span><input id="cdc-item-search" type="search" aria-label="Pesquisar código do item" placeholder="Código do item"></label>
+                            <label><span>Grupo</span><select id="cdc-item-group-filter">${groupOptions}</select></label>
+                            <label><span>Status</span><select id="cdc-item-status-filter"><option value="">Todos</option><option value="0">Ativos</option><option value="1">Desativados</option></select></label>
+                            <label><span>Tipo</span><select id="cdc-item-stock-filter"><option value="">Todos</option><option value="1">Item de estoque</option><option value="0">Não estocável</option></select></label>
+                            <button type="button" class="btn btn-sm btn-primary" id="cdc-item-apply-filters">Aplicar filtros</button>
+                            <button type="button" class="btn btn-sm btn-default" id="cdc-item-clear-filters">Limpar filtros</button>
+                        </div>
+                        <p class="cdc-catalog-filter-note">A pesquisa usa o código oficial do item. Edição, paginação, seleção de colunas e filtros salvos continuam nativos.</p>
+                    </div>`;
+                dashboard.dataset.loaded = '1';
+
+                var searchInput = dashboard.querySelector('#cdc-item-search');
+                var groupFilter = dashboard.querySelector('#cdc-item-group-filter');
+                var statusFilter = dashboard.querySelector('#cdc-item-status-filter');
+                var stockFilter = dashboard.querySelector('#cdc-item-stock-filter');
+                if (searchInput) searchInput.value = getCatalogRouteValue('name').replace(/^%|%$/g, '');
+                if (groupFilter) groupFilter.value = getCatalogRouteValue('item_group');
+                if (statusFilter) statusFilter.value = getCatalogRouteValue('disabled');
+                if (stockFilter) stockFilter.value = getCatalogRouteValue('is_stock_item');
+
+                function navigateWithItemFilters() {
+                    var filters = {};
+                    var term = searchInput ? searchInput.value.trim() : '';
+                    if (term) filters.name = ['like', '%' + term + '%'];
+                    if (groupFilter && groupFilter.value) filters.item_group = groupFilter.value;
+                    if (statusFilter && statusFilter.value !== '') filters.disabled = Number(statusFilter.value);
+                    if (stockFilter && stockFilter.value !== '') filters.is_stock_item = Number(stockFilter.value);
+                    frappe.set_route('List', 'Item', 'List', filters);
+                }
+                dashboard.querySelector('#cdc-item-apply-filters').addEventListener('click', navigateWithItemFilters);
+                searchInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') navigateWithItemFilters();
+                });
+                dashboard.querySelector('#cdc-item-clear-filters').addEventListener('click', function() {
+                    [searchInput, groupFilter, statusFilter, stockFilter].forEach(function(control) { control.value = ''; });
+                    frappe.set_route('List', 'Item', 'List');
+                });
+                dashboard.querySelector('#cdc-btn-refresh-items').addEventListener('click', function() {
+                    dashboard.dataset.loaded = '0';
+                    itemListLoading = false;
+                    renderItemList();
+                    frappe.show_alert({message: __('Indicadores do catálogo atualizados.'), indicator: 'green'}, 3);
+                });
+            },
+            error: function(error) {
+                itemListLoading = false;
+                if (!isItemRoute()) {
+                    removeItemDashboard();
+                    return;
+                }
+                dashboard.dataset.loaded = '0';
+                var message = error && error.message ? error.message : 'Não foi possível consultar os itens.';
+                dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">' + escapeHTML(message) + '</div>';
+            }
+        });
+    }
+
     function init() {
         render();
         renderItemGroup();
+        renderItemList();
         if (observer) observer.disconnect();
         observer = new MutationObserver(function() {
             if (isMonitoringRoute()) render();
             renderItemGroup();
+            renderItemList();
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -2915,7 +3081,12 @@
                 routeGeneration++;
                 loading = false;
                 if (isMonitoringRoute()) render();
+                var groupDashboard = document.getElementById('cdc-item-group-dashboard');
+                if (groupDashboard) groupDashboard.dataset.loaded = '0';
+                var itemDashboard = document.getElementById('cdc-item-list-dashboard');
+                if (itemDashboard) itemDashboard.dataset.loaded = '0';
                 renderItemGroup();
+                renderItemList();
             });
         }
     }

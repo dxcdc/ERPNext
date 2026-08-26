@@ -1343,16 +1343,29 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
     route_start = theme_source.find("function isItemGroupRoute()")
     route_end = theme_source.find("function removeItemGroupDashboard()", route_start)
     route_source = theme_source[route_start:route_end] if route_start >= 0 and route_end > route_start else ""
+    item_route_start = theme_source.find("function isItemRoute()")
+    item_route_end = theme_source.find("function getCatalogRouteValue", item_route_start)
+    item_route_source = (
+        theme_source[item_route_start:item_route_end]
+        if item_route_start >= 0 and item_route_end > item_route_start else ""
+    )
     render_end = theme_source.find("function init()", route_start)
     render_source = theme_source[route_start:render_end] if route_start >= 0 and render_end > route_start else ""
 
     exact_route = (
         "routeType === 'list' && routeDoctype === 'item-group'" in route_source
+        and "pathname === '/app/item-group/view/list'" in route_source
+        and "routeType === 'list' && routeDoctype === 'item'" in item_route_source
+        and "pathname === '/app/item/view/list'" in item_route_source
         and "window.location.href" not in route_source
         and "window.location.hash" not in route_source
+        and "window.location.href" not in item_route_source
+        and "window.location.hash" not in item_route_source
     )
     native_list_preserved = (
-        "currentBody.insertBefore(dashboard, currentListBody)" in render_source
+        "body.insertBefore(dashboard, listBody)" in render_source
+        and "currentBody.insertBefore(dashboard, currentListBody)" in render_source
+        and "cdc-catalog-list-enhanced" in render_source
         and "cdc-custom-item-group-active" not in render_source
         and "document.body" not in render_source
     )
@@ -1385,15 +1398,15 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
 
     checks = [
         _monitoring_quality_gate(
-            "item-group-route", "1. Rota exata de Item Group",
+            "item-group-route", "1. Rotas exatas de Item e Item Group",
             "passed" if exact_route else "blocked",
-            "Detecção limitada à lista Item Group e ao pathname oficial."
-            if exact_route else "A assinatura exata da rota não foi encontrada no asset instalado.",
+            "Detecção limitada às listas Item e Item Group e aos respectivos pathnames oficiais."
+            if exact_route else "As assinaturas exatas das duas rotas não foram encontradas no asset instalado.",
         ),
         _monitoring_quality_gate(
-            "item-group-native-list", "2. Lista nativa e cards superiores",
+            "item-group-native-list", "2. Listas nativas, cards e filtros",
             "passed" if native_list_preserved else "blocked",
-            "Dashboard montado antes da lista oficial, sem ocultar o conteúdo nativo."
+            "Painéis montados antes das listas oficiais, sem ocultar ações, paginação ou conteúdo nativo."
             if native_list_preserved else "A montagem segura acima da lista não pôde ser confirmada.",
         ),
         _monitoring_quality_gate(
@@ -1688,128 +1701,95 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
 
 
 @frappe.whitelist()
-def get_item_group_dashboard_data(selected_project='All', selected_warehouse='All', period='quarter'):
-    """
-    Retorna os dados consolidados do catálogo e grupos de itens para a rota /app/item-group.
-    Calcula quantidade de grupos, total de produtos, valor em estoque (R$) e itens por categoria.
-    """
-    _require_stock_dashboard_access()
-    _require_read_permission("Item Group")
+def get_item_list_dashboard_data():
+    """Resume o cadastro visível de Item sem consultar saldos por armazém."""
     _require_read_permission("Item")
-    _require_read_permission("Warehouse")
+    _require_read_permission("Item Group")
 
-    # 1. Lista de grupos de itens
-    raw_groups = frappe.db.sql("""
-        SELECT 
-            ig.name, 
-            ig.parent_item_group, 
-            ig.is_group,
-            COUNT(i.name) AS items_count
-        FROM `tabItem Group` ig
-        LEFT JOIN `tabItem` i ON i.item_group = ig.name
-        GROUP BY ig.name
-        ORDER BY items_count DESC, ig.name ASC
-    """, as_dict=True)
+    item_rows = frappe.get_list(
+        "Item",
+        fields=["disabled", "is_stock_item", "item_group", "count(name) as total"],
+        group_by="disabled, is_stock_item, item_group",
+        limit_page_length=0,
+    )
+    groups = frappe.get_list(
+        "Item Group",
+        fields=["name", "is_group"],
+        order_by="name asc",
+        limit_page_length=0,
+    )
 
-    # 2. Saldos de estoque por grupo a partir da tabBin
-    bin_values = frappe.db.sql("""
-        SELECT 
-            i.item_group,
-            SUM(b.actual_qty) AS total_qty,
-            SUM(b.stock_value) AS total_value
-        FROM `tabBin` b
-        JOIN `tabItem` i ON b.item_code = i.name
-        GROUP BY i.item_group
-    """, as_dict=True)
-
-    bin_map = {row['item_group']: row for row in bin_values}
-
-    # 图标 e Mapeamento de categorias populares
-    icon_map = {
-        "Alimentos": "🍚",
-        "Material Pedagógico": "📚",
-        "Higiene e Limpeza": "🧹",
-        "Equipamentos de TI": "🖥️",
-        "Eletrodomésticos": "🔌",
-        "Mobiliário": "🪑",
-        "Vestuário": "👕",
-        "Medicamentos": "💊",
-        "Expediente": "📦",
-        "Todos os Grupos": "🏷️",
-        "Produtos": "📦",
-        "Serviços": "🛠️"
-    }
-
-    groups_list = []
-    total_items = 0
-    total_stock_value = 0.0
-    total_stock_qty = 0.0
-    critical_groups_count = 0
-    low_stock_groups_count = 0
-
-    for g in raw_groups:
-        g_name = g['name']
-        b_data = bin_map.get(g_name, {})
-        items_cnt = g['items_count'] or 0
-        s_qty = float(b_data.get('total_qty') or 0.0)
-        s_val = float(b_data.get('total_value') or 0.0)
-
-        total_items += items_cnt
-        total_stock_value += s_val
-        total_stock_qty += s_qty
-
-        if items_cnt > 0 and s_qty == 0:
-            status = "Sem Estoque"
-            critical_groups_count += 1
-        elif items_cnt > 0 and s_qty < 10:
-            status = "Estoque Baixo"
-            low_stock_groups_count += 1
+    active_items = 0
+    disabled_items = 0
+    active_stock_items = 0
+    active_non_stock_items = 0
+    active_groups = set()
+    for row in item_rows:
+        total = int(row.total or 0)
+        if int(row.disabled or 0):
+            disabled_items += total
+            continue
+        active_items += total
+        active_groups.add(row.item_group)
+        if int(row.is_stock_item or 0):
+            active_stock_items += total
         else:
-            status = "Ativo"
-
-        icon = icon_map.get(g_name, "📁")
-
-        groups_list.append({
-            "name": g_name,
-            "parent_item_group": g['parent_item_group'] or "—",
-            "is_group": "Sim" if g['is_group'] else "Não",
-            "items_count": items_cnt,
-            "stock_qty": round(s_qty, 2),
-            "stock_value": round(s_val, 2),
-            "formatted_value": f"R$ {s_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
-            "status": status,
-            "icon": icon
-        })
-
-    # Top grupos por valor
-    top_groups = sorted(groups_list, key=lambda x: x['stock_value'], reverse=True)[:5]
-
-    # Projetos e Armazéns para filtro
-    projects_list = [
-        {"value": "Projeto Atitude II.I", "label": "Projeto Atitude II.I"},
-        {"value": "Institucional / Geral", "label": "Institucional / Geral"},
-        {"value": "Projeto Atitude", "label": "Projeto Atitude"},
-        {"value": "Projeto Bem Viver", "label": "Projeto Bem Viver"},
-        {"value": "Projeto Cais", "label": "Projeto Cais"},
-        {"value": "Projeto ATM", "label": "Projeto ATM"}
-    ]
+            active_non_stock_items += total
 
     return {
         "summary": {
-            "total_groups": len(groups_list),
-            "total_items": total_items,
-            "total_stock_value": round(total_stock_value, 2),
-            "formatted_total_value": f"R$ {total_stock_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
-            "total_stock_qty": round(total_stock_qty, 2),
-            "critical_groups_count": critical_groups_count,
-            "low_stock_groups_count": low_stock_groups_count
+            "active_items": active_items,
+            "disabled_items": disabled_items,
+            "active_stock_items": active_stock_items,
+            "active_non_stock_items": active_non_stock_items,
+            "groups_in_use": len(active_groups),
         },
-        "groups": groups_list,
-        "top_groups": top_groups,
         "filters": {
-            "projects": projects_list,
-            "selected_project": selected_project,
-            "selected_warehouse": selected_warehouse,
-            "period": period
-        }
+            "groups": [row.name for row in groups if not int(row.is_group or 0)],
+        },
+    }
+
+
+@frappe.whitelist()
+def get_item_group_dashboard_data():
+    """Resume grupos e itens visíveis sem agregar estoque de armazéns."""
+    _require_read_permission("Item Group")
+    _require_read_permission("Item")
+
+    groups = frappe.get_list(
+        "Item Group",
+        fields=["name", "parent_item_group", "is_group"],
+        order_by="name asc",
+        limit_page_length=0,
+    )
+    item_rows = frappe.get_list(
+        "Item",
+        fields=["disabled", "item_group", "count(name) as total"],
+        group_by="disabled, item_group",
+        limit_page_length=0,
+    )
+    active_by_group = {}
+    active_items = 0
+    for row in item_rows:
+        if int(row.disabled or 0):
+            continue
+        total = int(row.total or 0)
+        active_items += total
+        active_by_group[row.item_group] = active_by_group.get(row.item_group, 0) + total
+
+    final_groups = [row for row in groups if not int(row.is_group or 0)]
+    parent_groups = [row for row in groups if int(row.is_group or 0)]
+    empty_final_groups = [row for row in final_groups if not active_by_group.get(row.name)]
+
+    return {
+        "summary": {
+            "total_groups": len(groups),
+            "parent_groups": len(parent_groups),
+            "final_groups": len(final_groups),
+            "active_items": active_items,
+            "empty_final_groups": len(empty_final_groups),
+        },
+        "filters": {
+            "parent_groups": [row.name for row in parent_groups],
+        },
     }

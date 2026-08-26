@@ -1864,12 +1864,137 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     margin-bottom: 1rem;
 }
 
-.cdc-item-group-wrapper {
+#cdc-item-list-dashboard {
+    color: var(--text-color);
+    animation: cdcFadeIn .25s ease-out;
+    margin-bottom: 1rem;
+}
+
+.cdc-item-group-wrapper,
+.cdc-item-list-wrapper {
     padding: 1rem 0;
+}
+
+#cdc-item-group-dashboard .cdc-monitoring-header,
+#cdc-item-list-dashboard .cdc-monitoring-header {
+    border-bottom-color: var(--border-color, #e2e8f0);
+}
+
+#cdc-item-group-dashboard .cdc-monitoring-h1,
+#cdc-item-list-dashboard .cdc-monitoring-h1 {
+    color: var(--text-color, #0f172a);
+}
+
+#cdc-item-group-dashboard .cdc-monitoring-sub,
+#cdc-item-list-dashboard .cdc-monitoring-sub {
+    color: var(--text-muted, #64748b);
+}
+
+#cdc-item-group-dashboard .cdc-monitoring-cards-grid,
+#cdc-item-list-dashboard .cdc-monitoring-cards-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+#cdc-item-group-dashboard .cdc-monitoring-card,
+#cdc-item-list-dashboard .cdc-monitoring-card {
+    min-height: 126px;
+    padding: 17px 16px;
+    background: var(--card-bg, #fff);
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    border-right: 1px solid var(--border-color, #e2e8f0);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+}
+
+#cdc-item-group-dashboard .cdc-card-label,
+#cdc-item-list-dashboard .cdc-card-label {
+    color: var(--text-muted, #64748b);
+}
+
+#cdc-item-group-dashboard .cdc-card-value,
+#cdc-item-list-dashboard .cdc-card-value {
+    color: var(--text-color, #0f172a);
+}
+
+.cdc-catalog-filters label {
+    flex-basis: 180px;
+}
+
+.cdc-catalog-filter-note {
+    margin: -8px 0 18px;
+    color: var(--text-muted, #64748b);
+    font-size: 12px;
+}
+
+/* Melhora a leitura sem substituir controles, paginação ou ações da lista nativa. */
+.cdc-catalog-list-enhanced .frappe-list {
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    background: var(--card-bg, #fff);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, .045);
+    overflow: hidden;
+}
+
+.cdc-catalog-list-enhanced .list-row-head {
+    min-height: 42px;
+    background: var(--subtle-fg, #f8fafc);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    color: var(--text-muted, #475569);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .025em;
+}
+
+.cdc-catalog-list-enhanced .list-row-container {
+    border-bottom-color: var(--border-color, #e2e8f0);
+    transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.cdc-catalog-list-enhanced .list-row-container:hover {
+    position: relative;
+    z-index: 1;
+    background: rgba(36, 144, 239, .055);
+    box-shadow: inset 3px 0 0 var(--primary, #2490ef);
+}
+
+.cdc-catalog-list-enhanced .list-row {
+    min-height: 48px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.cdc-catalog-list-enhanced .list-subject a,
+.cdc-catalog-list-enhanced .level-left a {
+    color: var(--text-color, #0f172a);
+    font-weight: 700;
+}
+
+.cdc-catalog-list-enhanced .list-row-col .ellipsis {
+    line-height: 1.4;
+}
+
+.cdc-catalog-list-enhanced .list-paging-area {
+    padding: 12px 14px;
+    background: var(--subtle-fg, #f8fafc);
 }
 
 .cdc-group-icon {
     font-size: 1.2rem;
     margin-right: 6px;
     vertical-align: middle;
+}
+
+@media (max-width: 1100px) {
+    #cdc-item-group-dashboard .cdc-monitoring-cards-grid,
+    #cdc-item-list-dashboard .cdc-monitoring-cards-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    #cdc-item-group-dashboard .cdc-monitoring-cards-grid,
+    #cdc-item-list-dashboard .cdc-monitoring-cards-grid {
+        grid-template-columns: 1fr;
+    }
 }

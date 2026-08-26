@@ -26,6 +26,34 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("window.location.hash", route_block)
         self.assertNotIn("item_group", route_block)
 
+    def test_item_and_item_group_explicit_list_paths_are_supported(self):
+        source = THEME_JS.read_text()
+        item_route = source[source.index("function isItemRoute"):source.index("function getCatalogRouteValue")]
+        self.assertIn("pathname === '/app/item/view/list'", item_route)
+        self.assertIn("routeDoctype === 'item'", item_route)
+        self.assertNotIn("window.location.href", item_route)
+        group_route = source[source.index("function isItemGroupRoute"):source.index("function removeItemGroupDashboard")]
+        self.assertIn("pathname === '/app/item-group/view/list'", group_route)
+
+    def test_catalog_dashboards_preserve_native_lists_and_real_filters(self):
+        theme_source = THEME_JS.read_text()
+        api_source = API_PY.read_text()
+        catalog_block = theme_source[
+            theme_source.index("function isItemGroupRoute"):
+            theme_source.index("function init()", theme_source.index("function isItemGroupRoute"))
+        ]
+        self.assertIn("body.insertBefore(dashboard, listBody)", catalog_block)
+        self.assertIn("currentBody.insertBefore(dashboard, currentListBody)", catalog_block)
+        self.assertIn("frappe.set_route('List', 'Item', 'List', filters)", catalog_block)
+        self.assertIn("frappe.set_route('List', 'Item Group', 'List', filters)", catalog_block)
+        self.assertIn("cdc-catalog-list-enhanced", catalog_block)
+        self.assertNotIn("tabBin", ast.get_source_segment(
+            api_source,
+            next(node for node in ast.parse(api_source).body
+                 if isinstance(node, ast.FunctionDef) and node.name == "get_item_group_dashboard_data"),
+        ))
+        self.assertIn("get_item_list_dashboard_data", api_source)
+
     def test_item_group_never_mounts_on_document_body(self):
         source = THEME_JS.read_text()
         render_block = source[source.index("function renderItemGroup"):source.index("function init()", source.index("function renderItemGroup"))]
