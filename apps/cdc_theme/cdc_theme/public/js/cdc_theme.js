@@ -17,6 +17,9 @@
     var isDashboardLoading = false;
     var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
+    var stockRequestSerial = 0;
+    var stockRequestTimer = null;
+    var stockRenderStage = 'inicialização';
 
     function claimCDCActiveDashboard(id, tagName) {
         var claim = window._cdc_claim_active_dashboard;
@@ -966,6 +969,14 @@
         restoreNativeStockWorkspaceContent();
     }
 
+    function startStockLoadingWatchdog(requestSerial) {
+        window.clearTimeout(stockRequestTimer);
+        stockRequestTimer = window.setTimeout(function() {
+            if (requestSerial !== stockRequestSerial || !isDashboardLoading) return;
+            renderStockDashboardFailure('Tempo limite ao aguardar a resposta do painel de estoque.');
+        }, 12000);
+    }
+
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) {
             document.querySelectorAll('#cdc-stock-exec-dashboard').forEach(function(dashboard) { dashboard.remove(); });
@@ -998,6 +1009,8 @@
 
         isDashboardLoading = true;
         lastFetchTime = Date.now();
+        var requestSerial = ++stockRequestSerial;
+        startStockLoadingWatchdog(requestSerial);
 
         frappe.call({
             method: 'cdc_theme.api.get_stock_dashboard_data',
@@ -1009,7 +1022,11 @@
                 table_type: currentTableTypeFilter
             },
             callback: function(r) {
+                window.clearTimeout(stockRequestTimer);
+                if (requestSerial !== stockRequestSerial) return;
                 isDashboardLoading = false;
+                stockRenderStage = 'validação da resposta';
+                try {
                 if (!r || !r.message) {
                     renderStockDashboardFailure('O servidor não retornou os dados do estoque.');
                     return;
@@ -1023,6 +1040,7 @@
                 hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
                 var data = r.message;
+                stockRenderStage = 'preparação de filtros e indicadores';
                 var pilotProject = getPilotProjectContext();
                 var breadcrumb = getCDCBreadcrumbHTML('Estoque', pilotProject ? pilotProject.name : null);
 
@@ -1060,12 +1078,12 @@
                 `;
 
                 // --- 2. 4 CARDS NUMERADORES DO TOPO ---
-                var receiptsCount = (data.receipts_month !== undefined) ? data.receipts_month : 41;
-                var issuesCount = (data.issues_month !== undefined) ? data.issues_month : 1;
+                var receiptsCount = (data.receipts_month !== undefined) ? data.receipts_month : 0;
+                var issuesCount = (data.issues_month !== undefined) ? data.issues_month : 0;
                 var transfersCount = (data.transfers_month !== undefined) ? data.transfers_month : 0;
-                var totalWh = data.total_warehouses || 46;
-                var activeWh = data.active_warehouses || 11;
-                var inactiveWh = data.inactive_warehouses || 35;
+                var totalWh = data.total_warehouses || 0;
+                var activeWh = data.active_warehouses || 0;
+                var inactiveWh = data.inactive_warehouses || 0;
 
                 var top4CardsGrid = `
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
@@ -1362,7 +1380,7 @@
                     </div>
                 `;
 
-                var totalItemsCount = data.total_items || 655;
+                var totalItemsCount = data.total_items || 0;
                 var unitDisplay = data.unit_display_label || 'Todos os Armazéns';
 
                 var categoryFullWidthCard = `
@@ -1389,8 +1407,8 @@
                 var datasetsList = occurrencesData.datasets || [];
                 var groupedMonthsList = occurrencesData.grouped_months || [];
 
-                var ptBrLabels = (occurrencesData.labels || ["S1 Maio", "S2 Maio", "S3 Maio", "S4 Maio", "S1 Jun", "S2 Jun", "S3 Jun", "S4 Jun", "S5 Jun", "S1 Jul"]).map(function(lbl) {
-                    return lbl.replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
+                var ptBrLabels = (occurrencesData.labels || []).map(function(lbl) {
+                    return String(lbl).replace('May', 'Maio').replace('Jun', 'Junho').replace('Jul', 'Julho').replace('Aug', 'Agosto').replace('Sep', 'Setembro');
                 });
 
                 // SE A API NÃO RETORNAR grouped_months, CONSTRÓI CLIENT-SIDE A PARTIR DOS LABELS
@@ -1427,7 +1445,7 @@
                     });
                 }
 
-                var projectSelectOptions = `<option value="all" ${currentSelectedProjectFilter === 'all' ? 'selected' : ''}>🌐 Todos os Programas (Consolidado - 6 Projetos)</option>`;
+                var projectSelectOptions = `<option value="all" ${currentSelectedProjectFilter === 'all' ? 'selected' : ''}>🌐 Todos os Programas (Consolidado - ${datasetsList.length} Projetos)</option>`;
                 datasetsList.forEach(function(ds) {
                     var selected = (currentSelectedProjectFilter === ds.project) ? 'selected' : '';
                     projectSelectOptions += `<option value="${ds.project}" ${selected}>📌 ${ds.project} (${ds.total_occurrences} lançamentos)</option>`;
@@ -1511,6 +1529,7 @@
                     </div>
                 `;
 
+                stockRenderStage = 'montagem do conteúdo no navegador';
                 dashDiv.innerHTML = `
                     ${breadcrumb}
                     ${selectorHeader}
@@ -1520,6 +1539,7 @@
                     ${categoryFullWidthCard}
                     ${occurrencesSection}
                 `;
+                stockRenderStage = 'inicialização dos gráficos';
                 setupStockPageNavigator(dashDiv);
 
                 window._cdc_debug_dashboard_data = data;
@@ -1660,8 +1680,15 @@
                     restoreScrollPosition();
                     window._cdc_run_diagnostics();
                 }, 200);
+                stockRenderStage = 'concluído';
+                } catch (error) {
+                    console.error('[CDC Theme] Erro no render do Estoque na etapa ' + stockRenderStage + ':', error);
+                    renderStockDashboardFailure('Falha ao montar o painel na etapa: ' + stockRenderStage + '.');
+                }
             },
             error: function(err) {
+                window.clearTimeout(stockRequestTimer);
+                if (requestSerial !== stockRequestSerial) return;
                 renderStockDashboardFailure('Falha ao consultar o painel de estoque.');
             }
         });

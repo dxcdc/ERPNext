@@ -33,6 +33,16 @@ const terminal = {
         return null;
     }
 };
+const gateTerminalOutput = {textContent: '', scrollTop: 0, scrollHeight: 100};
+const gateTerminalStatus = {textContent: ''};
+const gateTerminal = {
+    classList: {toggle() {}},
+    querySelector(selector) {
+        if (selector === '[data-cdc-gate-terminal-output]') return gateTerminalOutput;
+        if (selector === '[data-cdc-gate-terminal-status]') return gateTerminalStatus;
+        return null;
+    }
+};
 const executionButton = {disabled: false, textContent: 'Executar testes novamente'};
 const expandedGateDetails = {open: false};
 const dashboard = {
@@ -58,7 +68,9 @@ const fakeDocument = {
         return id === 'cdc-tests-dashboard' ? dashboard : null;
     },
     querySelector(selector) {
-        return selector === '.cdc-test-terminal' ? terminal : null;
+        if (selector === '.cdc-test-terminal') return terminal;
+        if (selector.indexOf('[data-cdc-gate-terminal=') === 0) return gateTerminal;
+        return null;
     },
     querySelectorAll(selector) {
         return selector === '[data-cdc-tests-refresh]' ? [executionButton] : [];
@@ -181,7 +193,25 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     runGate.call(gateButton);
     assert.equal(calls.at(-1), 'cdc_theme.api.run_cdc_quality_gate');
     assert.match(terminalOutput.textContent, /Rotas — Rotas válidas novamente/);
+    assert.match(gateTerminalOutput.textContent, /\[START\].*Execução individual autenticada/s);
+    assert.match(gateTerminalOutput.textContent, /\[PASS\] Rotas válidas novamente/);
+    assert.match(gateTerminalOutput.textContent, /\[DONE\] Verificação concluída/);
+    assert.equal(gateTerminalStatus.textContent, 'APROVADO');
     assert.equal(expandedGateDetails.open, true, 'a explicação deve abrir após executar o item');
+
+    const automatedGateButton = {
+        disabled: false,
+        textContent: 'Executar este teste',
+        getAttribute(name) { return name === 'data-cdc-run-gate' ? 'automated-tests' : null; }
+    };
+    runGate.call(automatedGateButton);
+    assert.deepEqual(calls.slice(-3), [
+        'cdc_theme.api.run_cdc_quality_gate',
+        'cdc_theme.api.get_stock_dashboard_data',
+        'cdc_theme.api.get_users_dashboard_data'
+    ], 'o teste 7 individual deve verificar as duas APIs reais');
+    assert.match(gateTerminalOutput.textContent, /CDC Estoque respondeu: 41 itens e 6 armazéns/);
+    assert.match(gateTerminalOutput.textContent, /CDC Usuários respondeu: 12 usuários/);
 
     const repair = handlers.get('click:[data-cdc-tests-action]');
     const repairButton = {

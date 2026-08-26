@@ -8,6 +8,9 @@
     var latestDashboardData = null;
     var executionStartedAt = 0;
     var runningGateId = null;
+    var gateExecutionLogs = Object.create(null);
+    var gateExecutionStatus = Object.create(null);
+    var gateExecutionStartedAt = Object.create(null);
 
     function normalize(value) {
         return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
@@ -57,6 +60,55 @@
         executionLogs.push(`[${executionTime()}] [${level}] ${message}`);
         if (executionLogs.length > 250) executionLogs = executionLogs.slice(-250);
         syncTerminal();
+    }
+
+    function gateTerminalHTML(gateId, title) {
+        var logs = gateExecutionLogs[gateId] || [];
+        var status = gateExecutionStatus[gateId] || 'PRONTO';
+        var output = logs.length
+            ? escapeHTML(logs.join('\n'))
+            : `$ Aguardando “Executar este teste” para validar ${escapeHTML(title)}...`;
+        return `<section class="cdc-gate-terminal ${status === 'EXECUTANDO' ? 'is-running' : ''}" data-cdc-gate-terminal="${escapeHTML(gateId)}" aria-label="Console do teste ${escapeHTML(title)}" aria-live="polite">
+            <header><span class="cdc-terminal-lights"><i></i><i></i><i></i></span><strong>console / ${escapeHTML(gateId)}</strong><span data-cdc-gate-terminal-status>${escapeHTML(status)}</span></header>
+            <pre data-cdc-gate-terminal-output>${output}</pre>
+        </section>`;
+    }
+
+    function syncGateTerminal(gateId) {
+        var terminal = document.querySelector(`[data-cdc-gate-terminal="${gateId}"]`);
+        if (!terminal) return;
+        var output = terminal.querySelector('[data-cdc-gate-terminal-output]');
+        var status = terminal.querySelector('[data-cdc-gate-terminal-status]');
+        var logs = gateExecutionLogs[gateId] || [];
+        var currentStatus = gateExecutionStatus[gateId] || 'PRONTO';
+        terminal.classList.toggle('is-running', currentStatus === 'EXECUTANDO');
+        if (status) status.textContent = currentStatus;
+        if (output) {
+            output.textContent = logs.length ? logs.join('\n') : '$ Aguardando “Executar este teste”...';
+            output.scrollTop = output.scrollHeight;
+        }
+    }
+
+    function appendGateLog(gateId, level, message) {
+        if (!gateExecutionLogs[gateId]) gateExecutionLogs[gateId] = [];
+        gateExecutionLogs[gateId].push(`[${executionTime()}] [${level}] ${message}`);
+        if (gateExecutionLogs[gateId].length > 80) gateExecutionLogs[gateId] = gateExecutionLogs[gateId].slice(-80);
+        syncGateTerminal(gateId);
+    }
+
+    function startGateConsole(gateId, message) {
+        gateExecutionLogs[gateId] = [];
+        gateExecutionStatus[gateId] = 'EXECUTANDO';
+        gateExecutionStartedAt[gateId] = performance.now();
+        appendGateLog(gateId, 'START', message);
+    }
+
+    function finishGateConsole(gateId, status, message) {
+        var startedAt = gateExecutionStartedAt[gateId];
+        var elapsed = startedAt ? ((performance.now() - startedAt) / 1000).toFixed(2) : '0.00';
+        appendGateLog(gateId, status === 'FALHOU' ? 'FAIL' : 'DONE', `${message} Duração: ${elapsed}s.`);
+        gateExecutionStatus[gateId] = status;
+        syncGateTerminal(gateId);
     }
 
     function setExecutionButtonState() {
@@ -126,7 +178,7 @@
                 return `<p>${escapeHTML(paragraph)}</p>`;
             }).join('');
             var actionHTML = check.action
-                ? `<button type="button" class="btn btn-xs btn-default" data-cdc-tests-action="${escapeHTML(check.action)}">${escapeHTML(check.action_label || 'Executar correção')}</button>`
+                ? `<button type="button" class="btn btn-xs btn-default" data-cdc-tests-action="${escapeHTML(check.action)}" data-cdc-action-gate="${escapeHTML(check.id)}">${escapeHTML(check.action_label || 'Executar correção')}</button>`
                 : '';
             return `<article class="cdc-quality-gate is-${status}" data-quality-gate="${escapeHTML(check.id)}">
                 <div class="cdc-quality-gate-status">${status === 'passed' ? '✓' : (status === 'blocked' ? '×' : '!')}</div>
@@ -143,6 +195,7 @@
                     <button type="button" class="btn btn-xs btn-primary" data-cdc-run-gate="${escapeHTML(check.id)}">${runningGateId === check.id ? 'Executando...' : 'Executar este teste'}</button>
                     ${actionHTML}
                 </div>
+                ${gateTerminalHTML(check.id, check.title)}
             </article>`;
         }).join('');
 
@@ -187,6 +240,7 @@
             </div>`;
         setExecutionButtonState();
         syncTerminal();
+        Object.keys(gateExecutionLogs).forEach(syncGateTerminal);
     }
 
     function load(force) {
@@ -243,7 +297,9 @@
 
     function runWorkspaceDataDiagnostics(dashboard, testData, failed) {
         appendExecutionLog('RUN', 'Validando as fontes reais das páginas CDC Estoque e CDC Usuários...');
-        var routeFailed = !!failed;
+        appendGateLog('automated-tests', 'RUN', 'Consultando as APIs autenticadas das páginas CDC Estoque e CDC Usuários...');
+        var diagnosticFailed = !!failed;
+        var routeFailed = false;
 
         function checkUsersRoute() {
             frappe.call({
@@ -254,14 +310,20 @@
                     if (!data) {
                         routeFailed = true;
                         appendExecutionLog('FAIL', 'CDC Usuários — a API não retornou dados para montar a página.');
+                        appendGateLog('automated-tests', 'FAIL', 'CDC Usuários — API sem dados para montar a página.');
                     } else {
                         var summary = data.summary || {};
                         appendExecutionLog('PASS', `CDC Usuários — API respondeu com ${summary.total || 0} usuários e filtros permitidos.`);
+                        appendGateLog('automated-tests', 'PASS', `CDC Usuários — ${summary.total || 0} usuários e filtros permitidos.`);
                     }
-                    finishVisibleExecution(dashboard, testData, routeFailed);
+                    gateExecutionStatus['automated-tests'] = routeFailed ? 'FALHOU' : 'ATENÇÃO';
+                    syncGateTerminal('automated-tests');
+                    finishVisibleExecution(dashboard, testData, diagnosticFailed || routeFailed);
                 },
                 error: function() {
                     appendExecutionLog('FAIL', 'CDC Usuários — falha autenticada ao consultar a API da página.');
+                    appendGateLog('automated-tests', 'FAIL', 'CDC Usuários — falha autenticada ao consultar a API.');
+                    gateExecutionStatus['automated-tests'] = 'FALHOU';
                     finishVisibleExecution(dashboard, testData, true);
                 }
             });
@@ -275,14 +337,17 @@
                 if (!data) {
                     routeFailed = true;
                     appendExecutionLog('FAIL', 'CDC Estoque — a API não retornou dados para montar a página.');
+                    appendGateLog('automated-tests', 'FAIL', 'CDC Estoque — API sem dados para montar a página.');
                 } else {
                     appendExecutionLog('PASS', `CDC Estoque — API respondeu com ${data.total_items || 0} itens e ${data.total_warehouses || 0} armazéns no escopo.`);
+                    appendGateLog('automated-tests', 'PASS', `CDC Estoque — ${data.total_items || 0} itens e ${data.total_warehouses || 0} armazéns no escopo.`);
                 }
                 checkUsersRoute();
             },
             error: function() {
                 routeFailed = true;
                 appendExecutionLog('FAIL', 'CDC Estoque — falha autenticada ao consultar a API da página.');
+                appendGateLog('automated-tests', 'FAIL', 'CDC Estoque — falha autenticada ao consultar a API.');
                 checkUsersRoute();
             }
         });
@@ -298,6 +363,12 @@
         executionRunning = true;
         executionStartedAt = performance.now();
         executionLogs = [];
+        gateExecutionLogs = Object.create(null);
+        gateExecutionStatus = Object.create(null);
+        (latestDashboardData && latestDashboardData.checks || []).forEach(function(check) {
+            gateExecutionStatus[check.id] = 'AGUARDANDO';
+            syncGateTerminal(check.id);
+        });
         setExecutionButtonState();
         syncTerminal();
         appendExecutionLog('START', 'Execução autenticada iniciada pelo usuário atual.');
@@ -319,6 +390,9 @@
                 (testData.checks || []).forEach(function(check) {
                     var level = check.status === 'passed' ? 'PASS' : (check.status === 'blocked' ? 'BLOCK' : 'WARN');
                     appendExecutionLog(level, `${check.title} — ${check.evidence}`);
+                    appendGateLog(check.id, level, check.evidence);
+                    gateExecutionStatus[check.id] = check.status === 'passed' ? 'APROVADO' : (check.status === 'blocked' ? 'BLOQUEADO' : 'ATENÇÃO');
+                    syncGateTerminal(check.id);
                 });
                 var summary = testData.summary || {};
                 appendExecutionLog('INFO', `Gates: ${summary.passed || 0} aprovados, ${summary.warnings || 0} atenções, ${summary.blocked || 0} bloqueios.`);
@@ -375,8 +449,10 @@
             return;
         }
         runningGateId = gateId;
+        startGateConsole(gateId, `Execução individual autenticada do teste ${gateId}.`);
         setExecutionButtonState();
         appendExecutionLog('RUN', `Executando individualmente o teste ${gateId}...`);
+        appendGateLog(gateId, 'RUN', 'Consultando o gate e suas evidências no servidor...');
         frappe.call({
             method: 'cdc_theme.api.run_cdc_quality_gate',
             args: {gate_id: gateId},
@@ -384,6 +460,7 @@
                 var result = response && response.message;
                 if (!result || !result.check) {
                     appendExecutionLog('FAIL', `O teste ${gateId} não retornou resultado.`);
+                    finishGateConsole(gateId, 'FALHOU', 'O servidor não retornou o resultado do gate.');
                     runningGateId = null;
                     setExecutionButtonState();
                     return;
@@ -393,19 +470,70 @@
                     result.check.status === 'passed' ? 'PASS' : (result.check.status === 'blocked' ? 'BLOCK' : 'WARN'),
                     `${result.check.title} — ${result.check.evidence}`
                 );
-                runningGateId = null;
-                var dashboard = document.getElementById('cdc-tests-dashboard');
-                if (dashboard && latestDashboardData) {
-                    renderDashboard(dashboard, latestDashboardData);
-                    var card = dashboard.querySelector(`[data-quality-gate="${gateId}"]`);
-                    var details = card && card.querySelector('details');
-                    if (details) details.open = true;
-                } else {
-                    setExecutionButtonState();
+                appendGateLog(
+                    gateId,
+                    result.check.status === 'passed' ? 'PASS' : (result.check.status === 'blocked' ? 'BLOCK' : 'WARN'),
+                    result.check.evidence
+                );
+
+                function completeSingleGate(runtimeFailed) {
+                    var finalStatus = runtimeFailed ? 'FALHOU' : (result.check.status === 'passed' ? 'APROVADO' : (result.check.status === 'blocked' ? 'BLOQUEADO' : 'ATENÇÃO'));
+                    finishGateConsole(gateId, finalStatus, runtimeFailed ? 'A verificação terminou com falha.' : 'Verificação concluída.');
+                    runningGateId = null;
+                    var dashboard = document.getElementById('cdc-tests-dashboard');
+                    if (dashboard && latestDashboardData) {
+                        renderDashboard(dashboard, latestDashboardData);
+                        var card = dashboard.querySelector(`[data-quality-gate="${gateId}"]`);
+                        var details = card && card.querySelector('details');
+                        if (details) details.open = true;
+                        syncGateTerminal(gateId);
+                    } else {
+                        setExecutionButtonState();
+                    }
                 }
+
+                if (gateId !== 'automated-tests') {
+                    completeSingleGate(false);
+                    return;
+                }
+
+                appendGateLog(gateId, 'RUN', 'Validando agora as APIs reais de CDC Estoque e CDC Usuários...');
+                var routeFailed = false;
+                frappe.call({
+                    method: 'cdc_theme.api.get_stock_dashboard_data',
+                    args: {selected_unit: 'All', period: 'quarter', entry_type: 'receipt', table_type: 'all'},
+                    callback: function(stockResponse) {
+                        var stock = stockResponse && stockResponse.message;
+                        routeFailed = !stock;
+                        appendGateLog(gateId, stock ? 'PASS' : 'FAIL', stock
+                            ? `CDC Estoque respondeu: ${stock.total_items || 0} itens e ${stock.total_warehouses || 0} armazéns.`
+                            : 'CDC Estoque não retornou dados para montar a página.');
+                        frappe.call({
+                            method: 'cdc_theme.api.get_users_dashboard_data',
+                            args: {selected_project: 'All', selected_warehouse: 'All'},
+                            callback: function(usersResponse) {
+                                var users = usersResponse && usersResponse.message;
+                                routeFailed = routeFailed || !users;
+                                appendGateLog(gateId, users ? 'PASS' : 'FAIL', users
+                                    ? `CDC Usuários respondeu: ${(users.summary || {}).total || 0} usuários.`
+                                    : 'CDC Usuários não retornou dados para montar a página.');
+                                completeSingleGate(routeFailed);
+                            },
+                            error: function() {
+                                appendGateLog(gateId, 'FAIL', 'Falha autenticada ao consultar CDC Usuários.');
+                                completeSingleGate(true);
+                            }
+                        });
+                    },
+                    error: function() {
+                        appendGateLog(gateId, 'FAIL', 'Falha autenticada ao consultar CDC Estoque.');
+                        completeSingleGate(true);
+                    }
+                });
             },
             error: function() {
                 appendExecutionLog('FAIL', `Falha de comunicação ao executar o teste ${gateId}.`);
+                finishGateConsole(gateId, 'FALHOU', 'Falha de comunicação com o servidor.');
                 runningGateId = null;
                 setExecutionButtonState();
             }
@@ -426,11 +554,14 @@
     $(document).on('click', '[data-cdc-tests-action]', function() {
         var button = this;
         var action = button.getAttribute('data-cdc-tests-action');
+        var gateId = button.getAttribute('data-cdc-action-gate') || 'theme-integrity';
         if (action !== 'repair_theme') return;
         frappe.confirm(
             __('Reconciliar as workspaces CDC e limpar os caches do tema agora?'),
             function() {
                 button.disabled = true;
+                startGateConsole(gateId, 'Reparo controlado do tema solicitado pelo usuário.');
+                appendGateLog(gateId, 'RUN', 'Reconciliando workspaces, caches e assets no servidor...');
                 frappe.call({
                     method: 'cdc_theme.api.run_cdc_admin_action',
                     args: {action: action},
@@ -438,6 +569,7 @@
                         var result = response && response.message;
                         if (!result || !result.ok) {
                             button.disabled = false;
+                            finishGateConsole(gateId, 'FALHOU', 'O servidor não confirmou o reparo.');
                             frappe.msgprint(__('O reparo do tema não foi confirmado pelo servidor.'));
                             return;
                         }
@@ -448,23 +580,28 @@
                                 Number(repairSummary.errors || 0) === 0 ? 'PASS' : 'WARN',
                                 `Pós-reparo no servidor: ${repairSummary.ok || 0}/${repairSummary.total || 0} diagnósticos saudáveis.`
                             );
+                            appendGateLog(gateId, Number(repairSummary.errors || 0) === 0 ? 'PASS' : 'WARN', `Servidor: ${repairSummary.ok || 0}/${repairSummary.total || 0} diagnósticos saudáveis.`);
                         }
                         appendExecutionLog('REPAIR', 'Servidor reconciliado; limpando o estado do navegador e revalidando os assets...');
+                        appendGateLog(gateId, 'REPAIR', 'Servidor reconciliado; limpando o estado local e revalidando assets...');
                         repairBrowserThemeState().then(function() {
                             appendExecutionLog('DONE', 'Reparo concluído. Recarregando o Desk para remontar as páginas CDC.');
+                            finishGateConsole(gateId, 'APROVADO', 'Reparo concluído; o Desk será recarregado.');
                             frappe.show_alert({message: __(result.message + ' O Desk será recarregado.'), indicator: 'green'}, 6);
                             button.disabled = false;
                             button.textContent = 'Reparar tema e caches';
-                            window.setTimeout(function() { window.location.reload(); }, 900);
+                            window.setTimeout(function() { window.location.reload(); }, 1800);
                         }).catch(function() {
                             appendExecutionLog('WARN', 'O navegador não confirmou toda a limpeza; o Desk ainda será recarregado.');
+                            finishGateConsole(gateId, 'ATENÇÃO', 'O navegador não confirmou toda a limpeza; o Desk será recarregado.');
                             button.disabled = false;
                             button.textContent = 'Reparar tema e caches';
-                            window.setTimeout(function() { window.location.reload(); }, 900);
+                            window.setTimeout(function() { window.location.reload(); }, 1800);
                         });
                     },
                     error: function() {
                         button.disabled = false;
+                        finishGateConsole(gateId, 'FALHOU', 'Falha de comunicação durante o reparo.');
                         frappe.msgprint(__('Falha ao executar o reparo controlado do tema.'));
                     }
                 });

@@ -54,6 +54,10 @@ assert.match(mainThemeSource, /claimCDCActiveDashboard\('cdc-stock-exec-dashboar
 assert.match(mainThemeSource, /claimCDCActiveDashboard\('cdc-users-dashboard', 'section'\)/);
 assert.match(mainThemeSource, /Carregando o painel de estoque/);
 assert.match(mainThemeSource, /renderStockDashboardFailure/);
+assert.match(mainThemeSource, /stockRequestTimer/);
+assert.match(mainThemeSource, /Tempo limite ao aguardar a resposta do painel de estoque/);
+assert.match(mainThemeSource, /stockRenderStage = 'montagem do conteúdo no navegador'/);
+assert.match(mainThemeSource, /Falha ao montar o painel na etapa:/);
 assert.match(mainThemeSource, /data-cdc-dashboard-retry="stock"/);
 assert.match(mainThemeSource, /data-cdc-dashboard-retry="users"/);
 assert.match(mainThemeSource, /window\._cdc_repair_theme_runtime/);
@@ -64,5 +68,34 @@ assert.match(testsSource, /cdc_theme\.api\.get_stock_dashboard_data/);
 assert.match(testsSource, /cdc_theme\.api\.get_users_dashboard_data/);
 assert.match(testsSource, /window\.location\.reload\(\)/);
 assert.match(testsSource, /Revalidando tema/);
+
+// Reproduz o segundo incidente: a chamada permanece em carregamento e nunca
+// conclui. O watchdog real deve transformar o spinner infinito em falha visível.
+const watchdogStart = mainThemeSource.indexOf('function startStockLoadingWatchdog(');
+const watchdogEnd = mainThemeSource.indexOf('\n\n    function renderStockDashboard()', watchdogStart);
+assert.ok(watchdogStart >= 0 && watchdogEnd > watchdogStart, 'watchdog do Estoque não encontrado');
+const watchdogSource = mainThemeSource.slice(watchdogStart, watchdogEnd);
+let pendingTimeout = null;
+const watchdogWindow = {
+    clearTimeout() {},
+    setTimeout(callback, delay) {
+        assert.equal(delay, 12000);
+        pendingTimeout = callback;
+        return 1;
+    }
+};
+const watchdog = new Function('window', `
+    var stockRequestTimer = null;
+    var stockRequestSerial = 3;
+    var isDashboardLoading = true;
+    var failureMessage = '';
+    function renderStockDashboardFailure(message) { failureMessage = message; isDashboardLoading = false; }
+    ${watchdogSource}
+    return {start: startStockLoadingWatchdog, failure: function() { return failureMessage; }};
+`)(watchdogWindow);
+watchdog.start(3);
+assert.equal(typeof pendingTimeout, 'function');
+pendingTimeout();
+assert.equal(watchdog.failure(), 'Tempo limite ao aguardar a resposta do painel de estoque.');
 
 console.log('Theme blank-page reproduction and recovery test: OK');

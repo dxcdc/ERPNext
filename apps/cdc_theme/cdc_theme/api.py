@@ -1387,10 +1387,10 @@ QUALITY_GATE_COPY = {
         ),
     },
     "automated-tests": {
-        "summary": "Indica se rotas, permissões e integrações precisam de confirmação pela suíte automatizada.",
+        "summary": "Verifica as APIs autenticadas de Estoque e Usuários e indica o que ainda depende da suíte automatizada.",
         "details": (
-            "Por segurança, o processo web não abre um terminal nem executa todos os testes existentes no repositório.",
-            "A aprovação completa depende de um resultado registrado pela CI ou pela rotina controlada de publicação.",
+            "Este botão consulta dados reais das páginas CDC Estoque e CDC Usuários para confirmar rota, permissão e resposta das APIs.",
+            "A API responder não prova que o navegador terminou de montar a interface; essa etapa visual e de assets pertence ao teste 9.",
         ),
     },
     "workspace-navigation": {
@@ -1401,10 +1401,10 @@ QUALITY_GATE_COPY = {
         ),
     },
     "theme-integrity": {
-        "summary": "Valida assets, cache e mecanismos de recuperação usados para evitar telas brancas.",
+        "summary": "Detecta falhas de assets, cache, montagem SPA e render que causam tela branca ou carregamento infinito.",
         "details": (
-            "A verificação confirma que CSS e JavaScript existem, estão publicados e usam a mesma versão de cache.",
-            "Se houver problema de cache ou montagem, a correção controlada reconcilia workspaces e recarrega o tema no navegador.",
+            "A verificação confirma CSS, JavaScript, versão de cache e proteções contra exceção ou tempo limite durante a montagem no navegador.",
+            "O reparo reconcilia workspaces e caches; se os dados chegam mas o render falha, o painel agora mostra a etapa exata e permite tentar novamente.",
         ),
     },
     "production-validation": {
@@ -1675,8 +1675,8 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
             "O ERP não acessa o host e o repositório completos. Confirmação obrigatória pela CI e auditoria do servidor.",
         ),
         _monitoring_quality_gate(
-            "automated-tests", "7. Rotas, permissões e integrações", "warning",
-            "Testes do repositório não são executados pelo processo web. Consulte o resultado da CI antes de publicar.",
+            "automated-tests", "7. Rotas, APIs, permissões e integrações", "warning",
+            "O botão individual consulta as APIs reais do Estoque e Usuários; a suíte completa ainda exige confirmação pela CI.",
         ),
         _monitoring_quality_gate(
             "workspace-navigation", "8. Navegação SPA, duplicidades e ícones",
