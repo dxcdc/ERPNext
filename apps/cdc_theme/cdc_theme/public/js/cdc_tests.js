@@ -3,6 +3,10 @@
 
     var loading = false;
     var generation = 0;
+    var executionRunning = false;
+    var executionLogs = [];
+    var latestDashboardData = null;
+    var executionStartedAt = 0;
 
     function normalize(value) {
         return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
@@ -21,6 +25,46 @@
         return element.innerHTML;
     }
 
+    function executionTime() {
+        return new Date().toLocaleTimeString('pt-BR', {hour12: false});
+    }
+
+    function terminalHTML() {
+        var output = executionLogs.length
+            ? escapeHTML(executionLogs.join('\n'))
+            : '$ Aguardando o comando “Executar testes novamente”...';
+        return `<section class="cdc-test-terminal ${executionRunning ? 'is-running' : ''}" aria-label="Console da execução dos testes" aria-live="polite">
+            <header><span class="cdc-terminal-lights"><i></i><i></i><i></i></span><strong>CDC Test Runner</strong><span data-cdc-terminal-status>${executionRunning ? 'EXECUTANDO' : 'PRONTO'}</span><button type="button" data-cdc-tests-terminal-clear>Limpar</button></header>
+            <pre data-cdc-test-terminal-output>${output}</pre>
+        </section>`;
+    }
+
+    function syncTerminal() {
+        var terminal = document.querySelector('.cdc-test-terminal');
+        var output = terminal && terminal.querySelector('[data-cdc-test-terminal-output]');
+        var status = terminal && terminal.querySelector('[data-cdc-terminal-status]');
+        if (!terminal || !output) return;
+        terminal.classList.toggle('is-running', executionRunning);
+        output.textContent = executionLogs.length
+            ? executionLogs.join('\n')
+            : '$ Aguardando o comando “Executar testes novamente”...';
+        if (status) status.textContent = executionRunning ? 'EXECUTANDO' : 'PRONTO';
+        output.scrollTop = output.scrollHeight;
+    }
+
+    function appendExecutionLog(level, message) {
+        executionLogs.push(`[${executionTime()}] [${level}] ${message}`);
+        if (executionLogs.length > 250) executionLogs = executionLogs.slice(-250);
+        syncTerminal();
+    }
+
+    function setExecutionButtonState() {
+        document.querySelectorAll('[data-cdc-tests-refresh]').forEach(function(button) {
+            button.disabled = executionRunning;
+            button.textContent = executionRunning ? 'Executando testes...' : 'Executar testes novamente';
+        });
+    }
+
     function removeDashboard() {
         document.querySelectorAll('#cdc-tests-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(element) {
@@ -29,6 +73,7 @@
     }
 
     function renderDashboard(dashboard, data) {
+        latestDashboardData = data;
         var summary = data.summary || {};
         var labels = {passed: 'Aprovado', warning: 'Atenção', blocked: 'Bloqueado'};
         var checksHTML = (data.checks || []).map(function(check) {
@@ -74,12 +119,16 @@
                     </div>
                 </section>
 
+                ${terminalHTML()}
+
                 <section class="cdc-quality-gates" aria-label="Gates de qualidade para publicação">
                     ${checksHTML || '<div class="cdc-tests-state is-error">Nenhum teste retornado pelo servidor.</div>'}
                 </section>
                 <p class="cdc-quality-note"><strong>Recuperação do tema:</strong> o botão “Reparar tema e caches” atua quando o ERP está acessível. Se o Desk ou o backend não carregarem, use no servidor <code>./scripts/reparar_tema.sh</code>, que também verifica sintaxe, serviços e publicação dos assets.</p>
                 <p class="cdc-quality-note"><strong>Política:</strong> resultados indisponíveis permanecem como atenção ou bloqueio. Esta tela não executa sincronizações externas nem publica código.</p>
             </div>`;
+        setExecutionButtonState();
+        syncTerminal();
     }
 
     function load(force) {
@@ -121,10 +170,91 @@
         });
     }
 
-    $(document).on('click', '[data-cdc-tests-refresh]', function() {
+    function finishVisibleExecution(dashboard, testData, failed) {
+        executionRunning = false;
+        var elapsed = executionStartedAt ? ((performance.now() - executionStartedAt) / 1000).toFixed(2) : '0.00';
+        appendExecutionLog(failed ? 'FAIL' : 'DONE', `Execução finalizada em ${elapsed}s.`);
+        if (testData && dashboard && isTestsRoute()) {
+            dashboard.dataset.loaded = '1';
+            renderDashboard(dashboard, testData);
+        } else {
+            setExecutionButtonState();
+            syncTerminal();
+        }
+    }
+
+    function runVisibleTestExecution() {
+        if (executionRunning) {
+            frappe.show_alert({message: __('Os testes já estão em execução.'), indicator: 'orange'}, 3);
+            return;
+        }
         var dashboard = document.getElementById('cdc-tests-dashboard');
-        if (dashboard) dashboard.dataset.loaded = '0';
-        load(true);
+        if (!dashboard || !isTestsRoute()) return;
+        executionRunning = true;
+        executionStartedAt = performance.now();
+        executionLogs = [];
+        setExecutionButtonState();
+        syncTerminal();
+        appendExecutionLog('START', 'Execução autenticada iniciada pelo usuário atual.');
+        appendExecutionLog('RUN', 'Consultando os 10 gates de qualidade no servidor...');
+
+        frappe.call({
+            method: 'cdc_theme.api.get_cdc_tests_dashboard',
+            callback: function(response) {
+                if (!isTestsRoute()) {
+                    executionRunning = false;
+                    return;
+                }
+                var testData = response && response.message;
+                if (!testData) {
+                    appendExecutionLog('FAIL', 'O servidor não retornou o resultado dos gates.');
+                    finishVisibleExecution(dashboard, latestDashboardData, true);
+                    return;
+                }
+                (testData.checks || []).forEach(function(check) {
+                    var level = check.status === 'passed' ? 'PASS' : (check.status === 'blocked' ? 'BLOCK' : 'WARN');
+                    appendExecutionLog(level, `${check.title} — ${check.evidence}`);
+                });
+                var summary = testData.summary || {};
+                appendExecutionLog('INFO', `Gates: ${summary.passed || 0} aprovados, ${summary.warnings || 0} atenções, ${summary.blocked || 0} bloqueios.`);
+                appendExecutionLog('RUN', 'Executando diagnósticos de banco, Redis, app, assets, workspaces e logs...');
+
+                frappe.call({
+                    method: 'cdc_theme.api.get_cdc_admin_diagnostics',
+                    callback: function(diagnosticResponse) {
+                        var diagnostics = diagnosticResponse && diagnosticResponse.message;
+                        if (!diagnostics) {
+                            appendExecutionLog('FAIL', 'Os diagnósticos administrativos não retornaram resultado.');
+                            finishVisibleExecution(dashboard, testData, true);
+                            return;
+                        }
+                        (diagnostics.checks || []).forEach(function(check) {
+                            appendExecutionLog(check.status === 'ok' ? 'PASS' : 'FAIL', `${check.label} — ${check.detail}`);
+                        });
+                        var diagnosticSummary = diagnostics.summary || {};
+                        appendExecutionLog('INFO', `Diagnósticos: ${diagnosticSummary.ok || 0}/${diagnosticSummary.total || 0} saudáveis; ${diagnosticSummary.errors || 0} erros.`);
+                        finishVisibleExecution(dashboard, testData, Number(diagnosticSummary.errors || 0) > 0);
+                    },
+                    error: function() {
+                        appendExecutionLog('FAIL', 'Falha de comunicação ao executar os diagnósticos administrativos.');
+                        finishVisibleExecution(dashboard, testData, true);
+                    }
+                });
+            },
+            error: function() {
+                appendExecutionLog('FAIL', 'Falha de comunicação ao executar os gates de qualidade.');
+                finishVisibleExecution(dashboard, latestDashboardData, true);
+            }
+        });
+    }
+
+    $(document).on('click', '[data-cdc-tests-refresh]', function() {
+        runVisibleTestExecution();
+    });
+    $(document).on('click', '[data-cdc-tests-terminal-clear]', function() {
+        if (executionRunning) return;
+        executionLogs = [];
+        syncTerminal();
     });
     $(document).on('click', '[data-cdc-tests-action]', function() {
         var button = this;
