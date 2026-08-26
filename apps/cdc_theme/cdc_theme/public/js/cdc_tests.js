@@ -7,6 +7,7 @@
     var executionLogs = [];
     var latestDashboardData = null;
     var executionStartedAt = 0;
+    var runningGateId = null;
 
     function normalize(value) {
         return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
@@ -60,8 +61,13 @@
 
     function setExecutionButtonState() {
         document.querySelectorAll('[data-cdc-tests-refresh]').forEach(function(button) {
-            button.disabled = executionRunning;
+            button.disabled = executionRunning || !!runningGateId;
             button.textContent = executionRunning ? 'Executando testes...' : 'Executar testes novamente';
+        });
+        document.querySelectorAll('[data-cdc-run-gate]').forEach(function(button) {
+            var isCurrent = button.getAttribute('data-cdc-run-gate') === runningGateId;
+            button.disabled = executionRunning || !!runningGateId;
+            button.textContent = isCurrent ? 'Executando...' : 'Executar este teste';
         });
     }
 
@@ -115,13 +121,28 @@
         var labels = {passed: 'Aprovado', warning: 'Atenção', blocked: 'Bloqueado'};
         var checksHTML = (data.checks || []).map(function(check) {
             var status = ['passed', 'warning', 'blocked'].indexOf(check.status) !== -1 ? check.status : 'warning';
+            var details = Array.isArray(check.details) ? check.details : [check.evidence];
+            var detailsHTML = details.map(function(paragraph) {
+                return `<p>${escapeHTML(paragraph)}</p>`;
+            }).join('');
             var actionHTML = check.action
                 ? `<button type="button" class="btn btn-xs btn-default" data-cdc-tests-action="${escapeHTML(check.action)}">${escapeHTML(check.action_label || 'Executar correção')}</button>`
                 : '';
             return `<article class="cdc-quality-gate is-${status}" data-quality-gate="${escapeHTML(check.id)}">
                 <div class="cdc-quality-gate-status">${status === 'passed' ? '✓' : (status === 'blocked' ? '×' : '!')}</div>
-                <div class="cdc-quality-gate-copy"><h3>${escapeHTML(check.title)}</h3><p>${escapeHTML(check.evidence)}</p></div>
-                <div class="cdc-quality-gate-actions"><span class="cdc-quality-gate-badge">${labels[status]}</span>${actionHTML}</div>
+                <div class="cdc-quality-gate-copy">
+                    <h3>${escapeHTML(check.title)}</h3>
+                    <p class="cdc-quality-gate-summary">${escapeHTML(check.summary || check.evidence)}</p>
+                    <details class="cdc-quality-gate-details">
+                        <summary><span aria-hidden="true">+</span> Entender este teste</summary>
+                        <div>${detailsHTML}</div>
+                    </details>
+                </div>
+                <div class="cdc-quality-gate-actions">
+                    <span class="cdc-quality-gate-badge">${labels[status]}</span>
+                    <button type="button" class="btn btn-xs btn-primary" data-cdc-run-gate="${escapeHTML(check.id)}">${runningGateId === check.id ? 'Executando...' : 'Executar este teste'}</button>
+                    ${actionHTML}
+                </div>
             </article>`;
         }).join('');
 
@@ -268,7 +289,7 @@
     }
 
     function runVisibleTestExecution() {
-        if (executionRunning) {
+        if (executionRunning || runningGateId) {
             frappe.show_alert({message: __('Os testes já estão em execução.'), indicator: 'orange'}, 3);
             return;
         }
@@ -332,8 +353,70 @@
         });
     }
 
+    function updateSingleGate(gate, checkedAt) {
+        if (!latestDashboardData || !gate) return;
+        var checks = latestDashboardData.checks || [];
+        latestDashboardData.checks = checks.map(function(item) {
+            return item.id === gate.id ? gate : item;
+        });
+        latestDashboardData.checked_at = checkedAt || latestDashboardData.checked_at;
+        latestDashboardData.summary = {
+            total: latestDashboardData.checks.length,
+            passed: latestDashboardData.checks.filter(function(item) { return item.status === 'passed'; }).length,
+            warnings: latestDashboardData.checks.filter(function(item) { return item.status === 'warning'; }).length,
+            blocked: latestDashboardData.checks.filter(function(item) { return item.status === 'blocked'; }).length
+        };
+        latestDashboardData.summary.ready_to_publish = latestDashboardData.summary.warnings === 0 && latestDashboardData.summary.blocked === 0;
+    }
+
+    function runSingleGate(gateId) {
+        if (executionRunning || runningGateId) {
+            frappe.show_alert({message: __('Aguarde a execução atual terminar.'), indicator: 'orange'}, 3);
+            return;
+        }
+        runningGateId = gateId;
+        setExecutionButtonState();
+        appendExecutionLog('RUN', `Executando individualmente o teste ${gateId}...`);
+        frappe.call({
+            method: 'cdc_theme.api.run_cdc_quality_gate',
+            args: {gate_id: gateId},
+            callback: function(response) {
+                var result = response && response.message;
+                if (!result || !result.check) {
+                    appendExecutionLog('FAIL', `O teste ${gateId} não retornou resultado.`);
+                    runningGateId = null;
+                    setExecutionButtonState();
+                    return;
+                }
+                updateSingleGate(result.check, result.checked_at);
+                appendExecutionLog(
+                    result.check.status === 'passed' ? 'PASS' : (result.check.status === 'blocked' ? 'BLOCK' : 'WARN'),
+                    `${result.check.title} — ${result.check.evidence}`
+                );
+                runningGateId = null;
+                var dashboard = document.getElementById('cdc-tests-dashboard');
+                if (dashboard && latestDashboardData) {
+                    renderDashboard(dashboard, latestDashboardData);
+                    var card = dashboard.querySelector(`[data-quality-gate="${gateId}"]`);
+                    var details = card && card.querySelector('details');
+                    if (details) details.open = true;
+                } else {
+                    setExecutionButtonState();
+                }
+            },
+            error: function() {
+                appendExecutionLog('FAIL', `Falha de comunicação ao executar o teste ${gateId}.`);
+                runningGateId = null;
+                setExecutionButtonState();
+            }
+        });
+    }
+
     $(document).on('click', '[data-cdc-tests-refresh]', function() {
         runVisibleTestExecution();
+    });
+    $(document).on('click', '[data-cdc-run-gate]', function() {
+        runSingleGate(this.getAttribute('data-cdc-run-gate'));
     });
     $(document).on('click', '[data-cdc-tests-terminal-clear]', function() {
         if (executionRunning) return;

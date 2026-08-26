@@ -1343,8 +1343,92 @@ def diagnostico_mattermost():
     }
 
 
+QUALITY_GATE_COPY = {
+    "item-group-route": {
+        "summary": "Confere se Itens e Grupos de Itens abrem somente nas rotas corretas.",
+        "details": (
+            "Este teste verifica a leitura exata das URLs oficiais das listas de Item e Item Group.",
+            "Ele evita que cards e filtros sejam montados em formulários, relatórios ou páginas sem relação com o catálogo.",
+        ),
+    },
+    "item-group-native-list": {
+        "summary": "Confirma que os novos cards não substituem nem escondem a lista oficial do ERPNext.",
+        "details": (
+            "O painel personalizado deve aparecer acima da listagem nativa e preservar edição, paginação e filtros salvos.",
+            "Uma reprovação indica risco de perder ações nativas ou encontrar uma página vazia durante a navegação.",
+        ),
+    },
+    "real-telemetry": {
+        "summary": "Verifica se números e botões usam dados reais, sem mensagens ou resultados simulados.",
+        "details": (
+            "O teste procura marcadores de telemetria fictícia e confirma a existência das operações reais de atualização.",
+            "Ele não executa uma sincronização externa: apenas garante que a interface não apresente sucesso inventado.",
+        ),
+    },
+    "ongsys-integrity": {
+        "summary": "Protege a importação ONGSYS contra duplicidades e acompanha a atualização da sincronização.",
+        "details": (
+            "A idempotência garante que o mesmo pedido ONGSYS não gere duas movimentações de estoque.",
+            "O checkpoint informa quando a integração confirmou o último sucesso; acima de duas horas ele fica desatualizado.",
+        ),
+    },
+    "warehouse-rbac": {
+        "summary": "Confere se cada consulta respeita o papel e os armazéns permitidos para o usuário.",
+        "details": (
+            "RBAC controla quem pode acessar o painel, enquanto User Permission limita quais armazéns essa pessoa pode consultar.",
+            "O teste só aprova quando as consultas agregadas também aplicam o escopo por armazém, e não apenas o papel geral.",
+        ),
+    },
+    "security-ci": {
+        "summary": "Lembra as verificações externas de segredos, backups e proteção do processo de publicação.",
+        "details": (
+            "A aplicação web não consegue examinar todo o histórico Git, as configurações do GitHub ou os arquivos privados do host.",
+            "Por isso este item exige evidência da CI e da auditoria operacional antes de uma publicação ser considerada segura.",
+        ),
+    },
+    "automated-tests": {
+        "summary": "Indica se rotas, permissões e integrações precisam de confirmação pela suíte automatizada.",
+        "details": (
+            "Por segurança, o processo web não abre um terminal nem executa todos os testes existentes no repositório.",
+            "A aprovação completa depende de um resultado registrado pela CI ou pela rotina controlada de publicação.",
+        ),
+    },
+    "workspace-navigation": {
+        "summary": "Procura páginas duplicadas, ordem incorreta, ícones ausentes e montagem na página SPA errada.",
+        "details": (
+            "O teste compara as nove workspaces CDC esperadas e valida nome, ordem, visibilidade e ícone.",
+            "Também confirma que cada painel é montado apenas no contêiner ativo, reduzindo páginas brancas após navegar sem F5.",
+        ),
+    },
+    "theme-integrity": {
+        "summary": "Valida assets, cache e mecanismos de recuperação usados para evitar telas brancas.",
+        "details": (
+            "A verificação confirma que CSS e JavaScript existem, estão publicados e usam a mesma versão de cache.",
+            "Se houver problema de cache ou montagem, a correção controlada reconcilia workspaces e recarrega o tema no navegador.",
+        ),
+    },
+    "production-validation": {
+        "summary": "Confirma que a versão foi publicada e verificada com uma sessão administrativa em produção.",
+        "details": (
+            "Responder HTTP 200 sem login não prova que cards, permissões e ações funcionam dentro do Desk autenticado.",
+            "Este gate deve ser concluído no domínio oficial com um System Manager e a mesma versão que foi validada nos testes.",
+        ),
+    },
+}
+
+
 def _monitoring_quality_gate(gate_id, title, status, evidence, action=None, action_label=None):
-    gate = {"id": gate_id, "title": title, "status": status, "evidence": evidence}
+    copy = QUALITY_GATE_COPY.get(gate_id, {})
+    details = list(copy.get("details", ()))
+    details.append(f"Resultado desta execução: {evidence}")
+    gate = {
+        "id": gate_id,
+        "title": title,
+        "status": status,
+        "summary": copy.get("summary", evidence),
+        "details": details,
+        "evidence": evidence,
+    }
     if action:
         gate["action"] = action
         gate["action_label"] = action_label or "Executar correção"
@@ -1658,6 +1742,20 @@ def get_cdc_tests_dashboard():
         duplicates=duplicates,
         unique_index=bool(unique_index),
     )
+
+
+@frappe.whitelist()
+def run_cdc_quality_gate(gate_id):
+    """Recalcula a fotografia real e devolve somente o gate solicitado."""
+    _require_system_manager()
+    valid_ids = set(QUALITY_GATE_COPY)
+    if gate_id not in valid_ids:
+        frappe.throw("Teste de qualidade desconhecido.", frappe.ValidationError)
+    dashboard = get_cdc_tests_dashboard()
+    check = next((item for item in dashboard["checks"] if item["id"] == gate_id), None)
+    if not check:
+        frappe.throw("O teste solicitado não retornou resultado.", frappe.ValidationError)
+    return {"check": check, "checked_at": dashboard["checked_at"]}
 
 
 

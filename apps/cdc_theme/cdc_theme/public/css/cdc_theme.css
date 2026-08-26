@@ -1794,8 +1794,20 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-quality-gate.is-passed .cdc-quality-gate-status { background: #22a06b; }
 .cdc-quality-gate.is-blocked .cdc-quality-gate-status { background: #dc3545; }
 .cdc-quality-gate-copy h3 { margin: 0 0 3px; font-size: 14px; }
-.cdc-quality-gate-copy p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
-.cdc-quality-gate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.cdc-quality-gate-copy { min-width: 0; }
+.cdc-quality-gate-copy p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.cdc-quality-gate-summary { max-width: 760px; }
+.cdc-quality-gate-details { margin-top: 9px; }
+.cdc-quality-gate-details summary { display: inline-flex; align-items: center; gap: 7px; color: #2563eb; font-size: 11px; font-weight: 800; cursor: pointer; list-style: none; user-select: none; }
+.cdc-quality-gate-details summary::-webkit-details-marker { display: none; }
+.cdc-quality-gate-details summary > span { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #bfdbfe; border-radius: 50%; background: #eff6ff; font-size: 15px; line-height: 1; transition: transform .18s ease; }
+.cdc-quality-gate-details[open] summary > span { transform: rotate(45deg); }
+.cdc-quality-gate-details > div { display: grid; gap: 9px; margin-top: 9px; padding: 12px 14px; border-left: 3px solid #93c5fd; border-radius: 0 8px 8px 0; background: #f8fafc; }
+.cdc-quality-gate-details > div p { color: #475569; line-height: 1.55; }
+.cdc-quality-gate-details > div p:last-child { color: #0f172a; font-weight: 650; }
+.cdc-quality-gate-actions { display: flex; max-width: 250px; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.cdc-quality-gate-actions .btn { min-height: 30px; white-space: nowrap; }
+.cdc-quality-gate-actions .btn:disabled { cursor: progress; opacity: .65; }
 .cdc-quality-gate-badge { padding: 4px 8px; border-radius: 999px; background: #fff3cd; color: #7a5600; font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .cdc-quality-gate.is-passed .cdc-quality-gate-badge { background: #dcfce7; color: #166534; }
 .cdc-quality-gate.is-blocked .cdc-quality-gate-badge { background: #fee2e2; color: #991b1b; }

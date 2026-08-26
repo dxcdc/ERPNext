@@ -34,7 +34,17 @@ const terminal = {
     }
 };
 const executionButton = {disabled: false, textContent: 'Executar testes novamente'};
-const dashboard = {dataset: {}, innerHTML: ''};
+const expandedGateDetails = {open: false};
+const dashboard = {
+    dataset: {},
+    innerHTML: '',
+    querySelector(selector) {
+        if (selector.indexOf('[data-quality-gate=') === 0) {
+            return {querySelector(innerSelector) { return innerSelector === 'details' ? expandedGateDetails : null; }};
+        }
+        return null;
+    }
+};
 
 const fakeDocument = {
     createElement() {
@@ -67,8 +77,8 @@ const fakeFrappe = {
                 checked_at: 'agora',
                 summary: {total: 2, passed: 1, warnings: 1, blocked: 0},
                 checks: [
-                    {id: 'route', title: 'Rotas', evidence: 'Rotas válidas', status: 'passed'},
-                    {id: 'theme', title: 'Tema', evidence: 'Validação externa pendente', status: 'warning'}
+                    {id: 'item-group-route', title: 'Rotas', summary: 'Rotas corretas.', details: ['Um', 'Dois', 'Três'], evidence: 'Rotas válidas', status: 'passed'},
+                    {id: 'theme-integrity', title: 'Tema', summary: 'Tema íntegro.', details: ['Um', 'Dois', 'Três'], evidence: 'Validação externa pendente', status: 'warning'}
                 ]
             }});
             return;
@@ -89,6 +99,20 @@ const fakeFrappe = {
         }
         if (options.method === 'cdc_theme.api.get_users_dashboard_data') {
             options.callback({message: {summary: {total: 12}}});
+            return;
+        }
+        if (options.method === 'cdc_theme.api.run_cdc_quality_gate') {
+            options.callback({message: {
+                checked_at: 'agora mesmo',
+                check: {
+                    id: options.args.gate_id,
+                    title: 'Rotas',
+                    summary: 'Rotas corretas.',
+                    details: ['Explicação 1', 'Explicação 2', 'Resultado atual'],
+                    evidence: 'Rotas válidas novamente',
+                    status: 'passed'
+                }
+            }});
             return;
         }
         if (options.method === 'cdc_theme.api.run_cdc_admin_action') {
@@ -146,6 +170,18 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     assert.equal(executionButton.disabled, false, 'o botão deve ser reativado ao final');
     assert.equal(executionButton.textContent, 'Executar testes novamente');
     assert.equal(terminalStatus.textContent, 'PRONTO');
+
+    const runGate = handlers.get('click:[data-cdc-run-gate]');
+    const gateButton = {
+        disabled: false,
+        textContent: 'Executar este teste',
+        getAttribute(name) { return name === 'data-cdc-run-gate' ? 'item-group-route' : null; }
+    };
+    assert.equal(typeof runGate, 'function', 'a execução individual deve estar registrada');
+    runGate.call(gateButton);
+    assert.equal(calls.at(-1), 'cdc_theme.api.run_cdc_quality_gate');
+    assert.match(terminalOutput.textContent, /Rotas — Rotas válidas novamente/);
+    assert.equal(expandedGateDetails.open, true, 'a explicação deve abrir após executar o item');
 
     const repair = handlers.get('click:[data-cdc-tests-action]');
     const repairButton = {

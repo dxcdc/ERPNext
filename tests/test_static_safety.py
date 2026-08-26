@@ -128,7 +128,7 @@ class StaticSafetyTest(unittest.TestCase):
         )
         for gate_id in expected_ids:
             with self.subTest(gate_id=gate_id):
-                self.assertEqual(api_source.count(f'"{gate_id}"'), 1)
+                self.assertEqual(api_source.count(f'"{gate_id}"'), 2)
         self.assertIn('"ready_to_publish"', api_source)
         self.assertIn("get_cdc_tests_dashboard", api_source)
         self.assertNotIn("tab-validacoes", theme_source)
@@ -139,6 +139,24 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("runVisibleTestExecution", tests_source)
         self.assertIn("cdc_theme.api.get_cdc_admin_diagnostics", tests_source)
         self.assertIn("data-cdc-test-terminal-output", tests_source)
+        self.assertIn("data-cdc-run-gate", tests_source)
+        self.assertIn("Entender este teste", tests_source)
+        self.assertIn("Executar este teste", tests_source)
+        self.assertIn("cdc_theme.api.run_cdc_quality_gate", tests_source)
+        self.assertIn("def run_cdc_quality_gate", api_source)
+        tree = ast.parse(api_source)
+        copy_node = next(
+            node for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "QUALITY_GATE_COPY" for target in node.targets)
+        )
+        gate_copy = ast.literal_eval(copy_node.value)
+        self.assertEqual(set(gate_copy), set(expected_ids))
+        for gate_id, copy in gate_copy.items():
+            with self.subTest(explanation_gate=gate_id):
+                self.assertTrue(copy["summary"])
+                self.assertEqual(len(copy["details"]), 2)
+        self.assertIn('details.append(f"Resultado desta execução: {evidence}")', api_source)
         self.assertIn("repairBrowserThemeState", tests_source)
         self.assertIn("window.location.reload()", tests_source)
         self.assertIn("window._cdc_repair_theme_runtime", theme_source)
