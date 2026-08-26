@@ -22,8 +22,7 @@
     }
 
     function removeDashboard() {
-        var dashboard = document.getElementById('cdc-tests-dashboard');
-        if (dashboard) dashboard.remove();
+        document.querySelectorAll('#cdc-tests-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(element) {
             element.classList.remove('cdc-custom-tests-active');
         });
@@ -53,7 +52,7 @@
                     </div>
                     <div class="cdc-tests-release-state">
                         <span>${summary.ready_to_publish ? '✓' : '!'}</span>
-                        <div><strong>${summary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</strong><small>${summary.passed || 0} de ${summary.total || 8} gates aprovados</small></div>
+                        <div><strong>${summary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</strong><small>${summary.passed || 0} de ${summary.total || 9} gates aprovados</small></div>
                     </div>
                 </header>
 
@@ -81,11 +80,10 @@
 
     function load(force) {
         if (!isTestsRoute()) { removeDashboard(); return; }
-        var body = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
-        if (!body || loading) return;
-        var dashboard = document.getElementById('cdc-tests-dashboard') || document.createElement('section');
-        dashboard.id = 'cdc-tests-dashboard';
-        if (!dashboard.parentNode) body.insertBefore(dashboard, body.firstChild);
+        var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-tests-dashboard', 'section');
+        if (!claim || loading) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
         body.classList.add('cdc-custom-tests-active');
         if ((frappe.user_roles || []).indexOf('System Manager') === -1) {
             dashboard.innerHTML = '<div class="cdc-tests-state is-error">Acesso restrito a administradores do sistema.</div>';
@@ -100,6 +98,11 @@
             callback: function(response) {
                 loading = false;
                 if (requestGeneration !== generation || !isTestsRoute()) return;
+                var currentClaim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-tests-dashboard', 'section');
+                if (!currentClaim) return;
+                body = currentClaim.body;
+                dashboard = currentClaim.dashboard;
+                body.classList.add('cdc-custom-tests-active');
                 if (!response.message) {
                     dashboard.innerHTML = '<div class="cdc-tests-state is-error">Não foi possível executar os testes.</div>';
                     return;

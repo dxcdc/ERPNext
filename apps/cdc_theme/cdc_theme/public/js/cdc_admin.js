@@ -24,8 +24,7 @@
     }
 
     function remove() {
-        var dashboard = document.getElementById('cdc-admin-dashboard');
-        if (dashboard) dashboard.remove();
+        document.querySelectorAll('#cdc-admin-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(el) {
             el.classList.remove('cdc-custom-admin-active');
         });
@@ -91,11 +90,10 @@
     function load(force) {
         if (!isAdminRoute()) { remove(); return; }
         if (loading) return;
-        var body = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
-        if (!body) return;
-        var dashboard = document.getElementById('cdc-admin-dashboard') || document.createElement('section');
-        dashboard.id = 'cdc-admin-dashboard';
-        if (!dashboard.parentNode) body.insertBefore(dashboard, body.firstChild);
+        var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-admin-dashboard', 'section');
+        if (!claim) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
         body.classList.add('cdc-custom-admin-active');
         if ((frappe.user_roles || []).indexOf('System Manager') === -1) {
             dashboard.innerHTML = '<div class="cdc-admin-loading is-error">Acesso restrito a administradores do sistema.</div>';
@@ -110,6 +108,11 @@
             callback: function(response) {
                 loading = false;
                 if (requestGeneration !== generation || !isAdminRoute()) return;
+                var currentClaim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-admin-dashboard', 'section');
+                if (!currentClaim) return;
+                body = currentClaim.body;
+                dashboard = currentClaim.dashboard;
+                body.classList.add('cdc-custom-admin-active');
                 if (!response.message) {
                     dashboard.innerHTML = '<div class="cdc-admin-loading is-error">Não foi possível carregar os diagnósticos.</div>';
                     return;

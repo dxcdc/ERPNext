@@ -13,8 +13,7 @@
     }
 
     function removeDashboard() {
-        var dashboard = document.getElementById('cdc-groups-dashboard');
-        if (dashboard) dashboard.remove();
+        document.querySelectorAll('#cdc-groups-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(element) {
             element.classList.remove('cdc-custom-groups-active');
         });
@@ -22,11 +21,10 @@
 
     function render() {
         if (!isGroupsRoute()) { removeDashboard(); return; }
-        var body = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
-        if (!body) return;
-        var dashboard = document.getElementById('cdc-groups-dashboard') || document.createElement('section');
-        dashboard.id = 'cdc-groups-dashboard';
-        if (!dashboard.parentNode) body.insertBefore(dashboard, body.firstChild);
+        var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-groups-dashboard', 'section');
+        if (!claim) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
         body.classList.add('cdc-custom-groups-active');
         if (dashboard.dataset.loaded === '1') return;
         dashboard.dataset.loaded = '1';

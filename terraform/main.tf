@@ -128,7 +128,7 @@ resource "null_resource" "workspace_sanitization" {
 
   triggers = {
     database_backup_hash = filesha256("../${var.gcp_backup_path}")
-    workspace_schema     = "20260826-cdc-items-order-v4"
+    workspace_schema     = "20260826-cdc-spa-icons-v5"
   }
 
   provisioner "local-exec" {
@@ -141,12 +141,12 @@ resource "null_resource" "workspace_sanitization" {
         INSERT INTO tabWorkspace (name, creation, modified, modified_by, owner, docstatus, idx, label, title, sequence_id, module, icon, public, is_hidden, content) VALUES
         ('CDC Estoque', NOW(), NOW(), 'Administrator', 'Administrator', 0, 1, 'CDC Estoque', 'CDC Estoque', 1.0, 'Stock', 'stock', 1, 0, '[]'),
         ('CDC Usuários', NOW(), NOW(), 'Administrator', 'Administrator', 0, 2, 'CDC Usuários', 'CDC Usuários', 2.0, 'Core', 'users', 1, 0, '[{\"id\":\"YpGCeLfign\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Seus Atalhos</b></span>\",\"col\":12}},{\"id\":\"b7abeqw4NZ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User\",\"col\":3}},{\"id\":\"eghSJPhZRC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role\",\"col\":3}},{\"id\":\"uAzl_lT_C0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\" Gerenciador de permissões\",\"col\":3}},{\"id\":\"EpBz2lplSt\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User Profile\",\"col\":3}},{\"id\":\"vHWhzaFoAH\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"User Type\",\"col\":3}},{\"id\":\"oFB4l28FMU\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NMpIkExl3i\",\"type\":\"card\",\"data\":{\"card_name\":\"Usuários\",\"col\":4}},{\"id\":\"VepG3durKm\",\"type\":\"card\",\"data\":{\"card_name\":\"Logs\",\"col\":4}},{\"id\":\"S9FeWt7xXE\",\"type\":\"card\",\"data\":{\"card_name\":\"Permissions\",\"col\":4}}]'),
-        ('CDC Grupos', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Grupos', 'CDC Grupos', 3.0, 'Core', 'folder', 1, 0, '[]'),
-        ('CDC Itens', NOW(), NOW(), 'Administrator', 'Administrator', 0, 4, 'CDC Itens', 'CDC Itens', 4.0, 'Core', 'box', 1, 0, '[]'),
-        ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 5, 'CDC Integrações', 'CDC Integrações', 5.0, 'Integrations', 'share-2', 1, 0, '[{\"id\":\"NPK_AfSLQ2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"lDOo58F7ZI\",\"type\":\"card\",\"data\":{\"card_name\":\"Backup\",\"col\":4}},{\"id\":\"ij1pcK8jst\",\"type\":\"card\",\"data\":{\"card_name\":\"Google Services\",\"col\":4}},{\"id\":\"aTlMujEHpN\",\"type\":\"card\",\"data\":{\"card_name\":\"Authentication\",\"col\":4}},{\"id\":\"gY5NXKtXss\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"n_CI3GGqW-\",\"type\":\"card\",\"data\":{\"card_name\":\"Push Notifications\",\"col\":4}}]'),
-        ('CDC Pendências', NOW(), NOW(), 'Administrator', 'Administrator', 0, 6, 'CDC Pendências', 'CDC Pendências', 6.0, 'Core', 'list-checks', 1, 0, '[{\"id\":\"cdc-pendencias-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Pendências</b></span>\",\"col\":12}},{\"id\":\"cdc-pendencias-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}}]'),
+        ('CDC Grupos', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Grupos', 'CDC Grupos', 3.0, 'Core', 'folder-normal', 1, 0, '[]'),
+        ('CDC Itens', NOW(), NOW(), 'Administrator', 'Administrator', 0, 4, 'CDC Itens', 'CDC Itens', 4.0, 'Core', 'assets', 1, 0, '[]'),
+        ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 5, 'CDC Integrações', 'CDC Integrações', 5.0, 'Integrations', 'integration', 1, 0, '[{\"id\":\"NPK_AfSLQ2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"lDOo58F7ZI\",\"type\":\"card\",\"data\":{\"card_name\":\"Backup\",\"col\":4}},{\"id\":\"ij1pcK8jst\",\"type\":\"card\",\"data\":{\"card_name\":\"Google Services\",\"col\":4}},{\"id\":\"aTlMujEHpN\",\"type\":\"card\",\"data\":{\"card_name\":\"Authentication\",\"col\":4}},{\"id\":\"gY5NXKtXss\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"n_CI3GGqW-\",\"type\":\"card\",\"data\":{\"card_name\":\"Push Notifications\",\"col\":4}}]'),
+        ('CDC Pendências', NOW(), NOW(), 'Administrator', 'Administrator', 0, 6, 'CDC Pendências', 'CDC Pendências', 6.0, 'Core', 'list-alt', 1, 0, '[{\"id\":\"cdc-pendencias-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Pendências</b></span>\",\"col\":12}},{\"id\":\"cdc-pendencias-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}}]'),
         ('CDC Monitoramento', NOW(), NOW(), 'Administrator', 'Administrator', 0, 7, 'CDC Monitoramento', 'CDC Monitoramento', 7.0, 'Core', 'dashboard', 1, 0, '[{\"id\":\"cdc-monitoring-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Monitoramento</b></span>\",\"col\":12}}]'),
-        ('CDC Testes', NOW(), NOW(), 'Administrator', 'Administrator', 0, 8, 'CDC Testes', 'CDC Testes', 8.0, 'Core', 'check-square', 1, 0, '[]'),
+        ('CDC Testes', NOW(), NOW(), 'Administrator', 'Administrator', 0, 8, 'CDC Testes', 'CDC Testes', 8.0, 'Core', 'check', 1, 0, '[]'),
         ('CDC Admin', NOW(), NOW(), 'Administrator', 'Administrator', 0, 9, 'CDC Admin', 'CDC Admin', 9.0, 'Core', 'tool', 1, 0, '[]');
 
         UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin');
@@ -154,9 +154,9 @@ resource "null_resource" "workspace_sanitization" {
         UPDATE tabWorkspace SET icon = 'integration' WHERE name = 'CDC Integrações';
         UPDATE tabWorkspace SET icon = 'list-alt' WHERE name = 'CDC Pendências';
         UPDATE tabWorkspace SET icon = 'dashboard' WHERE name = 'CDC Monitoramento';
-        UPDATE tabWorkspace SET icon = 'check-square' WHERE name = 'CDC Testes';
-        UPDATE tabWorkspace SET icon = 'folder' WHERE name = 'CDC Grupos';
-        UPDATE tabWorkspace SET icon = 'box' WHERE name = 'CDC Itens';
+        UPDATE tabWorkspace SET icon = 'check' WHERE name = 'CDC Testes';
+        UPDATE tabWorkspace SET icon = 'folder-normal' WHERE name = 'CDC Grupos';
+        UPDATE tabWorkspace SET icon = 'assets' WHERE name = 'CDC Itens';
         UPDATE tabWorkspace SET icon = 'tool' WHERE name = 'CDC Admin';
         UPDATE tabWorkspace SET content = '[]' WHERE name = 'CDC Estoque';
 

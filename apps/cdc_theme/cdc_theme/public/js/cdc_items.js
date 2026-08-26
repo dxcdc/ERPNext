@@ -13,8 +13,7 @@
     }
 
     function removeDashboard() {
-        var dashboard = document.getElementById('cdc-items-dashboard');
-        if (dashboard) dashboard.remove();
+        document.querySelectorAll('#cdc-items-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(element) {
             element.classList.remove('cdc-custom-items-active');
         });
@@ -22,11 +21,10 @@
 
     function render() {
         if (!isItemsRoute()) { removeDashboard(); return; }
-        var body = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
-        if (!body) return;
-        var dashboard = document.getElementById('cdc-items-dashboard') || document.createElement('section');
-        dashboard.id = 'cdc-items-dashboard';
-        if (!dashboard.parentNode) body.insertBefore(dashboard, body.firstChild);
+        var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-items-dashboard', 'section');
+        if (!claim) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
         body.classList.add('cdc-custom-items-active');
         if (dashboard.dataset.loaded === '1') return;
         dashboard.dataset.loaded = '1';

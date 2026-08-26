@@ -27,8 +27,7 @@
     }
 
     function removePendingDashboard() {
-        var dashboard = document.getElementById('cdc-pending-dashboard');
-        if (dashboard) dashboard.remove();
+        document.querySelectorAll('#cdc-pending-dashboard').forEach(function(dashboard) { dashboard.remove(); });
     }
 
     function escapeHTML(value) {
@@ -76,20 +75,10 @@
             removePendingDashboard();
             return;
         }
-        var body = document.querySelector('.layout-main-section') || 
-                   document.querySelector('.workspace-page-content') ||
-                   document.querySelector('.page-body') ||
-                   document.querySelector('.page-content') ||
-                   document.querySelector('.page-container');
-        if (!body) return;
-        var dashboard = document.getElementById('cdc-pending-dashboard');
-        if (!dashboard) {
-            dashboard = document.createElement('section');
-            dashboard.id = 'cdc-pending-dashboard';
-        }
-        if (dashboard.parentNode !== body) {
-            body.insertBefore(dashboard, body.firstChild);
-        }
+        var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-pending-dashboard', 'section');
+        if (!claim) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
         if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-pending-heading')) return;
     function getDiagnosticPanelHTML(statusMsg, isError) {
         var route = window.frappe && frappe.get_route ? frappe.get_route().join('/') : window.location.pathname;
@@ -207,22 +196,9 @@
                     removePendingDashboard();
                     return;
                 }
-                var currentBody = document.querySelector('.layout-main-section') || 
-                                  document.querySelector('.workspace-page-content') ||
-                                  document.querySelector('.page-body') ||
-                                  document.querySelector('.page-content') ||
-                                  document.querySelector('.page-container');
-                if (currentBody) {
-                    var currentDash = document.getElementById('cdc-pending-dashboard');
-                    if (!currentDash) {
-                        dashboard = document.createElement('section');
-                        dashboard.id = 'cdc-pending-dashboard';
-                    } else {
-                        dashboard = currentDash;
-                    }
-                    if (dashboard.parentNode !== currentBody) {
-                        currentBody.insertBefore(dashboard, currentBody.firstChild);
-                    }
+                var currentClaim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard('cdc-pending-dashboard', 'section');
+                if (currentClaim) {
+                    dashboard = currentClaim.dashboard;
                 }
                 var data = response && response.message;
                 if (!data) {
@@ -264,7 +240,7 @@
 
                 dashboard.dataset.loaded = '1';
                 try {
-                    var main = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
+                    var main = window._cdc_get_active_page_body && window._cdc_get_active_page_body();
                     if (main) {
                         var msgEls = main.querySelectorAll('.page-not-found, .page-error-state, .invalid-page-state, .empty-state, .text-muted, p, div, h1, h2, h3');
                         msgEls.forEach(function(el) {

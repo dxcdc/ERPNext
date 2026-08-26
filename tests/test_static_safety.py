@@ -9,6 +9,7 @@ PENDING_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_pending.js"
 TESTS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_tests.js"
 GROUPS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_groups.js"
 ITEMS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_items.js"
+ADMIN_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
 TERRAFORM_VARIABLES = ROOT / "terraform/variables.tf"
@@ -63,7 +64,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("CDC ONGSYS Sync State", body)
         self.assertIn("_require_system_manager", body)
 
-    def test_cdc_tests_page_exposes_eight_honest_quality_gates(self):
+    def test_cdc_tests_page_exposes_nine_honest_quality_gates(self):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
         tests_source = TESTS_JS.read_text()
@@ -71,6 +72,7 @@ class StaticSafetyTest(unittest.TestCase):
             "item-group-route", "item-group-native-list", "real-telemetry",
             "ongsys-integrity", "warehouse-rbac", "security-ci",
             "automated-tests", "production-validation",
+            "workspace-navigation",
         )
         for gate_id in expected_ids:
             with self.subTest(gate_id=gate_id):
@@ -108,8 +110,15 @@ class StaticSafetyTest(unittest.TestCase):
     def test_sidebar_orders_groups_and_items_after_users(self):
         api_source = API_PY.read_text()
         self.assertIn('_ensure_cdc_workspace("CDC Usuários", "users", 2.0)', api_source)
-        self.assertIn('_ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder", 3.0)', api_source)
-        self.assertIn('_ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "box", 4.0)', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder-normal", 3.0)', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "assets", 4.0)', api_source)
+
+    def test_spa_dashboards_claim_only_the_active_page_container(self):
+        theme_source = THEME_JS.read_text()
+        self.assertIn("function claimActiveDashboard", theme_source)
+        for asset in (PENDING_JS, TESTS_JS, GROUPS_JS, ITEMS_JS, ADMIN_JS):
+            with self.subTest(asset=asset.name):
+                self.assertIn("window._cdc_claim_active_dashboard", asset.read_text())
 
 
 if __name__ == "__main__":

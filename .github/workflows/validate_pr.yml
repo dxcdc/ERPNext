@@ -36,6 +36,7 @@ jobs:
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_items.js
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_admin.js
           node --check apps/cdc_theme/cdc_theme/public/js/cdc_users.js
+          node tests/test_spa_navigation.js
 
       - name: Validar Python e Bash
         run: |

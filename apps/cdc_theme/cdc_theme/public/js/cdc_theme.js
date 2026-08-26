@@ -393,21 +393,19 @@
     window._cdc_setup_sortable_table = setupCDCSortableTable;
 
     function renderUsersDashboard() {
-        var existing = document.getElementById('cdc-users-dashboard');
         if (!isUsersWorkspacePage()) {
-            if (existing) existing.remove();
+            document.querySelectorAll('#cdc-users-dashboard').forEach(function(dashboard) { dashboard.remove(); });
             return;
         }
 
-        var workspaceBody = document.querySelector('.layout-main-section') || document.querySelector('.workspace-page-content');
-        if (!workspaceBody) return;
+        var claim = claimActiveDashboard('cdc-users-dashboard', 'section');
+        if (!claim) return;
+        var workspaceBody = claim.body;
+        var dashboard = claim.dashboard;
 
-        if (existing && existing.dataset.loaded === '1') return;
+        if (dashboard.dataset.loaded === '1') return;
 
-        var dashboard = existing || document.createElement('section');
-        dashboard.id = 'cdc-users-dashboard';
         dashboard.setAttribute('aria-label', 'Painel de usuários CDC');
-        if (!existing) workspaceBody.insertBefore(dashboard, workspaceBody.firstChild);
         if (dashboard.dataset.loading === '1') return;
         dashboard.dataset.loading = '1';
         dashboard.innerHTML = '<div class="cdc-users-loading">Carregando dados de usuários...</div>';
@@ -419,11 +417,12 @@
                 selected_warehouse: currentUsersWarehouse
             },
             callback: function(r) {
+                if (!isUsersWorkspacePage()) return;
+                var currentClaim = claimActiveDashboard('cdc-users-dashboard', 'section');
+                if (!currentClaim) return;
+                workspaceBody = currentClaim.body;
+                dashboard = currentClaim.dashboard;
                 dashboard.dataset.loading = '0';
-                if (!isUsersWorkspacePage() || !dashboard.isConnected) {
-                    dashboard.remove();
-                    return;
-                }
                 if (!r || !r.message) {
                     dashboard.innerHTML = '<div class="cdc-users-empty">Não foi possível carregar os usuários.</div>';
                     return;
@@ -534,15 +533,12 @@
             if (staleBanner) staleBanner.remove();
             return;
         }
-        if (document.getElementById('cdc-integracoes-banner')) return;
-
-        var target = document.querySelector('.layout-main-section') ||
-                     document.querySelector('.page-content') ||
-                     document.querySelector('.page-container');
-        if (!target) return;
-
-        var banner = document.createElement('div');
-        banner.id = 'cdc-integracoes-banner';
+        var claim = claimActiveDashboard('cdc-integracoes-banner', 'div');
+        if (!claim) return;
+        var target = claim.body;
+        var banner = claim.dashboard;
+        if (banner.dataset.loaded === '1') return;
+        banner.dataset.loaded = '1';
         banner.style.cssText = 'margin:18px 24px 0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;gap:16px;';
 
         // ── 1. BUSINESS INTELLIGENCE (primeiro, conforme solicitado) ──────────
@@ -953,8 +949,7 @@
 
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) {
-            var dashToRemove = document.getElementById('cdc-stock-exec-dashboard');
-            if (dashToRemove) dashToRemove.remove();
+            document.querySelectorAll('#cdc-stock-exec-dashboard').forEach(function(dashboard) { dashboard.remove(); });
             restoreNativeStockWorkspaceContent();
             return;
         }
@@ -974,32 +969,11 @@
             currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
         }
 
-        var workspaceBody = document.querySelector('.layout-main-section') || 
-                            document.querySelector('.page-body') ||
-                            document.querySelector('.workspace-page-content') ||
-                            document.querySelector('.workspace-body') || 
-                            document.querySelector('.page-container') ||
-                            document.querySelector('.workspace-page') ||
-                            document.querySelector('#body');
-        if (!workspaceBody) return;
-
-        var existingDashboards = document.querySelectorAll('#cdc-stock-exec-dashboard');
-        if (existingDashboards.length > 1) {
-            for (var i = 1; i < existingDashboards.length; i++) {
-                existingDashboards[i].remove();
-            }
-        }
-
-        var dashDiv = document.getElementById('cdc-stock-exec-dashboard');
-        if (!dashDiv) {
-            dashDiv = document.createElement('div');
-            dashDiv.id = 'cdc-stock-exec-dashboard';
-            dashDiv.style.cssText = 'margin-bottom: 0; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
-        }
-
-        if (workspaceBody.firstChild !== dashDiv) {
-            workspaceBody.insertBefore(dashDiv, workspaceBody.firstChild);
-        }
+        var claim = claimActiveDashboard('cdc-stock-exec-dashboard', 'div');
+        if (!claim) return;
+        var workspaceBody = claim.body;
+        var dashDiv = claim.dashboard;
+        dashDiv.style.cssText = 'margin-bottom: 0; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
         hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
         isDashboardLoading = true;
@@ -1017,6 +991,13 @@
             callback: function(r) {
                 isDashboardLoading = false;
                 if (!r || !r.message) return;
+                if (!isStockWorkspacePage()) return;
+                var activeClaim = claimActiveDashboard('cdc-stock-exec-dashboard', 'div');
+                if (!activeClaim) return;
+                workspaceBody = activeClaim.body;
+                dashDiv = activeClaim.dashboard;
+                dashDiv.style.cssText = 'margin-bottom: 0; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
+                hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
                 var data = r.message;
                 var pilotProject = getPilotProjectContext();
@@ -2082,10 +2063,24 @@
                document.querySelector('.page-container');
     }
 
-    function removeMonitoringDashboard() {
-        var dashboard = document.getElementById('cdc-monitoring-dashboard');
-        if (dashboard) dashboard.remove();
+    function claimActiveDashboard(id, tagName) {
+        var body = getActiveWorkspaceBody();
+        if (!body || !body.isConnected) return null;
+        var dashboard = body.querySelector('#' + id);
+        document.querySelectorAll('#' + id).forEach(function(candidate) {
+            if (candidate !== dashboard) candidate.remove();
+        });
+        if (!dashboard) {
+            dashboard = document.createElement(tagName || 'section');
+            dashboard.id = id;
+        }
+        if (dashboard.parentNode !== body || body.firstChild !== dashboard) {
+            body.insertBefore(dashboard, body.firstChild);
+        }
+        return {body: body, dashboard: dashboard};
     }
+    window._cdc_get_active_page_body = getActiveWorkspaceBody;
+    window._cdc_claim_active_dashboard = claimActiveDashboard;
 
     function escapeHTML(value) {
         var el = document.createElement('div');
@@ -2098,16 +2093,10 @@
             removeMonitoringDashboard();
             return;
         }
-        var body = getActiveWorkspaceBody();
-        if (!body) return;
-        var dashboard = document.getElementById('cdc-monitoring-dashboard');
-        if (!dashboard) {
-            dashboard = document.createElement('section');
-            dashboard.id = 'cdc-monitoring-dashboard';
-        }
-        if (dashboard.parentNode !== body) {
-            body.insertBefore(dashboard, body.firstChild);
-        }
+        var claim = claimActiveDashboard('cdc-monitoring-dashboard', 'section');
+        if (!claim) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
         body.classList.add('cdc-custom-monitoring-active');
         if (dashboard.dataset.loaded === '1' && dashboard.querySelector('.cdc-monitoring-wrapper')) return;
     function getDiagnosticPanelHTML(statusMsg, isError) {
@@ -2227,18 +2216,10 @@
                     return;
                 }
                 try {
-                var currentBody = getActiveWorkspaceBody();
-                if (currentBody) {
-                    var currentDash = document.getElementById('cdc-monitoring-dashboard');
-                    if (!currentDash) {
-                        dashboard = document.createElement('section');
-                        dashboard.id = 'cdc-monitoring-dashboard';
-                    } else {
-                        dashboard = currentDash;
-                    }
-                    if (dashboard.parentNode !== currentBody) {
-                        currentBody.insertBefore(dashboard, currentBody.firstChild);
-                    }
+                var currentClaim = claimActiveDashboard('cdc-monitoring-dashboard', 'section');
+                if (currentClaim) {
+                    var currentBody = currentClaim.body;
+                    dashboard = currentClaim.dashboard;
                     currentBody.classList.add('cdc-custom-monitoring-active');
                 }
                 dashboard.dataset.loaded = '1';
@@ -2716,11 +2697,10 @@
     }
 
     function removeMonitoringDashboard() {
-        var dashboard = document.getElementById('cdc-monitoring-dashboard');
-        if (dashboard) {
+        document.querySelectorAll('#cdc-monitoring-dashboard').forEach(function(dashboard) {
             if (dashboard.parentNode) dashboard.parentNode.classList.remove('cdc-custom-monitoring-active');
             dashboard.remove();
-        }
+        });
         document.querySelectorAll('.cdc-custom-monitoring-active').forEach(function(element) {
             element.classList.remove('cdc-custom-monitoring-active');
         });
@@ -2737,10 +2717,7 @@
     }
 
     function removeItemGroupDashboard() {
-        var dashboard = document.getElementById('cdc-item-group-dashboard');
-        if (dashboard) {
-            dashboard.remove();
-        }
+        document.querySelectorAll('#cdc-item-group-dashboard').forEach(function(dashboard) { dashboard.remove(); });
     }
 
     var itemGroupLoading = false;
@@ -2750,10 +2727,13 @@
             removeItemGroupDashboard();
             return;
         }
-        var listBody = document.querySelector('.layout-main-section');
+        var listBody = getActiveWorkspaceBody();
         var body = listBody && listBody.parentNode;
         if (!body) return;
-        var dashboard = document.getElementById('cdc-item-group-dashboard');
+        var dashboard = body.querySelector('#cdc-item-group-dashboard');
+        document.querySelectorAll('#cdc-item-group-dashboard').forEach(function(candidate) {
+            if (candidate !== dashboard) candidate.remove();
+        });
         if (!dashboard) {
             dashboard = document.createElement('section');
             dashboard.id = 'cdc-item-group-dashboard';
@@ -2775,10 +2755,13 @@
                     removeItemGroupDashboard();
                     return;
                 }
-                var currentListBody = document.querySelector('.layout-main-section');
+                var currentListBody = getActiveWorkspaceBody();
                 var currentBody = currentListBody && currentListBody.parentNode;
                 if (currentBody) {
-                    var currentDash = document.getElementById('cdc-item-group-dashboard');
+                    var currentDash = currentBody.querySelector('#cdc-item-group-dashboard');
+                    document.querySelectorAll('#cdc-item-group-dashboard').forEach(function(candidate) {
+                        if (candidate !== currentDash) candidate.remove();
+                    });
                     if (!currentDash) {
                         dashboard = document.createElement('section');
                         dashboard.id = 'cdc-item-group-dashboard';

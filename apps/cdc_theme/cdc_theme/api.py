@@ -1,5 +1,7 @@
 import calendar
 import os
+import re
+import unicodedata
 
 import frappe
 from frappe.utils import add_days, add_months, get_first_day, getdate, today
@@ -216,12 +218,12 @@ def _repair_cdc_support_workspaces():
     return [
         _ensure_cdc_workspace("CDC Estoque", "stock", 1.0),
         _ensure_cdc_workspace("CDC Usuários", "users", 2.0),
-        _ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder", 3.0),
-        _ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "box", 4.0),
-        _ensure_cdc_workspace("CDC Integrações", "share-2", 5.0),
-        _ensure_cdc_workspace("CDC Pendências", "list-checks", 6.0),
+        _ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder-normal", 3.0),
+        _ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "assets", 4.0),
+        _ensure_cdc_workspace("CDC Integrações", "integration", 5.0),
+        _ensure_cdc_workspace("CDC Pendências", "list-alt", 6.0),
         _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 7.0, monitoring_content),
-        _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check-square", 8.0),
+        _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check", 8.0),
         _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 9.0),
     ]
 
@@ -1248,11 +1250,84 @@ def _monitoring_quality_gate(gate_id, title, status, evidence):
     return {"id": gate_id, "title": title, "status": status, "evidence": evidence}
 
 
+def _normalize_workspace_identity(value):
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower()).strip()
+    return re.sub(r"\s+(dup|duplicate|copia|copy)(\s+\d+)?$", "", normalized).strip()
+
+
+def _workspace_navigation_health(sources):
+    expected = [
+        ("CDC Estoque", 1.0, "stock"),
+        ("CDC Usuários", 2.0, "users"),
+        (CDC_GROUPS_WORKSPACE, 3.0, "folder-normal"),
+        (CDC_ITEMS_WORKSPACE, 4.0, "assets"),
+        ("CDC Integrações", 5.0, "integration"),
+        ("CDC Pendências", 6.0, "list-alt"),
+        ("CDC Monitoramento", 7.0, "dashboard"),
+        (CDC_TESTS_WORKSPACE, 8.0, "check"),
+        (CDC_ADMIN_WORKSPACE, 9.0, "tool"),
+    ]
+    rows = frappe.get_all(
+        "Workspace",
+        filters={"name": ["like", "CDC%"]},
+        fields=["name", "label", "sequence_id", "icon", "is_hidden"],
+    )
+    visible_rows = [row for row in rows if not row.is_hidden]
+    expected_names = {name for name, _, _ in expected}
+    by_name = {row.name: row for row in visible_rows}
+
+    identity_groups = {}
+    for row in visible_rows:
+        identity = _normalize_workspace_identity(row.label or row.name)
+        identity_groups.setdefault(identity, []).append(row.name)
+    duplicates = [names for names in identity_groups.values() if len(names) > 1]
+    missing = [name for name, _, _ in expected if name not in by_name]
+    unexpected = [row.name for row in visible_rows if row.name not in expected_names]
+    order_errors = [
+        name for name, sequence, _ in expected
+        if name in by_name and float(by_name[name].sequence_id or 0) != sequence
+    ]
+    icon_errors = [
+        name for name, _, icon in expected
+        if name in by_name and by_name[name].icon != icon
+    ]
+
+    routed_assets = ("pending", "tests", "groups", "items", "admin")
+    active_mount_safe = (
+        "function claimActiveDashboard" in sources.get("theme", "")
+        and all("window._cdc_claim_active_dashboard" in sources.get(asset, "") for asset in routed_assets)
+    )
+    healthy = not any((duplicates, missing, unexpected, order_errors, icon_errors)) and active_mount_safe
+    details = []
+    if duplicates:
+        details.append(f"duplicadas: {duplicates}")
+    if missing:
+        details.append(f"ausentes: {missing}")
+    if unexpected:
+        details.append(f"extras: {unexpected}")
+    if order_errors:
+        details.append(f"ordem divergente: {order_errors}")
+    if icon_errors:
+        details.append(f"ícones inválidos: {icon_errors}")
+    if not active_mount_safe:
+        details.append("montagem SPA ainda usa contêiner global ou obsoleto")
+    return healthy, (
+        "9 workspaces únicas, ordenadas, com ícones válidos e montagem limitada à página SPA ativa."
+        if healthy else "; ".join(details)
+    )
+
+
 def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
     """Executa gates somente leitura; estados não verificáveis nunca viram aprovação."""
     asset_paths = {
         "theme": frappe.get_app_path("cdc_theme", "public", "js", "cdc_theme.js"),
         "pending": frappe.get_app_path("cdc_theme", "public", "js", "cdc_pending.js"),
+        "tests": frappe.get_app_path("cdc_theme", "public", "js", "cdc_tests.js"),
+        "groups": frappe.get_app_path("cdc_theme", "public", "js", "cdc_groups.js"),
+        "items": frappe.get_app_path("cdc_theme", "public", "js", "cdc_items.js"),
+        "admin": frappe.get_app_path("cdc_theme", "public", "js", "cdc_admin.js"),
         "api": __file__,
     }
     sources = {}
@@ -1306,6 +1381,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
         and frappe.session.user != "Guest"
         and "System Manager" in frappe.get_roles(frappe.session.user)
     )
+    workspace_navigation_ok, workspace_navigation_evidence = _workspace_navigation_health(sources)
 
     checks = [
         _monitoring_quality_gate(
@@ -1346,7 +1422,12 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
             "Testes do repositório não são executados pelo processo web. Consulte o resultado da CI antes de publicar.",
         ),
         _monitoring_quality_gate(
-            "production-validation", "8. Publicação e validação autenticada",
+            "workspace-navigation", "8. Navegação SPA, duplicidades e ícones",
+            "passed" if workspace_navigation_ok else "blocked",
+            workspace_navigation_evidence,
+        ),
+        _monitoring_quality_gate(
+            "production-validation", "9. Publicação e validação autenticada",
             "passed" if authenticated_production else "blocked",
             "Painel atual executado autenticado no domínio de produção."
             if authenticated_production else "Somente aprovar após deploy e acesso autenticado em stok.cdc.org.br.",
