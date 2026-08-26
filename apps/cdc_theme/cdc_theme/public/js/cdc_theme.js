@@ -67,11 +67,12 @@
         var sections = [
             {label: 'Estoque', href: '/app/cdc-estoque'},
             {label: 'Usuários', href: '/app/cdc-usuários'},
+            {label: 'Grupos', href: '/app/cdc-grupos'},
+            {label: 'Itens', href: '/app/cdc-itens'},
             {label: 'Integrações', href: '/app/cdc-integrações'},
             {label: 'Pendências', href: '/app/cdc-pendências'},
             {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
             {label: 'Testes', href: '/app/cdc-testes'},
-            {label: 'Grupos', href: '/app/cdc-grupos'},
             {label: 'Admin', href: '/app/cdc-admin'}
         ];
         var current = sections.find(function(item) { return item.label === section; });
@@ -1842,7 +1843,7 @@
 
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: mantém somente as áreas CDC aprovadas
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc grupos', 'cdc admin'];
+        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -1852,7 +1853,7 @@
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
-                /^\/app\/cdc-(estoque|usuarios|integracoes|pendencias|monitoramento|testes|grupos|admin)(\/|$)/.test(href);
+                /^\/app\/cdc-(estoque|usuarios|grupos|itens|integracoes|pendencias|monitoramento|testes|admin)(\/|$)/.test(href);
             var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
                 /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
             if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
@@ -1940,10 +1941,11 @@
         var requiredTokens = [
             'cdc estoque',
             'cdc usuarios',
+            'cdc grupos',
+            'cdc itens',
             'cdc integracoes',
             'cdc pendencias',
-            'cdc monitoramento',
-            'cdc grupos'
+            'cdc monitoramento'
         ];
 
         if (window.frappe && Array.isArray(frappe.user_roles) && frappe.user_roles.indexOf('System Manager') !== -1) {

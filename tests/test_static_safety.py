@@ -8,6 +8,7 @@ THEME_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_theme.js"
 PENDING_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_pending.js"
 TESTS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_tests.js"
 GROUPS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_groups.js"
+ITEMS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_items.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
 TERRAFORM_VARIABLES = ROOT / "terraform/variables.tf"
@@ -86,16 +87,29 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("get_item_group_dashboard_data", source)
         self.assertNotIn("frappe.db", source)
 
+    def test_cdc_items_is_only_a_shortcut_to_native_item_list(self):
+        source = ITEMS_JS.read_text()
+        self.assertIn("frappe.set_route('List', 'Item', 'List')", source)
+        self.assertNotIn("frappe.call", source)
+        self.assertNotIn("frappe.db", source)
+
     def test_new_workspaces_are_preserved_in_backend_sidebar_and_terraform(self):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
         terraform_source = TERRAFORM_MAIN.read_text()
-        for workspace in ("CDC Testes", "CDC Grupos"):
+        for workspace in ("CDC Testes", "CDC Grupos", "CDC Itens"):
             with self.subTest(workspace=workspace):
                 self.assertIn(workspace, api_source)
                 self.assertIn(workspace, terraform_source)
         self.assertIn("'cdc testes'", theme_source)
         self.assertIn("'cdc grupos'", theme_source)
+        self.assertIn("'cdc itens'", theme_source)
+
+    def test_sidebar_orders_groups_and_items_after_users(self):
+        api_source = API_PY.read_text()
+        self.assertIn('_ensure_cdc_workspace("CDC Usuários", "users", 2.0)', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder", 3.0)', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "box", 4.0)', api_source)
 
 
 if __name__ == "__main__":

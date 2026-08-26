@@ -54,6 +54,7 @@ def custom_get_desktop_page(page):
         "cdc-incidentes": "CDC Monitoramento",
         "cdc-testes": "CDC Testes",
         "cdc-grupos": "CDC Grupos",
+        "cdc-itens": "CDC Itens",
         "cdc-admin": "CDC Admin",
         "stock": "CDC Estoque",
         "users": "CDC Usuários",
@@ -67,6 +68,7 @@ def custom_get_desktop_page(page):
         "incidentes": "CDC Monitoramento",
         "testes": "CDC Testes",
         "grupos": "CDC Grupos",
+        "itens": "CDC Itens",
         "admin": "CDC Admin",
     }
 
@@ -134,7 +136,7 @@ def run_stage_6_diagnostics():
     # 6.3: Desktop Pages Loader das workspaces CDC
     try:
         from frappe.desk.desktop import get_desktop_page
-        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Grupos", "CDC Admin"]:
+        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]:
             page_json = json.dumps({"name": page_name})
             res = custom_get_desktop_page(page_json)
             diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
@@ -167,7 +169,7 @@ def run_stage_6_diagnostics():
 
     # 6.6: Child Tables Integrity (Shortcuts, Links, Charts, Number Cards)
     try:
-        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Grupos", "CDC Admin"]
+        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]
         sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", cdc_workspaces]})
         link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", cdc_workspaces]})
         diag["sub_stage_6_6_child_tables"] = {
@@ -185,6 +187,7 @@ def run_stage_6_diagnostics():
 CDC_ADMIN_WORKSPACE = "CDC Admin"
 CDC_TESTS_WORKSPACE = "CDC Testes"
 CDC_GROUPS_WORKSPACE = "CDC Grupos"
+CDC_ITEMS_WORKSPACE = "CDC Itens"
 
 
 def _ensure_cdc_workspace(name, icon, sequence_id, content="[]"):
@@ -211,10 +214,15 @@ def _repair_cdc_support_workspaces():
         '{"text":"<span class=\'h4\'><b>Monitoramento</b></span>","col":12}}]'
     )
     return [
-        _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 5.0, monitoring_content),
-        _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check-square", 6.0),
-        _ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder", 7.0),
-        _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 8.0),
+        _ensure_cdc_workspace("CDC Estoque", "stock", 1.0),
+        _ensure_cdc_workspace("CDC Usuários", "users", 2.0),
+        _ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder", 3.0),
+        _ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "box", 4.0),
+        _ensure_cdc_workspace("CDC Integrações", "share-2", 5.0),
+        _ensure_cdc_workspace("CDC Pendências", "list-checks", 6.0),
+        _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 7.0, monitoring_content),
+        _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check-square", 8.0),
+        _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 9.0),
     ]
 
 
@@ -263,7 +271,7 @@ def get_cdc_admin_diagnostics():
         public_path = frappe.get_app_path("cdc_theme", "public")
         required = (
             "css/cdc_theme.css", "js/cdc_theme.js", "js/cdc_tests.js",
-            "js/cdc_groups.js", "js/cdc_admin.js",
+            "js/cdc_groups.js", "js/cdc_items.js", "js/cdc_admin.js",
         )
         missing = [item for item in required if not os.path.isfile(os.path.join(public_path, item))]
         if missing:
@@ -272,9 +280,9 @@ def get_cdc_admin_diagnostics():
 
     def workspace_check():
         required = (
-            "CDC Estoque", "CDC Usuários", "CDC Integrações",
-            "CDC Pendências", "CDC Monitoramento", CDC_TESTS_WORKSPACE,
-            CDC_GROUPS_WORKSPACE, CDC_ADMIN_WORKSPACE,
+            "CDC Estoque", "CDC Usuários", CDC_GROUPS_WORKSPACE,
+            CDC_ITEMS_WORKSPACE, "CDC Integrações", "CDC Pendências",
+            "CDC Monitoramento", CDC_TESTS_WORKSPACE, CDC_ADMIN_WORKSPACE,
         )
         missing = [name for name in required if not frappe.db.exists("Workspace", name)]
         hidden = frappe.get_all("Workspace", filters={"name": ["in", required], "is_hidden": 1}, pluck="name")
