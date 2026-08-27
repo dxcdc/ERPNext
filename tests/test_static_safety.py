@@ -109,6 +109,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("clearTimeout(warehouseRenderTimer)", theme_source)
         self.assertIn("warehousePendingContextUntil = Date.now() + 1200", warehouse_block)
         self.assertIn("return Object.assign({}, warehousePendingContext)", warehouse_block)
+        self.assertIn("bindWarehouseNativeScope(warehouseLastScope)", warehouse_block)
+        self.assertIn("warehouseLastScope = data.scope", warehouse_block)
         router_block = theme_source[theme_source.index("frappe.router.on('change'"):]
         self.assertNotIn("warehouseDashboard.dataset.loaded = '0'", router_block)
         for control_id in (

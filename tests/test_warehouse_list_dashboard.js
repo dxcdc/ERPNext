@@ -67,6 +67,8 @@ assert.match(source, /function scheduleWarehouseRender\(delay\)/, 'mudanças tra
 assert.match(source, /clearTimeout\(warehouseRenderTimer\)/, 'agendamento anterior deve ser cancelado');
 assert.match(warehouseBlock, /warehousePendingContextUntil = Date\.now\(\) \+ 1200/, 'contexto escolhido deve sobreviver à transição do roteador');
 assert.match(warehouseBlock, /return Object\.assign\(\{\}, warehousePendingContext\)/, 'consulta deve usar o contexto pendente estável');
+assert.match(warehouseBlock, /bindWarehouseNativeScope\(warehouseLastScope\)/, 'escopo deve ser reaplicado à instância estável da lista');
+assert.match(warehouseBlock, /warehouseLastScope = data\.scope/, 'último escopo autorizado deve ser preservado');
 assert.match(warehouseBlock, /requestSerial !== warehouseRequestSerial/, 'respostas antigas devem ser descartadas');
 assert.match(warehouseBlock, /filters\.push\(\[this\.doctype, 'name', 'in', names\]\)/, 'projeto deve limitar a consulta nativa');
 assert.doesNotMatch(warehouseBlock, /document\.body/, 'painel não pode ser montado no body global');

@@ -3372,6 +3372,7 @@
     var warehouseRenderTimer = null;
     var warehousePendingContext = null;
     var warehousePendingContextUntil = 0;
+    var warehouseLastScope = {active: false, names: []};
     var warehouseSelectedProject = sessionStorage.getItem('cdc_warehouse_project') || 'All';
 
     function scheduleWarehouseRender(delay) {
@@ -3397,6 +3398,7 @@
         warehouseActiveRequestKey = '';
         warehousePendingContext = null;
         warehousePendingContextUntil = 0;
+        warehouseLastScope = {active: false, names: []};
         document.querySelectorAll('#cdc-warehouse-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.cdc-catalog-list-enhanced.is-warehouse-list').forEach(function(list) {
             list.classList.remove('cdc-catalog-list-enhanced', 'is-warehouse-list');
@@ -3497,7 +3499,10 @@
 
         var context = getWarehouseListContext();
         var contextKey = JSON.stringify(context);
-        if (dashboard.dataset.loaded === '1' && dashboard.dataset.contextKey === contextKey && dashboard.querySelector('.cdc-warehouse-wrapper')) return;
+        if (dashboard.dataset.loaded === '1' && dashboard.dataset.contextKey === contextKey && dashboard.querySelector('.cdc-warehouse-wrapper')) {
+            bindWarehouseNativeScope(warehouseLastScope);
+            return;
+        }
         if (warehouseListLoading) {
             if (warehouseActiveRequestKey === contextKey) return;
             warehouseRequestSerial += 1;
@@ -3587,7 +3592,8 @@
                     </div>`;
                 dashboard.dataset.loaded = '1';
                 dashboard.dataset.contextKey = contextKey;
-                bindWarehouseNativeScope(data.scope || {});
+                warehouseLastScope = data.scope || {active: false, names: []};
+                bindWarehouseNativeScope(warehouseLastScope);
 
                 var searchInput = dashboard.querySelector('#cdc-warehouse-search');
                 var projectSelect = dashboard.querySelector('#cdc-warehouse-project');
