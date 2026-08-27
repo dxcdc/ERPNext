@@ -40,8 +40,9 @@ for (const [name, source, page] of [
 assert.match(management, /state\.pending && state\.key === requestKey/, 'requisições idênticas em andamento devem ser deduplicadas');
 assert.match(management, /currentClaim\.dashboard/, 'callback deve recuperar o contêiner SPA ativo após a workspace finalizar');
 assert.match(management, /function watchDashboardContent/, 'painel deve observar remoções tardias feitas pela workspace');
-assert.match(management, /state\.observer\.observe\(dashboard, \{childList: true\}\)/, 'observador deve ficar restrito ao próprio painel');
-assert.match(management, /renderDashboard\(dashboard, config, state\.data\)/, 'conteúdo removido deve ser restaurado com o último resultado real');
+assert.match(management, /window\._cdc_get_active_page_body\(\)/, 'restauração deve localizar somente o contêiner SPA ativo');
+assert.match(management, /activeBody \? activeBody\.querySelector\('#' \+ config\.dashboardId\)/, 'restauração deve exigir o dashboard correto na página ativa');
+assert.match(management, /renderDashboard\(currentDashboard, config, state\.data\)/, 'nó substituído deve ser restaurado com o último resultado real');
 
 for (const control of [
     'data-cdc-manager-search', 'data-cdc-manager-company', 'data-cdc-manager-project',

@@ -347,13 +347,17 @@
     function watchDashboardContent(dashboard, config, state) {
         if (state.observer) state.observer.disconnect();
         state.observer = new MutationObserver(function() {
-            if (!dashboard.isConnected || !state.data || dashboard.querySelector('.cdc-management-shell')) return;
+            var activeBody = typeof window._cdc_get_active_page_body === 'function' ? window._cdc_get_active_page_body() : null;
+            var activeDashboard = activeBody ? activeBody.querySelector('#' + config.dashboardId) : null;
+            if (!activeDashboard || !state.data || activeDashboard.querySelector('.cdc-management-shell')) return;
             window.setTimeout(function() {
-                if (!dashboard.isConnected || dashboard.querySelector('.cdc-management-shell') || !state.data) return;
-                renderDashboard(dashboard, config, state.data);
+                var currentBody = typeof window._cdc_get_active_page_body === 'function' ? window._cdc_get_active_page_body() : null;
+                var currentDashboard = currentBody ? currentBody.querySelector('#' + config.dashboardId) : null;
+                if (!currentDashboard || currentDashboard.querySelector('.cdc-management-shell') || !state.data) return;
+                renderDashboard(currentDashboard, config, state.data);
             }, 40);
         });
-        state.observer.observe(dashboard, {childList: true});
+        state.observer.observe(document.body, {childList: true, subtree: true});
     }
 
     function load(config, context, force) {
