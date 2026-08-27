@@ -3392,9 +3392,14 @@
 
     function getWarehouseRouteValue(fieldname) {
         var params = new URLSearchParams(window.location.search || '');
-        if (params.has(fieldname)) return params.get(fieldname) || '';
         var options = window.frappe && frappe.get_route_options ? frappe.get_route_options() : (window.frappe && frappe.route_options);
-        var value = options && options[fieldname];
+        var value = params.has(fieldname) ? (params.get(fieldname) || '') : (options && options[fieldname]);
+        if (typeof value === 'string' && value.trim().charAt(0) === '[') {
+            try {
+                var parsedValue = JSON.parse(value);
+                if (Array.isArray(parsedValue)) value = parsedValue;
+            } catch (error) {}
+        }
         if (Array.isArray(value)) {
             var operator = normalizeRoute(value[0]);
             if (fieldname === 'name' && operator === 'in') return '';
@@ -3550,7 +3555,7 @@
                             <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Projetos</div><div class="cdc-card-value">${summary.projects_in_context || 0}</div><div class="cdc-card-desc">Projetos representados</div></div>
                         </div>
                         <div class="cdc-linked-filters cdc-warehouse-filters" aria-label="Filtros de Armazéns">
-                            <label class="is-search"><span>Pesquisar</span><input id="cdc-warehouse-search" type="search" value="${escapeHTML(filters.search || '')}" placeholder="Nome ou código do armazém"></label>
+                            <label class="is-search"><span>Pesquisar</span><input id="cdc-warehouse-search" type="search" value="${filters.search ? escapeHTML(filters.search) : ''}" placeholder="Nome ou código do armazém"></label>
                             <label><span>Projetos</span><select id="cdc-warehouse-project">${projectOptions}</select></label>
                             <label><span>Empresa</span><select id="cdc-warehouse-company">${companyOptions}</select></label>
                             <label><span>Status</span><select id="cdc-warehouse-status"><option value="">Todos</option><option value="0"${filters.selected_disabled === '0' ? ' selected' : ''}>Ativos</option><option value="1"${filters.selected_disabled === '1' ? ' selected' : ''}>Inativos</option></select></label>

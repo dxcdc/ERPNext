@@ -56,6 +56,8 @@ assert.equal(routeValue('name', {name: ['in', ['A - C', 'B - C']]}), '', 'filtro
 assert.equal(routeValue('name', {name: ['like', '%Central%']}), '%Central%', 'pesquisa nativa deve ser preservada');
 assert.equal(routeValue('company', {company: 'CDC'}), 'CDC', 'empresa da rota deve ser preservada');
 assert.equal(routeValue('disabled', {}, '?disabled=0'), '0', 'query string deve prevalecer sobre estado interno');
+assert.equal(routeValue('name', {}, '?name=%5B%22in%22%2C%5B%22A%20-%20C%22%5D%5D'), '', 'escopo serializado na URL deve ser ignorado pela pesquisa');
+assert.equal(routeValue('name', {}, '?name=%5B%22like%22%2C%22%25Central%25%22%5D'), '%Central%', 'pesquisa serializada na URL deve ser restaurada');
 
 const warehouseBlock = source.slice(routeStart, source.indexOf('function init()', routeStart));
 assert.match(warehouseBlock, /get_warehouse_list_dashboard_data/, 'painel deve consultar o endpoint real');
@@ -65,6 +67,7 @@ assert.match(warehouseBlock, /requestSerial !== warehouseRequestSerial/, 'respos
 assert.match(warehouseBlock, /filters\.push\(\[this\.doctype, 'name', 'in', names\]\)/, 'projeto deve limitar a consulta nativa');
 assert.doesNotMatch(warehouseBlock, /document\.body/, 'painel não pode ser montado no body global');
 assert.match(warehouseBlock, /fieldname === 'name' && operator === 'in'/, 'escopo interno não pode virar texto de pesquisa');
+assert.match(warehouseBlock, /filters\.search \? escapeHTML\(filters\.search\) : ''/, 'pesquisa vazia não pode receber marcador visual');
 assert.match(warehouseBlock, /list\.\$result && typeof list\.refresh === 'function'/, 'lista só pode atualizar depois de pronta');
 
 for (const controlId of [
