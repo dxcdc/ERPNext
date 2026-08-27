@@ -10,6 +10,7 @@ TESTS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_tests.js"
 THEME_CSS = ROOT / "apps/cdc_theme/cdc_theme/public/css/cdc_theme.css"
 GROUPS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_groups.js"
 ITEMS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_items.js"
+WAREHOUSE_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_warehouse.js"
 ADMIN_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
@@ -265,28 +266,38 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("frappe.call", source)
         self.assertNotIn("frappe.db", source)
 
+    def test_cdc_warehouse_is_only_a_shortcut_to_filtered_native_list(self):
+        source = WAREHOUSE_JS.read_text()
+        self.assertIn("frappe.set_route('List', 'Warehouse', 'List'", source)
+        self.assertIn("disabled: 0, company: 'CDC'", source)
+        self.assertIn("window._cdc_claim_active_dashboard", source)
+        self.assertNotIn("frappe.call", source)
+        self.assertNotIn("frappe.db", source)
+
     def test_new_workspaces_are_preserved_in_backend_sidebar_and_terraform(self):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
         terraform_source = TERRAFORM_MAIN.read_text()
-        for workspace in ("CDC Testes", "CDC Grupos", "CDC Itens"):
+        for workspace in ("CDC Testes", "CDC Grupos", "CDC Itens", "CDC Armazém"):
             with self.subTest(workspace=workspace):
                 self.assertIn(workspace, api_source)
                 self.assertIn(workspace, terraform_source)
         self.assertIn("'cdc testes'", theme_source)
         self.assertIn("'cdc grupos'", theme_source)
         self.assertIn("'cdc itens'", theme_source)
+        self.assertIn("'cdc armazem'", theme_source)
 
-    def test_sidebar_orders_groups_and_items_after_users(self):
+    def test_sidebar_orders_groups_items_and_warehouse_after_users(self):
         api_source = API_PY.read_text()
         self.assertIn('_ensure_cdc_workspace("CDC Usuários", "users", 2.0)', api_source)
         self.assertIn('_ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder-normal", 3.0)', api_source)
         self.assertIn('_ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "assets", 4.0)', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_WAREHOUSE_WORKSPACE, "home", 5.0)', api_source)
 
     def test_spa_dashboards_claim_only_the_active_page_container(self):
         theme_source = THEME_JS.read_text()
         self.assertIn("function claimActiveDashboard", theme_source)
-        for asset in (PENDING_JS, TESTS_JS, GROUPS_JS, ITEMS_JS, ADMIN_JS):
+        for asset in (PENDING_JS, TESTS_JS, GROUPS_JS, ITEMS_JS, WAREHOUSE_JS, ADMIN_JS):
             with self.subTest(asset=asset.name):
                 self.assertIn("window._cdc_claim_active_dashboard", asset.read_text())
 

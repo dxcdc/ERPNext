@@ -7,18 +7,19 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_list_v31"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_workspace_v32"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_list_v31",
-    "/assets/cdc_theme/js/cdc_pending.js?v=20260827_warehouse_list_v31",
-    "/assets/cdc_theme/js/cdc_tests.js?v=20260827_warehouse_list_v31",
-    "/assets/cdc_theme/js/cdc_groups.js?v=20260827_warehouse_list_v31",
-    "/assets/cdc_theme/js/cdc_items.js?v=20260827_warehouse_list_v31",
-    "/assets/cdc_theme/js/cdc_admin.js?v=20260827_warehouse_list_v31",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_workspace_v32",
+    "/assets/cdc_theme/js/cdc_pending.js?v=20260827_warehouse_workspace_v32",
+    "/assets/cdc_theme/js/cdc_tests.js?v=20260827_warehouse_workspace_v32",
+    "/assets/cdc_theme/js/cdc_groups.js?v=20260827_warehouse_workspace_v32",
+    "/assets/cdc_theme/js/cdc_items.js?v=20260827_warehouse_workspace_v32",
+    "/assets/cdc_theme/js/cdc_warehouse.js?v=20260827_warehouse_workspace_v32",
+    "/assets/cdc_theme/js/cdc_admin.js?v=20260827_warehouse_workspace_v32",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_list_v31"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_list_v31"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_workspace_v32"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_workspace_v32"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"
@@ -30,7 +31,7 @@ override_whitelisted_methods = {
 
 # Fixtures — DocTypes customizados para exportacao/importacao. A fixture de
 # Workspace herdada permanece versionada, mas nao e importada automaticamente:
-# as quatro workspaces CDC sao reconciliadas de forma idempotente pelo Terraform.
+# as workspaces CDC sao reconciliadas de forma idempotente pelo Terraform.
 
 fixtures = [
     {"dt": "Custom DocType", "filters": [["module", "=", "cdc_theme"]]}

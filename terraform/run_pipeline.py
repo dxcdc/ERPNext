@@ -63,10 +63,14 @@ def main():
             args.database, args.password,
             "SELECT name FROM tabWorkspace WHERE is_hidden=0;",
         ).splitlines())
-        required = {"CDC Estoque", "CDC Usuários", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Grupos", "CDC Admin"}
+        required = {
+            "CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens",
+            "CDC Armazém", "CDC Integrações", "CDC Pendências",
+            "CDC Monitoramento", "CDC Testes", "CDC Admin",
+        }
         missing = required - visible
         assert not missing, f"Workspaces ausentes: {sorted(missing)}"
-        return "Oito workspaces CDC públicas e visíveis"
+        return "Dez workspaces CDC públicas e visíveis"
 
     def containers():
         running = set(command("docker", "ps", "--format", "{{.Names}}").splitlines())
@@ -126,7 +130,8 @@ def main():
         for route in (
             "/app/cdc-usuários", "/app/cdc-integrações", "/app/cdc-pendências",
             "/app/cdc-monitoramento",
-            "/app/cdc-testes", "/app/cdc-grupos",
+            "/app/cdc-testes", "/app/cdc-grupos", "/app/cdc-itens",
+            "/app/cdc-armazem",
             "/app/cdc-admin",
             "/app/stock-entry/view/report/Lancamento%20no%20Estoque%20-%20CDC",
         ):

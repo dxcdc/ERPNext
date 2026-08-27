@@ -57,6 +57,8 @@ def custom_get_desktop_page(page):
         "cdc-testes": "CDC Testes",
         "cdc-grupos": "CDC Grupos",
         "cdc-itens": "CDC Itens",
+        "cdc-armazem": "CDC Armazém",
+        "cdc-armazém": "CDC Armazém",
         "cdc-admin": "CDC Admin",
         "stock": "CDC Estoque",
         "users": "CDC Usuários",
@@ -71,6 +73,8 @@ def custom_get_desktop_page(page):
         "testes": "CDC Testes",
         "grupos": "CDC Grupos",
         "itens": "CDC Itens",
+        "armazem": "CDC Armazém",
+        "armazém": "CDC Armazém",
         "admin": "CDC Admin",
     }
 
@@ -138,7 +142,7 @@ def run_stage_6_diagnostics():
     # 6.3: Desktop Pages Loader das workspaces CDC
     try:
         from frappe.desk.desktop import get_desktop_page
-        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]:
+        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]:
             page_json = json.dumps({"name": page_name})
             res = custom_get_desktop_page(page_json)
             diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
@@ -171,7 +175,7 @@ def run_stage_6_diagnostics():
 
     # 6.6: Child Tables Integrity (Shortcuts, Links, Charts, Number Cards)
     try:
-        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]
+        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]
         sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", cdc_workspaces]})
         link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", cdc_workspaces]})
         diag["sub_stage_6_6_child_tables"] = {
@@ -190,6 +194,7 @@ CDC_ADMIN_WORKSPACE = "CDC Admin"
 CDC_TESTS_WORKSPACE = "CDC Testes"
 CDC_GROUPS_WORKSPACE = "CDC Grupos"
 CDC_ITEMS_WORKSPACE = "CDC Itens"
+CDC_WAREHOUSE_WORKSPACE = "CDC Armazém"
 
 
 def _ensure_cdc_workspace(name, icon, sequence_id, content="[]"):
@@ -220,11 +225,12 @@ def _repair_cdc_support_workspaces():
         _ensure_cdc_workspace("CDC Usuários", "users", 2.0),
         _ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder-normal", 3.0),
         _ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "assets", 4.0),
-        _ensure_cdc_workspace("CDC Integrações", "integration", 5.0),
-        _ensure_cdc_workspace("CDC Pendências", "list-alt", 6.0),
-        _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 7.0, monitoring_content),
-        _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check", 8.0),
-        _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 9.0),
+        _ensure_cdc_workspace(CDC_WAREHOUSE_WORKSPACE, "home", 5.0),
+        _ensure_cdc_workspace("CDC Integrações", "integration", 6.0),
+        _ensure_cdc_workspace("CDC Pendências", "list-alt", 7.0),
+        _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 8.0, monitoring_content),
+        _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check", 9.0),
+        _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 10.0),
     ]
 
 
@@ -282,7 +288,8 @@ def get_cdc_admin_diagnostics():
         public_path = frappe.get_app_path("cdc_theme", "public")
         required = (
             "css/cdc_theme.css", "js/cdc_theme.js", "js/cdc_tests.js",
-            "js/cdc_groups.js", "js/cdc_items.js", "js/cdc_admin.js",
+            "js/cdc_groups.js", "js/cdc_items.js", "js/cdc_warehouse.js",
+            "js/cdc_admin.js",
         )
         missing = [item for item in required if not os.path.isfile(os.path.join(public_path, item))]
         if missing:
@@ -292,7 +299,8 @@ def get_cdc_admin_diagnostics():
     def workspace_check():
         required = (
             "CDC Estoque", "CDC Usuários", CDC_GROUPS_WORKSPACE,
-            CDC_ITEMS_WORKSPACE, "CDC Integrações", "CDC Pendências",
+            CDC_ITEMS_WORKSPACE, CDC_WAREHOUSE_WORKSPACE,
+            "CDC Integrações", "CDC Pendências",
             "CDC Monitoramento", CDC_TESTS_WORKSPACE, CDC_ADMIN_WORKSPACE,
         )
         missing = [name for name in required if not frappe.db.exists("Workspace", name)]
@@ -350,7 +358,7 @@ def run_cdc_admin_action(action):
         _repair_cdc_support_workspaces()
         frappe.db.commit()
         _clear_cdc_theme_caches()
-        message = "As 9 workspaces CDC foram reconciliadas e os caches foram limpos."
+        message = "As 10 workspaces CDC foram reconciliadas e os caches foram limpos."
     elif action == "repair_theme":
         names = _repair_cdc_support_workspaces()
         frappe.db.commit()
@@ -1412,7 +1420,7 @@ QUALITY_GATE_COPY = {
         "stages": ("Preparação", "Permissões", "Workspaces e ícones", "SPA e duplicidades", "Resultado"),
         "summary": "Procura páginas duplicadas, ordem incorreta, ícones ausentes e montagem na página SPA errada.",
         "details": (
-            "O teste compara as nove workspaces CDC esperadas e valida nome, ordem, visibilidade e ícone.",
+            "O teste compara as dez workspaces CDC esperadas e valida nome, ordem, visibilidade e ícone.",
             "Também confirma que cada painel é montado apenas no contêiner ativo, reduzindo páginas brancas após navegar sem F5.",
         ),
     },
@@ -1470,11 +1478,12 @@ def _workspace_navigation_health(sources):
         ("CDC Usuários", 2.0, "users"),
         (CDC_GROUPS_WORKSPACE, 3.0, "folder-normal"),
         (CDC_ITEMS_WORKSPACE, 4.0, "assets"),
-        ("CDC Integrações", 5.0, "integration"),
-        ("CDC Pendências", 6.0, "list-alt"),
-        ("CDC Monitoramento", 7.0, "dashboard"),
-        (CDC_TESTS_WORKSPACE, 8.0, "check"),
-        (CDC_ADMIN_WORKSPACE, 9.0, "tool"),
+        (CDC_WAREHOUSE_WORKSPACE, 5.0, "home"),
+        ("CDC Integrações", 6.0, "integration"),
+        ("CDC Pendências", 7.0, "list-alt"),
+        ("CDC Monitoramento", 8.0, "dashboard"),
+        (CDC_TESTS_WORKSPACE, 9.0, "check"),
+        (CDC_ADMIN_WORKSPACE, 10.0, "tool"),
     ]
     rows = frappe.get_all(
         "Workspace",
@@ -1501,7 +1510,7 @@ def _workspace_navigation_health(sources):
         if name in by_name and by_name[name].icon != icon
     ]
 
-    routed_assets = ("pending", "tests", "groups", "items", "admin")
+    routed_assets = ("pending", "tests", "groups", "items", "warehouse", "admin")
     main_theme_source = sources.get("theme", "").split("CDC MONITORING WORKSPACE DASHBOARD INITIALIZER", 1)[0]
     active_mount_safe = (
         "function claimActiveDashboard" in sources.get("theme", "")
@@ -1524,7 +1533,7 @@ def _workspace_navigation_health(sources):
     if not active_mount_safe:
         details.append("montagem SPA ainda usa contêiner global ou obsoleto")
     return healthy, (
-        "9 workspaces únicas, ordenadas, com ícones válidos e montagem limitada à página SPA ativa."
+        "10 workspaces únicas, ordenadas, com ícones válidos e montagem limitada à página SPA ativa."
         if healthy else "; ".join(details)
     )
 
@@ -1537,6 +1546,7 @@ def _theme_integrity_health(asset_paths, sources):
         "tests": "js/cdc_tests.js",
         "groups": "js/cdc_groups.js",
         "items": "js/cdc_items.js",
+        "warehouse": "js/cdc_warehouse.js",
         "admin": "js/cdc_admin.js",
         "css": "css/cdc_theme.css",
     }
@@ -1603,7 +1613,7 @@ def _theme_integrity_health(asset_paths, sources):
     if healthy:
         version = next(iter(versions))
         return True, (
-            f"7 assets presentes e ligados ao volume público; cache {version} consistente; "
+            f"8 assets presentes e ligados ao volume público; cache {version} consistente; "
             "montagem SPA com escopo correto e idempotência ativa para prevenir telas brancas."
         )
     details = []
@@ -1626,6 +1636,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
         "tests": frappe.get_app_path("cdc_theme", "public", "js", "cdc_tests.js"),
         "groups": frappe.get_app_path("cdc_theme", "public", "js", "cdc_groups.js"),
         "items": frappe.get_app_path("cdc_theme", "public", "js", "cdc_items.js"),
+        "warehouse": frappe.get_app_path("cdc_theme", "public", "js", "cdc_warehouse.js"),
         "admin": frappe.get_app_path("cdc_theme", "public", "js", "cdc_admin.js"),
         "css": frappe.get_app_path("cdc_theme", "public", "css", "cdc_theme.css"),
         "hooks": frappe.get_app_path("cdc_theme", "hooks.py"),

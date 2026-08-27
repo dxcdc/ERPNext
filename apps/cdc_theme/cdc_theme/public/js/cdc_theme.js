@@ -83,6 +83,7 @@
             {label: 'Usuários', href: '/app/cdc-usuários'},
             {label: 'Grupos', href: '/app/cdc-grupos'},
             {label: 'Itens', href: '/app/cdc-itens'},
+            {label: 'Armazéns', href: '/app/cdc-armazem'},
             {label: 'Integrações', href: '/app/cdc-integrações'},
             {label: 'Pendências', href: '/app/cdc-pendências'},
             {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
@@ -1926,7 +1927,7 @@
 
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: mantém somente as áreas CDC aprovadas
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin'];
+        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -1936,7 +1937,7 @@
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
-                /^\/app\/cdc-(estoque|usuarios|grupos|itens|integracoes|pendencias|monitoramento|testes|admin)(\/|$)/.test(href);
+                /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|integracoes|pendencias|monitoramento|testes|admin)(\/|$)/.test(href);
             var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
                 /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
             if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
@@ -2044,6 +2045,7 @@
             'cdc usuarios',
             'cdc grupos',
             'cdc itens',
+            'cdc armazem',
             'cdc integracoes',
             'cdc pendencias',
             'cdc monitoramento'
