@@ -338,7 +338,7 @@
 .cdc-management-skeleton-grid i { height: 290px; }
 @keyframes cdc-management-pulse { to { background-position: -200% 0; } }
 
-@media (max-width: 1200px) {
+@media (max-width: 1500px) {
     .cdc-management-filters { grid-template-columns: repeat(4, minmax(145px, 1fr)); }
     .cdc-management-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

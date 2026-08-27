@@ -94,7 +94,7 @@ def main():
             source = ROOT / "apps/cdc_theme/cdc_theme/public/js" / filename
             subprocess.check_call(["node", "--check", str(source)], cwd=ROOT)
             request = urllib.request.Request(
-                f"http://localhost:8085/assets/cdc_theme/js/{filename}?v=20260827_catalog_management_v46",
+                f"http://localhost:8085/assets/cdc_theme/js/{filename}?v=20260827_catalog_management_v47",
                 headers={"User-Agent": "CDC-Test-Pipeline"},
             )
             with urllib.request.urlopen(request, timeout=10) as response:

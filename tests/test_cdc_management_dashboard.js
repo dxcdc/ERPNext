@@ -9,6 +9,7 @@ const management = fs.readFileSync(path.join(root, 'cdc_management.js'), 'utf8')
 const groups = fs.readFileSync(path.join(root, 'cdc_groups.js'), 'utf8');
 const items = fs.readFileSync(path.join(root, 'cdc_items.js'), 'utf8');
 const warehouses = fs.readFileSync(path.join(root, 'cdc_warehouse.js'), 'utf8');
+const css = fs.readFileSync(path.join(root, '..', 'css', 'cdc_theme.css'), 'utf8');
 
 assert.match(management, /get_catalog_management_dashboard_data/, 'dados devem vir do endpoint real');
 assert.match(management, /breadcrumb: 'Armazéns'/, 'CDC Armazém deve usar o rótulo plural registrado no breadcrumb');
@@ -27,6 +28,7 @@ assert.match(management, /renderTable\(data\.table/, 'tabela resumida deve ser r
 assert.match(management, /row\.dataset\.movement === '0'/, 'alerta sem movimentação deve filtrar pela atividade real');
 assert.match(management, /row\.dataset\.positive === '1'/, 'card com estoque deve filtrar pela quantidade positiva');
 assert.doesNotMatch(management, /frappe\.db/, 'frontend não pode acessar o banco diretamente');
+assert.match(css, /@media \(max-width: 1500px\)[\s\S]*?\.cdc-management-filters \{ grid-template-columns: repeat\(4, minmax\(145px, 1fr\)\); \}/, 'filtros devem quebrar em duas linhas antes de ultrapassar a área útil com sidebar');
 
 for (const [name, source, page] of [
     ['grupos', groups, 'groups'],
