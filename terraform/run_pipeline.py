@@ -86,6 +86,7 @@ def main():
     def assets():
         assets_to_check = (
             ("cdc_theme.js", 50_000),
+            ("cdc_management.js", 10_000),
             ("cdc_stock_routes.js", 10_000),
         )
         sizes = []
@@ -93,7 +94,7 @@ def main():
             source = ROOT / "apps/cdc_theme/cdc_theme/public/js" / filename
             subprocess.check_call(["node", "--check", str(source)], cwd=ROOT)
             request = urllib.request.Request(
-                f"http://localhost:8085/assets/cdc_theme/js/{filename}?v=20260827_stock_entry_list_v40",
+                f"http://localhost:8085/assets/cdc_theme/js/{filename}?v=20260827_catalog_management_v41",
                 headers={"User-Agent": "CDC-Test-Pipeline"},
             )
             with urllib.request.urlopen(request, timeout=10) as response:

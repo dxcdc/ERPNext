@@ -167,6 +167,209 @@
   #cdc-users-search { width: 100%; }
 }
 
+/* CDC Grupos, Itens e Armazém — visão gerencial compartilhada */
+.cdc-management-shell {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 18px 20px 36px;
+    color: var(--text-color, #0f172a);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.cdc-management-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    padding: 22px 24px;
+    border: 1px solid var(--border-color, #dfe5ec);
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--card-bg, #fff), var(--subtle-fg, #f8fafc));
+    box-shadow: 0 8px 28px rgba(15, 23, 42, .055);
+}
+
+.cdc-management-hero-icon {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 15px;
+    background: #e0edff;
+    font-size: 29px;
+}
+
+.cdc-management-hero span {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.cdc-management-hero h1 { margin: 2px 0 4px; font-size: 27px; line-height: 1.2; }
+.cdc-management-hero p { margin: 0; color: var(--text-muted, #64748b); line-height: 1.45; }
+.cdc-management-hero-actions { display: grid; grid-template-columns: auto auto; gap: 7px; justify-items: stretch; }
+.cdc-management-hero-actions small { grid-column: 1 / -1; color: var(--text-muted, #64748b); text-align: right; }
+
+.cdc-management-filters {
+    display: grid;
+    grid-template-columns: minmax(210px, 1.5fr) repeat(5, minmax(135px, 1fr)) auto auto;
+    align-items: end;
+    gap: 9px;
+    margin: 14px 0 8px;
+    padding: 14px;
+    border: 1px solid var(--border-color, #dfe5ec);
+    border-radius: 12px;
+    background: var(--card-bg, #fff);
+}
+
+.cdc-management-filters label { display: grid; min-width: 0; gap: 5px; margin: 0; }
+.cdc-management-filters label span { color: var(--text-muted, #64748b); font-size: 10px; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
+.cdc-management-filters input,
+.cdc-management-filters select {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 8px;
+    background: var(--control-bg, #fff);
+    color: var(--text-color, #0f172a);
+    font-size: 12px;
+}
+
+.cdc-management-filters .btn { min-height: 36px; white-space: nowrap; }
+.cdc-management-scope { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; color: var(--text-muted, #64748b); font-size: 11px; }
+.cdc-management-scope strong { padding: 4px 8px; border-radius: 999px; background: #e0edff; color: #1d4ed8; }
+.cdc-management-insight { margin: 12px 0; padding: 13px 15px; border-left: 4px solid #2563eb; border-radius: 8px; background: #eff6ff; color: #1e3a5f; font-size: 13px; font-weight: 650; }
+
+.cdc-management-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.cdc-management-card {
+    min-width: 0;
+    min-height: 132px;
+    padding: 17px;
+    border: 1px solid var(--border-color, #dfe5ec);
+    border-top: 4px solid #3b82f6;
+    border-radius: 12px;
+    background: var(--card-bg, #fff);
+    color: inherit;
+    text-align: left;
+    box-shadow: 0 5px 16px rgba(15, 23, 42, .04);
+    opacity: 1;
+}
+.cdc-management-card.is-clickable { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.cdc-management-card.is-clickable:hover { transform: translateY(-2px); box-shadow: 0 9px 22px rgba(15, 23, 42, .09); }
+.cdc-management-card.is-success { border-top-color: #16a34a; }
+.cdc-management-card.is-warning { border-top-color: #f59e0b; }
+.cdc-management-card.is-danger { border-top-color: #dc2626; }
+.cdc-management-card > span { display: block; color: var(--text-muted, #64748b); font-size: 10px; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
+.cdc-management-card strong { display: block; margin: 11px 0 6px; overflow: hidden; font-size: clamp(20px, 2vw, 28px); line-height: 1.05; text-overflow: ellipsis; }
+.cdc-management-card small { display: block; color: var(--text-muted, #64748b); font-size: 11px; line-height: 1.35; }
+
+.cdc-management-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.cdc-management-chart { min-width: 0; padding: 17px; border: 1px solid var(--border-color, #dfe5ec); border-radius: 12px; background: var(--card-bg, #fff); }
+.cdc-management-chart > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
+.cdc-management-chart h2,
+.cdc-management-attention h2,
+.cdc-management-table-card h2 { margin: 0; font-size: 15px; }
+.cdc-management-chart header small { color: var(--text-muted, #64748b); font-size: 10px; white-space: nowrap; }
+.cdc-management-chart header b { display: inline-block; width: 8px; height: 8px; margin: 0 3px; border-radius: 2px; background: #2563eb; }
+.cdc-management-chart header b.is-exit { background: #f59e0b; }
+.cdc-management-chart-body { display: grid; gap: 8px; }
+.cdc-management-chart-row { display: grid; grid-template-columns: minmax(90px, 145px) minmax(100px, 1fr) minmax(72px, auto); align-items: center; gap: 8px; font-size: 10px; }
+.cdc-management-chart-row > span { overflow: hidden; color: var(--text-muted, #475569); text-overflow: ellipsis; white-space: nowrap; }
+.cdc-management-chart-row > strong { color: var(--text-color, #0f172a); font-size: 10px; text-align: right; }
+.cdc-management-chart-row em { color: #b45309; font-style: normal; }
+.cdc-management-chart-track { display: grid; gap: 2px; min-height: 8px; }
+.cdc-management-chart-track i { display: block; height: 6px; border-radius: 999px; background: linear-gradient(90deg, #60a5fa, #2563eb); }
+.cdc-management-chart-track i.is-secondary { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.cdc-management-empty { padding: 30px 10px; color: var(--text-muted, #64748b); text-align: center; }
+
+.cdc-management-attention { margin-top: 12px; padding: 17px; border: 1px solid var(--border-color, #dfe5ec); border-radius: 12px; background: var(--card-bg, #fff); }
+.cdc-management-attention > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+.cdc-management-attention > header p,
+.cdc-management-table-card header p { margin: 2px 0 0; color: var(--text-muted, #64748b); font-size: 11px; }
+.cdc-management-attention > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cdc-management-alert { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 11px; border: 1px solid var(--border-color, #dfe5ec); border-radius: 9px; background: var(--subtle-fg, #f8fafc); color: inherit; text-align: left; cursor: pointer; }
+.cdc-management-alert > i { width: 9px; height: 9px; border-radius: 50%; background: #3b82f6; }
+.cdc-management-alert.is-success > i { background: #16a34a; }
+.cdc-management-alert.is-warning > i { background: #f59e0b; }
+.cdc-management-alert.is-danger > i { background: #dc2626; }
+.cdc-management-alert span { min-width: 0; }
+.cdc-management-alert strong,
+.cdc-management-alert small { display: block; }
+.cdc-management-alert strong { font-size: 12px; }
+.cdc-management-alert small { margin-top: 2px; color: var(--text-muted, #64748b); font-size: 10px; line-height: 1.35; }
+.cdc-management-alert em { color: #2563eb; font-size: 10px; font-style: normal; font-weight: 750; white-space: nowrap; }
+
+.cdc-management-table-card { margin-top: 12px; border: 1px solid var(--border-color, #dfe5ec); border-radius: 12px; background: var(--card-bg, #fff); overflow: hidden; }
+.cdc-management-table-card > header,
+.cdc-management-table-card > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+.cdc-management-table-card > header { border-bottom: 1px solid var(--border-color, #dfe5ec); }
+.cdc-management-table-card > header > span { color: #1d4ed8; font-size: 10px; font-weight: 700; }
+.cdc-management-table-card > header > span button { border: 0; background: transparent; color: inherit; cursor: pointer; }
+.cdc-management-table-wrap { overflow: auto; }
+.cdc-management-table-wrap table { width: 100%; min-width: 860px; border-collapse: collapse; }
+.cdc-management-table-wrap th { padding: 9px 11px; background: var(--subtle-fg, #f8fafc); color: var(--text-muted, #64748b); font-size: 9px; font-weight: 800; letter-spacing: .035em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.cdc-management-table-wrap td { padding: 10px 11px; border-top: 1px solid var(--border-color, #eef2f7); font-size: 11px; white-space: nowrap; }
+.cdc-management-table-wrap tr:hover td { background: rgba(37, 99, 235, .035); }
+.cdc-management-status { display: inline-flex; padding: 3px 7px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: 9px; font-weight: 800; }
+.cdc-management-status.is-positive,
+.cdc-management-status.is-with_stock,
+.cdc-management-status.is-normal { background: #dcfce7; color: #166534; }
+.cdc-management-status.is-negative { background: #fee2e2; color: #991b1b; }
+.cdc-management-status.is-zero,
+.cdc-management-status.is-empty,
+.cdc-management-status.is-no_stock,
+.cdc-management-status.is-no_movement,
+.cdc-management-status.is-disabled_stock,
+.cdc-management-status.is-missing_value { background: #fef3c7; color: #92400e; }
+.cdc-management-table-card > footer { border-top: 1px solid var(--border-color, #dfe5ec); }
+.cdc-management-table-card > footer small { color: var(--text-muted, #64748b); }
+
+.cdc-management-error { margin-top: 16px; padding: 28px; border: 1px solid #fecaca; border-radius: 13px; background: #fff7f7; text-align: center; }
+.cdc-management-error strong { color: #991b1b; font-size: 16px; }
+.cdc-management-error p { margin: 7px 0 16px; color: #7f1d1d; }
+.cdc-management-error .btn { margin: 0 3px; }
+.cdc-management-skeleton-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 12px; }
+.cdc-management-skeleton-cards i,
+.cdc-management-skeleton-grid i { display: block; border-radius: 12px; background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9); background-size: 200% 100%; animation: cdc-management-pulse 1.35s infinite; }
+.cdc-management-skeleton-cards i { height: 130px; }
+.cdc-management-skeleton-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.cdc-management-skeleton-grid i { height: 290px; }
+@keyframes cdc-management-pulse { to { background-position: -200% 0; } }
+
+@media (max-width: 1200px) {
+    .cdc-management-filters { grid-template-columns: repeat(4, minmax(145px, 1fr)); }
+    .cdc-management-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 800px) {
+    .cdc-management-shell { padding: 12px 10px 28px; }
+    .cdc-management-hero { grid-template-columns: auto minmax(0, 1fr); padding: 18px; }
+    .cdc-management-hero-actions { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+    .cdc-management-hero-actions small { text-align: left; }
+    .cdc-management-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cdc-management-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cdc-management-charts { grid-template-columns: 1fr; }
+    .cdc-management-attention > div { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+    .cdc-management-hero { grid-template-columns: 1fr; }
+    .cdc-management-hero-icon { width: 48px; height: 48px; }
+    .cdc-management-hero h1 { font-size: 23px; }
+    .cdc-management-hero-actions,
+    .cdc-management-filters,
+    .cdc-management-cards,
+    .cdc-management-skeleton-cards,
+    .cdc-management-skeleton-grid { grid-template-columns: 1fr; }
+    .cdc-management-scope,
+    .cdc-management-attention > header,
+    .cdc-management-table-card > footer { align-items: flex-start; flex-direction: column; }
+    .cdc-management-chart-row { grid-template-columns: minmax(78px, 110px) 1fr; }
+    .cdc-management-chart-row > strong { grid-column: 2; }
+}
+
 #cdc-pending-dashboard { width: 100%; margin-bottom: 28px; color: var(--cdc-text-dark); }
 .cdc-pending-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
 .cdc-pending-heading h2, .cdc-pending-table-header h3 { margin: 0; color: var(--cdc-text-dark); font-weight: 800; }

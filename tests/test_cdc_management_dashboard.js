@@ -1,0 +1,47 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.join(__dirname, '..', 'apps', 'cdc_theme', 'cdc_theme', 'public', 'js');
+const management = fs.readFileSync(path.join(root, 'cdc_management.js'), 'utf8');
+const groups = fs.readFileSync(path.join(root, 'cdc_groups.js'), 'utf8');
+const items = fs.readFileSync(path.join(root, 'cdc_items.js'), 'utf8');
+const warehouses = fs.readFileSync(path.join(root, 'cdc_warehouse.js'), 'utf8');
+
+assert.match(management, /get_catalog_management_dashboard_data/, 'dados devem vir do endpoint real');
+assert.match(management, /_cdc_claim_active_dashboard/, 'montagem deve usar somente a página SPA ativa');
+assert.match(management, /serial !== state\.serial/, 'respostas antigas devem ser descartadas');
+assert.match(management, /window\.clearTimeout\(state\.timer\)/, 'watchdog deve ser cancelado após resposta');
+assert.match(management, /data-cdc-manager-retry/, 'falha deve oferecer nova tentativa');
+assert.match(management, /data-cdc-manager-native/, 'falha e resumo devem preservar acesso à fonte oficial');
+assert.match(management, /O período altera movimentações; saldos e valores representam a posição atual/, 'semântica temporal deve estar explícita');
+assert.match(management, /Fonte oficial do ERPNext; nenhuma informação é simulada/, 'origem dos dados deve estar explícita');
+assert.match(management, /renderCards\(data\.cards\)/, 'cards gerenciais devem ser renderizados');
+assert.match(management, /data\.charts/, 'gráficos gerenciais devem ser renderizados');
+assert.match(management, /renderAlerts\(data\.alerts\)/, 'alertas objetivos devem ser renderizados');
+assert.match(management, /renderTable\(data\.table/, 'tabela resumida deve ser renderizada');
+assert.match(management, /row\.dataset\.movement === '0'/, 'alerta sem movimentação deve filtrar pela atividade real');
+assert.match(management, /row\.dataset\.positive === '1'/, 'card com estoque deve filtrar pela quantidade positiva');
+assert.doesNotMatch(management, /frappe\.db/, 'frontend não pode acessar o banco diretamente');
+
+for (const [name, source, page] of [
+    ['grupos', groups, 'groups'],
+    ['itens', items, 'items'],
+    ['armazéns', warehouses, 'warehouses'],
+]) {
+    assert.match(source, new RegExp(`page: '${page}'`), `${name} deve declarar seu tipo de painel`);
+    assert.match(source, /_cdc_render_management_dashboard\(OPTIONS\)/, `${name} deve usar o motor compartilhado`);
+    assert.match(source, /_cdc_remove_management_dashboard\(OPTIONS\)/, `${name} deve remover estado ao sair da rota`);
+    assert.match(source, /clearTimeout\(renderTimer\)/, `${name} deve impedir agendamentos SPA duplicados`);
+}
+
+for (const control of [
+    'data-cdc-manager-search', 'data-cdc-manager-company', 'data-cdc-manager-project',
+    'data-cdc-manager-warehouse', 'data-cdc-manager-group', 'data-cdc-manager-period',
+]) {
+    assert.ok(management.includes(control), `filtro gerencial ausente: ${control}`);
+}
+
+console.log('CDC catalog management dashboards test: OK');

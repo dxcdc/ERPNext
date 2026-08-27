@@ -2025,7 +2025,7 @@
 
     function redirectCDCWarehouseWorkspaceAlias() {
         var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase();
-        if (pathname !== '/app/cdc-armazem') {
+        if (pathname !== '/app/cdc-armazem' && pathname !== '/app/cdc-armazemo' && pathname !== '/app/cdc-armazémo') {
             warehouseWorkspaceAliasRedirecting = false;
             return false;
         }

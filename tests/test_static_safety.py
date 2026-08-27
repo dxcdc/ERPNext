@@ -13,6 +13,7 @@ ITEMS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_items.js"
 WAREHOUSE_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_warehouse.js"
 STOCK_ROUTES_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js"
 ADMIN_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js"
+MANAGEMENT_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_management.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
 TERRAFORM_VARIABLES = ROOT / "terraform/variables.tf"
@@ -296,26 +297,31 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("_theme_integrity_health", api_source)
         self.assertNotIn("Todos os testes foram aprovados", tests_source)
 
-    def test_cdc_groups_is_only_a_shortcut_to_native_item_group(self):
+    def test_cdc_groups_uses_permission_scoped_management_dashboard(self):
         source = GROUPS_JS.read_text()
-        self.assertIn("frappe.set_route('List', 'Item Group', 'List')", source)
-        self.assertNotIn("get_item_group_dashboard_data", source)
-        self.assertNotIn("frappe.db", source)
+        management = MANAGEMENT_JS.read_text()
+        self.assertIn("_cdc_render_management_dashboard", source)
+        self.assertIn("get_catalog_management_dashboard_data", management)
+        self.assertIn("frappe.set_route('List', 'Item Group', 'List'", management)
+        self.assertNotIn("frappe.db", source + management)
 
-    def test_cdc_items_is_only_a_shortcut_to_native_item_list(self):
+    def test_cdc_items_uses_management_dashboard_and_native_drilldown(self):
         source = ITEMS_JS.read_text()
-        self.assertIn("frappe.set_route('List', 'Item', 'List')", source)
-        self.assertNotIn("frappe.call", source)
-        self.assertNotIn("frappe.db", source)
+        management = MANAGEMENT_JS.read_text()
+        self.assertIn("_cdc_render_management_dashboard", source)
+        self.assertIn("frappe.set_route('List', 'Item', 'List'", management)
+        self.assertIn("frappe.set_route('Form', 'Item', name)", management)
+        self.assertNotIn("frappe.db", source + management)
 
-    def test_cdc_warehouse_is_only_a_shortcut_to_filtered_native_list(self):
+    def test_cdc_warehouse_uses_management_dashboard_and_aliases(self):
         source = WAREHOUSE_JS.read_text()
+        management = MANAGEMENT_JS.read_text()
         theme_source = THEME_JS.read_text()
-        self.assertIn("frappe.set_route('List', 'Warehouse', 'List'", source)
-        self.assertIn("disabled: 0, company: 'CDC'", source)
-        self.assertIn("window._cdc_claim_active_dashboard", source)
-        self.assertNotIn("frappe.call", source)
-        self.assertNotIn("frappe.db", source)
+        self.assertIn("_cdc_render_management_dashboard", source)
+        self.assertIn("cdc-armazemo", source)
+        self.assertIn("frappe.set_route('List', 'Warehouse', 'List'", management)
+        self.assertIn("window._cdc_claim_active_dashboard", management)
+        self.assertNotIn("frappe.db", source + management)
         self.assertIn("function redirectCDCWarehouseWorkspaceAlias()", theme_source)
         self.assertIn("function dismissCDCWarehouseAliasNotFound()", theme_source)
         self.assertIn("pagina cdc-armazem nao encontrado", theme_source)
@@ -323,6 +329,41 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("modal.remove()", theme_source)
         self.assertIn("frappe.set_route('Workspaces', 'CDC Armazém')", theme_source)
         self.assertIn("href: '/app/cdc-armazém'", theme_source)
+
+    def test_management_endpoint_uses_native_permissions_and_real_data(self):
+        api_source = API_PY.read_text()
+        endpoint = next(
+            node for node in ast.parse(api_source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "get_catalog_management_dashboard_data"
+        )
+        endpoint_source = ast.get_source_segment(api_source, endpoint)
+        for doctype in ("Item Group", "Item", "Warehouse", "Bin", "Stock Ledger Entry"):
+            self.assertIn(f'"{doctype}"', endpoint_source)
+        self.assertIn("_require_read_permission(doctype)", endpoint_source)
+        self.assertIn("frappe.get_list(", endpoint_source)
+        self.assertNotIn("frappe.get_all(", endpoint_source)
+        self.assertNotIn("frappe.db.sql(", endpoint_source)
+        self.assertIn('period not in {7, 30, 90}', api_source)
+        self.assertIn('"cards"', endpoint_source)
+        self.assertIn('"charts"', endpoint_source)
+        self.assertIn('"alerts"', endpoint_source)
+        self.assertIn('"table"', endpoint_source)
+
+    def test_management_frontend_has_filters_feedback_and_spa_guards(self):
+        source = MANAGEMENT_JS.read_text()
+        for control in (
+            "data-cdc-manager-search", "data-cdc-manager-company",
+            "data-cdc-manager-project", "data-cdc-manager-warehouse",
+            "data-cdc-manager-group", "data-cdc-manager-period",
+        ):
+            self.assertIn(control, source)
+        self.assertIn("serial !== state.serial", source)
+        self.assertIn("A consulta ultrapassou 15 segundos", source)
+        self.assertIn("window.history.replaceState", source)
+        self.assertIn("O período altera movimentações", source)
+        self.assertIn("nenhuma informação é simulada", source)
+        self.assertNotIn("frappe.db", source)
 
     def test_new_workspaces_are_preserved_in_backend_sidebar_and_terraform(self):
         api_source = API_PY.read_text()
@@ -347,9 +388,12 @@ class StaticSafetyTest(unittest.TestCase):
     def test_spa_dashboards_claim_only_the_active_page_container(self):
         theme_source = THEME_JS.read_text()
         self.assertIn("function claimActiveDashboard", theme_source)
-        for asset in (PENDING_JS, TESTS_JS, GROUPS_JS, ITEMS_JS, WAREHOUSE_JS, STOCK_ROUTES_JS, ADMIN_JS):
+        for asset in (PENDING_JS, TESTS_JS, MANAGEMENT_JS, STOCK_ROUTES_JS, ADMIN_JS):
             with self.subTest(asset=asset.name):
                 self.assertIn("window._cdc_claim_active_dashboard", asset.read_text())
+        for asset in (GROUPS_JS, ITEMS_JS, WAREHOUSE_JS):
+            with self.subTest(delegated_asset=asset.name):
+                self.assertIn("window._cdc_render_management_dashboard", asset.read_text())
 
 
 if __name__ == "__main__":

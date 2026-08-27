@@ -4,7 +4,7 @@ import re
 import unicodedata
 
 import frappe
-from frappe.utils import add_days, add_months, get_first_day, getdate, today
+from frappe.utils import add_days, add_months, get_first_day, getdate, now_datetime, today
 
 
 def _require_system_manager():
@@ -59,6 +59,8 @@ def custom_get_desktop_page(page):
         "cdc-itens": "CDC Itens",
         "cdc-armazem": "CDC Armazém",
         "cdc-armazém": "CDC Armazém",
+        "cdc-armazemo": "CDC Armazém",
+        "cdc-armazémo": "CDC Armazém",
         "cdc-admin": "CDC Admin",
         "stock": "CDC Estoque",
         "users": "CDC Usuários",
@@ -75,6 +77,8 @@ def custom_get_desktop_page(page):
         "itens": "CDC Itens",
         "armazem": "CDC Armazém",
         "armazém": "CDC Armazém",
+        "armazemo": "CDC Armazém",
+        "armazémo": "CDC Armazém",
         "admin": "CDC Admin",
     }
 
@@ -288,6 +292,7 @@ def get_cdc_admin_diagnostics():
         public_path = frappe.get_app_path("cdc_theme", "public")
         required = (
             "css/cdc_theme.css", "js/cdc_theme.js", "js/cdc_tests.js",
+            "js/cdc_management.js",
             "js/cdc_groups.js", "js/cdc_items.js", "js/cdc_warehouse.js",
             "js/cdc_stock_routes.js", "js/cdc_admin.js",
         )
@@ -523,6 +528,526 @@ def _pending_order_location(cost_centers, title=None):
         if city and service:
             return "Projeto Atitude", f"{city} ATITUDE - {service} - C"
     return "Institucional / Geral", None
+
+
+def _catalog_management_period(value):
+    try:
+        period = int(value or 30)
+    except (TypeError, ValueError):
+        period = 0
+    if period not in {7, 30, 90}:
+        frappe.throw("Período gerencial inválido.", frappe.ValidationError)
+    return period
+
+
+def _catalog_management_float(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _catalog_movement_series(rows, start_date, period_days):
+    bucket_size = 1 if period_days == 7 else 7 if period_days == 30 else 15
+    bucket_count = (period_days + bucket_size - 1) // bucket_size
+    buckets = []
+    for index in range(bucket_count):
+        bucket_date = add_days(start_date, index * bucket_size)
+        buckets.append({
+            "label": getdate(bucket_date).strftime("%d/%m"),
+            "value": 0.0,
+            "secondary": 0.0,
+        })
+    for row in rows:
+        posting_date = getdate(row.posting_date)
+        index = min(max((posting_date - getdate(start_date)).days // bucket_size, 0), bucket_count - 1)
+        quantity = _catalog_management_float(row.actual_qty)
+        if quantity >= 0:
+            buckets[index]["value"] += quantity
+        else:
+            buckets[index]["secondary"] += abs(quantity)
+    return buckets
+
+
+@frappe.whitelist()
+def get_catalog_management_dashboard_data(
+    dashboard_type=None,
+    search=None,
+    company=None,
+    selected_project=None,
+    selected_warehouse=None,
+    selected_group=None,
+    period_days=30,
+):
+    """Entrega visão gerencial real de grupos, itens ou armazéns com RBAC nativo."""
+    dashboard_aliases = {
+        "groups": "groups",
+        "items": "items",
+        "warehouses": "warehouses",
+        "warehouse": "warehouses",
+    }
+    dashboard = dashboard_aliases.get((dashboard_type or "").strip().lower())
+    if not dashboard:
+        frappe.throw("Painel gerencial inválido.", frappe.ValidationError)
+
+    for doctype in ("Item Group", "Item", "Warehouse", "Bin", "Stock Ledger Entry"):
+        _require_read_permission(doctype)
+
+    period = _catalog_management_period(period_days)
+    requested_search = (search or "").strip()[:120]
+    search_key = requested_search.casefold()
+    requested_company = (company or "").strip()
+    requested_group = (selected_group or "All").strip()
+    project, warehouse, project_options, scoped_warehouses, project_scope_active = _catalog_filter_context(
+        selected_project, selected_warehouse,
+    )
+
+    warehouse_rows = frappe.get_list(
+        "Warehouse",
+        filters={"is_group": 0},
+        fields=["name", "warehouse_name", "company", "disabled", "parent_warehouse"],
+        order_by="name asc",
+        limit_page_length=0,
+    )
+    permitted_names = set(scoped_warehouses)
+    warehouse_rows = [row for row in warehouse_rows if row.name in permitted_names]
+    companies = sorted({row.company for row in warehouse_rows if row.company})
+    if requested_company and requested_company not in companies:
+        frappe.throw("Empresa indisponível para o usuário atual.", frappe.PermissionError)
+    if requested_company:
+        warehouse_rows = [row for row in warehouse_rows if row.company == requested_company]
+    if dashboard == "warehouses" and search_key:
+        warehouse_rows = [
+            row for row in warehouse_rows
+            if search_key in f"{row.name} {row.warehouse_name or ''}".casefold()
+        ]
+    context_warehouse_names = [row.name for row in warehouse_rows]
+
+    group_rows = frappe.get_list(
+        "Item Group",
+        fields=["name", "parent_item_group", "is_group", "lft", "rgt"],
+        order_by="lft asc, name asc",
+        limit_page_length=0,
+    )
+    group_by_name = {row.name: row for row in group_rows}
+    if requested_group != "All" and requested_group not in group_by_name:
+        frappe.throw("Grupo de itens indisponível para o usuário atual.", frappe.PermissionError)
+
+    allowed_groups = set(group_by_name)
+    if requested_group != "All":
+        selected = group_by_name[requested_group]
+        allowed_groups = {
+            row.name for row in group_rows
+            if int(row.lft or 0) >= int(selected.lft or 0)
+            and int(row.rgt or 0) <= int(selected.rgt or 0)
+        }
+    if dashboard == "groups" and search_key:
+        allowed_groups = {
+            row.name for row in group_rows
+            if row.name in allowed_groups and search_key in row.name.casefold()
+        }
+
+    item_rows = frappe.get_list(
+        "Item",
+        fields=[
+            "name", "item_name", "item_group", "disabled", "is_stock_item",
+            "stock_uom", "valuation_rate",
+        ],
+        order_by="name asc",
+        limit_page_length=0,
+    )
+    item_rows = [row for row in item_rows if row.item_group in allowed_groups]
+    if dashboard == "items" and search_key:
+        item_rows = [
+            row for row in item_rows
+            if search_key in f"{row.name} {row.item_name or ''}".casefold()
+        ]
+    visible_item_names = {row.name for row in item_rows}
+
+    bin_rows = []
+    if context_warehouse_names and visible_item_names:
+        bin_rows = frappe.get_list(
+            "Bin",
+            filters={
+                "warehouse": ["in", context_warehouse_names],
+                "item_code": ["in", sorted(visible_item_names)],
+            },
+            fields=[
+                "item_code", "warehouse", "actual_qty", "projected_qty",
+                "reserved_qty", "stock_value",
+            ],
+            limit_page_length=0,
+        )
+
+    location_scope_active = bool(project_scope_active or requested_company)
+    if location_scope_active and dashboard in {"groups", "items"}:
+        located_items = {row.item_code for row in bin_rows}
+        item_rows = [row for row in item_rows if row.name in located_items]
+        visible_item_names = {row.name for row in item_rows}
+        bin_rows = [row for row in bin_rows if row.item_code in visible_item_names]
+
+    start_date = add_days(today(), -(period - 1))
+    movement_rows = []
+    if context_warehouse_names and visible_item_names:
+        movement_rows = frappe.get_list(
+            "Stock Ledger Entry",
+            filters={
+                "warehouse": ["in", context_warehouse_names],
+                "item_code": ["in", sorted(visible_item_names)],
+                "posting_date": [">=", start_date],
+            },
+            fields=["item_code", "warehouse", "posting_date", "actual_qty", "stock_value_difference"],
+            order_by="posting_date asc, creation asc",
+            limit_page_length=0,
+        )
+
+    item_metrics = {
+        row.name: {
+            "quantity": 0.0,
+            "projected": 0.0,
+            "reserved": 0.0,
+            "value": 0.0,
+            "warehouses": set(),
+            "negative_locations": 0,
+            "movement": False,
+            "entries": 0.0,
+            "exits": 0.0,
+        }
+        for row in item_rows
+    }
+    warehouse_metrics = {
+        row.name: {
+            "quantity": 0.0,
+            "value": 0.0,
+            "items": set(),
+            "negative_locations": 0,
+            "movement": False,
+            "entries": 0.0,
+            "exits": 0.0,
+        }
+        for row in warehouse_rows
+    }
+    for row in bin_rows:
+        item_metric = item_metrics.get(row.item_code)
+        warehouse_metric = warehouse_metrics.get(row.warehouse)
+        if not item_metric or not warehouse_metric:
+            continue
+        quantity = _catalog_management_float(row.actual_qty)
+        value = _catalog_management_float(row.stock_value)
+        item_metric["quantity"] += quantity
+        item_metric["projected"] += _catalog_management_float(row.projected_qty)
+        item_metric["reserved"] += _catalog_management_float(row.reserved_qty)
+        item_metric["value"] += value
+        item_metric["warehouses"].add(row.warehouse)
+        warehouse_metric["quantity"] += quantity
+        warehouse_metric["value"] += value
+        warehouse_metric["items"].add(row.item_code)
+        if quantity < 0:
+            item_metric["negative_locations"] += 1
+            warehouse_metric["negative_locations"] += 1
+
+    for row in movement_rows:
+        quantity = _catalog_management_float(row.actual_qty)
+        item_metric = item_metrics.get(row.item_code)
+        warehouse_metric = warehouse_metrics.get(row.warehouse)
+        if item_metric:
+            item_metric["movement"] = True
+            if quantity >= 0:
+                item_metric["entries"] += quantity
+            else:
+                item_metric["exits"] += abs(quantity)
+        if warehouse_metric:
+            warehouse_metric["movement"] = True
+            if quantity >= 0:
+                warehouse_metric["entries"] += quantity
+            else:
+                warehouse_metric["exits"] += abs(quantity)
+
+    group_metrics = {
+        row.name: {
+            "active_items": 0,
+            "disabled_items": 0,
+            "positive_items": 0,
+            "quantity": 0.0,
+            "value": 0.0,
+            "movement_items": 0,
+        }
+        for row in group_rows if row.name in allowed_groups
+    }
+    for row in item_rows:
+        metric = item_metrics[row.name]
+        group_metric = group_metrics.get(row.item_group)
+        if not group_metric:
+            continue
+        if int(row.disabled or 0):
+            group_metric["disabled_items"] += 1
+        else:
+            group_metric["active_items"] += 1
+        if metric["quantity"] > 0:
+            group_metric["positive_items"] += 1
+        if metric["movement"]:
+            group_metric["movement_items"] += 1
+        group_metric["quantity"] += metric["quantity"]
+        group_metric["value"] += metric["value"]
+
+    movement_series = _catalog_movement_series(movement_rows, start_date, period)
+    filters_payload = {
+        "search": requested_search,
+        "companies": companies,
+        "selected_company": requested_company,
+        "projects": project_options,
+        "selected_project": project,
+        "warehouses": [
+            {
+                "name": row.name,
+                "company": row.company,
+                "project": _warehouse_project(row.name),
+            }
+            for row in frappe.get_list(
+                "Warehouse",
+                filters={"is_group": 0},
+                fields=["name", "company"],
+                order_by="name asc",
+                limit_page_length=0,
+            )
+        ],
+        "selected_warehouse": warehouse,
+        "groups": [row.name for row in group_rows],
+        "selected_group": requested_group,
+        "period_days": period,
+        "scope_label": (
+            warehouse if warehouse != "All"
+            else project if project != "All"
+            else requested_company if requested_company
+            else "Todos os armazéns permitidos"
+        ),
+    }
+
+    if dashboard == "groups":
+        rows = []
+        for group_row in group_rows:
+            if group_row.name not in group_metrics:
+                continue
+            metric = group_metrics[group_row.name]
+            if metric["active_items"] == 0:
+                status_key, status = "empty", "Sem itens ativos"
+            elif metric["quantity"] > 0:
+                status_key, status = "with_stock", "Com estoque"
+            else:
+                status_key, status = "no_stock", "Sem estoque"
+            rows.append({
+                "name": group_row.name,
+                "parent": group_row.parent_item_group or "—",
+                "active_items": metric["active_items"],
+                "positive_items": metric["positive_items"],
+                "quantity": metric["quantity"],
+                "value": metric["value"],
+                "status": status,
+                "status_key": status_key,
+            })
+        total_groups = len(rows)
+        used_groups = sum(row["active_items"] > 0 for row in rows)
+        empty_groups = sum(row["active_items"] == 0 for row in rows)
+        groups_with_stock = sum(row["quantity"] > 0 for row in rows)
+        groups_without_stock = sum(row["active_items"] > 0 and row["quantity"] <= 0 for row in rows)
+        stock_value = sum(row["value"] for row in rows)
+        sorted_by_value = sorted(rows, key=lambda row: (row["value"], row["active_items"]), reverse=True)
+        sorted_by_items = sorted(rows, key=lambda row: (row["active_items"], row["value"]), reverse=True)
+        concentration = (sorted_by_value[0]["value"] / stock_value * 100) if sorted_by_value and stock_value else 0
+        return {
+            "dashboard_type": dashboard,
+            "updated_at": now_datetime().strftime("%d/%m/%Y %H:%M"),
+            "period_days": period,
+            "filters": filters_payload,
+            "insight": (
+                f"{used_groups} de {total_groups} grupos possuem itens ativos; "
+                f"{empty_groups} estão vazios e {groups_with_stock} possuem saldo positivo."
+            ),
+            "cards": [
+                {"label": "Grupos no contexto", "value": total_groups, "description": "Categorias visíveis", "status": "info", "focus": ""},
+                {"label": "Grupos utilizados", "value": used_groups, "description": "Com itens ativos", "status": "success", "focus": "used"},
+                {"label": "Grupos vazios", "value": empty_groups, "description": "Sem itens ativos", "status": "warning" if empty_groups else "success", "focus": "empty"},
+                {"label": "Grupos com estoque", "value": groups_with_stock, "description": "Saldo atual positivo", "status": "success", "focus": "with_stock"},
+                {"label": "Valor em estoque", "value": stock_value, "format": "currency", "description": "Nos armazéns permitidos", "status": "info", "focus": ""},
+            ],
+            "charts": [
+                {"title": "Itens ativos por grupo", "kind": "bar", "rows": [{"label": row["name"], "value": row["active_items"]} for row in sorted_by_items[:10]]},
+                {"title": "Valor do estoque por grupo", "kind": "bar-currency", "rows": [{"label": row["name"], "value": row["value"]} for row in sorted_by_value[:10]]},
+            ],
+            "alerts": [
+                {"tone": "warning" if empty_groups else "success", "title": f"{empty_groups} grupo(s) vazio(s)", "description": "Categorias sem itens ativos no contexto atual.", "focus": "empty"},
+                {"tone": "warning" if groups_without_stock else "success", "title": f"{groups_without_stock} grupo(s) sem estoque", "description": "Possuem itens ativos, mas saldo total não positivo.", "focus": "no_stock"},
+                {"tone": "info", "title": f"Maior concentração: {concentration:.1f}%", "description": "Participação do maior grupo no valor atual do estoque.", "focus": ""},
+            ],
+            "table": {
+                "columns": [
+                    {"key": "name", "label": "Grupo"}, {"key": "parent", "label": "Grupo pai"},
+                    {"key": "active_items", "label": "Itens ativos", "format": "number"},
+                    {"key": "positive_items", "label": "Com estoque", "format": "number"},
+                    {"key": "quantity", "label": "Quantidade", "format": "quantity"},
+                    {"key": "value", "label": "Valor", "format": "currency"},
+                    {"key": "status", "label": "Situação", "format": "status"},
+                ],
+                "rows": sorted_by_value[:30],
+            },
+        }
+
+    if dashboard == "items":
+        item_by_name = {row.name: row for row in item_rows}
+        rows = []
+        for item_name, item_row in item_by_name.items():
+            metric = item_metrics[item_name]
+            disabled = bool(int(item_row.disabled or 0))
+            if disabled and metric["quantity"] != 0:
+                status_key, status = "disabled_stock", "Desabilitado com saldo"
+            elif metric["negative_locations"] or metric["quantity"] < 0:
+                status_key, status = "negative", "Saldo negativo"
+            elif int(item_row.is_stock_item or 0) and metric["quantity"] == 0:
+                status_key, status = "zero", "Sem estoque"
+            elif metric["quantity"] != 0 and metric["value"] == 0:
+                status_key, status = "missing_value", "Sem valor registrado"
+            elif metric["quantity"] > 0:
+                status_key, status = "positive", "Disponível"
+            else:
+                status_key, status = "normal", "Normal"
+            rows.append({
+                "name": item_name,
+                "item_name": item_row.item_name or item_name,
+                "group": item_row.item_group or "—",
+                "quantity": metric["quantity"],
+                "value": metric["value"],
+                "warehouses": len(metric["warehouses"]),
+                "movement": "Sim" if metric["movement"] else f"Não em {period} dias",
+                "status": status,
+                "status_key": status_key,
+                "disabled": disabled,
+            })
+        active_rows = [row for row in rows if not row["disabled"]]
+        positive_items = sum(row["quantity"] > 0 for row in active_rows)
+        zero_items = sum(row["status_key"] == "zero" for row in active_rows)
+        negative_items = sum(row["status_key"] == "negative" for row in rows)
+        disabled_stock = sum(row["status_key"] == "disabled_stock" for row in rows)
+        missing_value = sum(row["status_key"] == "missing_value" for row in rows)
+        no_movement = sum(row["movement"].startswith("Não") for row in active_rows)
+        stock_value = sum(row["value"] for row in rows)
+        priority = {"negative": 0, "disabled_stock": 1, "missing_value": 2, "zero": 3, "positive": 4, "normal": 5}
+        sorted_rows = sorted(rows, key=lambda row: (priority.get(row["status_key"], 9), -abs(row["value"])))
+        top_value = sorted(rows, key=lambda row: row["value"], reverse=True)[:10]
+        return {
+            "dashboard_type": dashboard,
+            "updated_at": now_datetime().strftime("%d/%m/%Y %H:%M"),
+            "period_days": period,
+            "filters": filters_payload,
+            "insight": (
+                f"{len(active_rows)} itens ativos; {positive_items} com saldo positivo, "
+                f"{zero_items} sem estoque e {negative_items} com saldo negativo."
+            ),
+            "cards": [
+                {"label": "Itens ativos", "value": len(active_rows), "description": "Cadastros habilitados", "status": "info", "focus": "active"},
+                {"label": "Com estoque", "value": positive_items, "description": "Saldo atual positivo", "status": "success", "focus": "positive"},
+                {"label": "Sem estoque", "value": zero_items, "description": "Itens ativos com saldo zero", "status": "warning" if zero_items else "success", "focus": "zero"},
+                {"label": "Saldo negativo", "value": negative_items, "description": "Exigem conferência", "status": "danger" if negative_items else "success", "focus": "negative"},
+                {"label": "Valor em estoque", "value": stock_value, "format": "currency", "description": "Nos armazéns permitidos", "status": "info", "focus": ""},
+            ],
+            "charts": [
+                {"title": f"Entradas e saídas — {period} dias", "kind": "paired", "rows": movement_series},
+                {"title": "Itens com maior valor", "kind": "bar-currency", "rows": [{"label": row["name"], "value": row["value"]} for row in top_value]},
+            ],
+            "alerts": [
+                {"tone": "danger" if negative_items else "success", "title": f"{negative_items} item(ns) com saldo negativo", "description": "Prioridade para conferência ou reconciliação.", "focus": "negative"},
+                {"tone": "warning" if disabled_stock or missing_value else "success", "title": f"{disabled_stock} desabilitado(s) com saldo; {missing_value} sem valor", "description": "Cadastros que exigem saneamento.", "focus": "disabled_stock" if disabled_stock else "missing_value"},
+                {"tone": "info", "title": f"{no_movement} item(ns) sem movimentação", "description": f"Nenhuma entrada ou saída nos últimos {period} dias.", "focus": "no_movement"},
+            ],
+            "table": {
+                "columns": [
+                    {"key": "name", "label": "Item"}, {"key": "group", "label": "Grupo"},
+                    {"key": "quantity", "label": "Saldo", "format": "quantity"},
+                    {"key": "value", "label": "Valor", "format": "currency"},
+                    {"key": "warehouses", "label": "Armazéns", "format": "number"},
+                    {"key": "movement", "label": "Movimentação"},
+                    {"key": "status", "label": "Situação", "format": "status"},
+                ],
+                "rows": sorted_rows[:30],
+            },
+        }
+
+    warehouse_by_name = {row.name: row for row in warehouse_rows}
+    rows = []
+    for warehouse_name, warehouse_row in warehouse_by_name.items():
+        metric = warehouse_metrics[warehouse_name]
+        disabled = bool(int(warehouse_row.disabled or 0))
+        if metric["negative_locations"]:
+            status_key, status = "negative", "Saldo negativo"
+        elif disabled and metric["quantity"] != 0:
+            status_key, status = "disabled_stock", "Desabilitado com saldo"
+        elif not metric["movement"]:
+            status_key, status = "no_movement", f"Sem movimento em {period} dias"
+        elif metric["quantity"] > 0:
+            status_key, status = "with_stock", "Com estoque"
+        else:
+            status_key, status = "empty", "Sem estoque"
+        rows.append({
+            "name": warehouse_name,
+            "company": warehouse_row.company or "—",
+            "project": _warehouse_project(warehouse_name),
+            "items": len(metric["items"]),
+            "quantity": metric["quantity"],
+            "value": metric["value"],
+            "entries": metric["entries"],
+            "exits": metric["exits"],
+            "status": status,
+            "status_key": status_key,
+            "disabled": disabled,
+        })
+    active_rows = [row for row in rows if not row["disabled"]]
+    with_stock = sum(row["quantity"] > 0 for row in active_rows)
+    negative_warehouses = sum(row["status_key"] == "negative" for row in rows)
+    no_movement = sum(row["status_key"] == "no_movement" for row in rows)
+    disabled_stock = sum(row["status_key"] == "disabled_stock" for row in rows)
+    total_quantity = sum(row["quantity"] for row in rows)
+    stock_value = sum(row["value"] for row in rows)
+    priority = {"negative": 0, "disabled_stock": 1, "no_movement": 2, "empty": 3, "with_stock": 4}
+    sorted_rows = sorted(rows, key=lambda row: (priority.get(row["status_key"], 9), -abs(row["value"])))
+    top_value = sorted(rows, key=lambda row: row["value"], reverse=True)[:10]
+    top_movement = sorted(rows, key=lambda row: row["entries"] + row["exits"], reverse=True)[:10]
+    return {
+        "dashboard_type": dashboard,
+        "updated_at": now_datetime().strftime("%d/%m/%Y %H:%M"),
+        "period_days": period,
+        "filters": filters_payload,
+        "insight": (
+            f"{len(active_rows)} armazéns ativos e permitidos; {with_stock} possuem estoque, "
+            f"{negative_warehouses} apresentam saldo negativo."
+        ),
+        "cards": [
+            {"label": "Armazéns ativos", "value": len(active_rows), "description": "Permitidos no contexto", "status": "info", "focus": "active"},
+            {"label": "Com estoque", "value": with_stock, "description": "Saldo atual positivo", "status": "success", "focus": "with_stock"},
+            {"label": "Quantidade total", "value": total_quantity, "format": "quantity", "description": "Soma dos saldos atuais", "status": "info", "focus": ""},
+            {"label": "Valor em estoque", "value": stock_value, "format": "currency", "description": "Nos armazéns permitidos", "status": "info", "focus": ""},
+            {"label": "Armazéns críticos", "value": negative_warehouses, "description": "Com algum saldo negativo", "status": "danger" if negative_warehouses else "success", "focus": "negative"},
+        ],
+        "charts": [
+            {"title": "Valor por armazém", "kind": "bar-currency", "rows": [{"label": row["name"], "value": row["value"]} for row in top_value]},
+            {"title": f"Entradas e saídas — {period} dias", "kind": "paired", "rows": [{"label": row["name"], "value": row["entries"], "secondary": row["exits"]} for row in top_movement]},
+        ],
+        "alerts": [
+            {"tone": "danger" if negative_warehouses else "success", "title": f"{negative_warehouses} armazém(ns) com saldo negativo", "description": "Possuem uma ou mais combinações item/armazém negativas.", "focus": "negative"},
+            {"tone": "warning" if no_movement else "success", "title": f"{no_movement} sem movimentação recente", "description": f"Nenhuma entrada ou saída nos últimos {period} dias.", "focus": "no_movement"},
+            {"tone": "warning" if disabled_stock else "success", "title": f"{disabled_stock} desabilitado(s) com saldo", "description": "Armazéns inativos que ainda mantêm quantidade.", "focus": "disabled_stock"},
+        ],
+        "table": {
+            "columns": [
+                {"key": "name", "label": "Armazém"}, {"key": "project", "label": "Projeto"},
+                {"key": "items", "label": "Itens distintos", "format": "number"},
+                {"key": "quantity", "label": "Quantidade", "format": "quantity"},
+                {"key": "value", "label": "Valor", "format": "currency"},
+                {"key": "entries", "label": "Entradas", "format": "quantity"},
+                {"key": "exits", "label": "Saídas", "format": "quantity"},
+                {"key": "status", "label": "Situação", "format": "status"},
+            ],
+            "rows": sorted_rows[:30],
+        },
+    }
 
 
 @frappe.whitelist()
@@ -1510,13 +2035,17 @@ def _workspace_navigation_health(sources):
         if name in by_name and by_name[name].icon != icon
     ]
 
-    routed_assets = ("pending", "tests", "groups", "items", "warehouse", "stock_routes", "admin")
+    routed_assets = ("pending", "tests", "management", "stock_routes", "admin")
     main_theme_source = sources.get("theme", "").split("CDC MONITORING WORKSPACE DASHBOARD INITIALIZER", 1)[0]
     active_mount_safe = (
         "function claimActiveDashboard" in sources.get("theme", "")
         and "function claimCDCActiveDashboard" in main_theme_source
         and "claimActiveDashboard(" not in main_theme_source
         and all("window._cdc_claim_active_dashboard" in sources.get(asset, "") for asset in routed_assets)
+        and all(
+            "window._cdc_render_management_dashboard" in sources.get(asset, "")
+            for asset in ("groups", "items", "warehouse")
+        )
     )
     healthy = not any((duplicates, missing, unexpected, order_errors, icon_errors)) and active_mount_safe
     details = []
@@ -1544,6 +2073,7 @@ def _theme_integrity_health(asset_paths, sources):
         "theme": "js/cdc_theme.js",
         "pending": "js/cdc_pending.js",
         "tests": "js/cdc_tests.js",
+        "management": "js/cdc_management.js",
         "groups": "js/cdc_groups.js",
         "items": "js/cdc_items.js",
         "warehouse": "js/cdc_warehouse.js",
@@ -1606,6 +2136,8 @@ def _theme_integrity_health(asset_paths, sources):
         and "function isItemRoute" in sources.get("theme", "")
         and "function isItemGroupRoute" in sources.get("theme", "")
         and "window._cdc_claim_active_dashboard" in sources.get("tests", "")
+        and "get_catalog_management_dashboard_data" in sources.get("management", "")
+        and "serial !== state.serial" in sources.get("management", "")
         and "repairBrowserThemeState" in sources.get("tests", "")
         and stock_watchdog_safe
         and stock_render_safe
@@ -1614,7 +2146,7 @@ def _theme_integrity_health(asset_paths, sources):
     if healthy:
         version = next(iter(versions))
         return True, (
-            f"9 assets presentes e ligados ao volume público; cache {version} consistente; "
+            f"10 assets presentes e ligados ao volume público; cache {version} consistente; "
             "montagem SPA com escopo correto e idempotência ativa para prevenir telas brancas."
         )
     details = []
@@ -1635,6 +2167,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
         "theme": frappe.get_app_path("cdc_theme", "public", "js", "cdc_theme.js"),
         "pending": frappe.get_app_path("cdc_theme", "public", "js", "cdc_pending.js"),
         "tests": frappe.get_app_path("cdc_theme", "public", "js", "cdc_tests.js"),
+        "management": frappe.get_app_path("cdc_theme", "public", "js", "cdc_management.js"),
         "groups": frappe.get_app_path("cdc_theme", "public", "js", "cdc_groups.js"),
         "items": frappe.get_app_path("cdc_theme", "public", "js", "cdc_items.js"),
         "warehouse": frappe.get_app_path("cdc_theme", "public", "js", "cdc_warehouse.js"),

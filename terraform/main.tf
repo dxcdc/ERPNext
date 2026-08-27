@@ -102,6 +102,7 @@ resource "null_resource" "cdc_theme_setup" {
     javascript_hash         = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_theme.js")
     users_javascript_hash   = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_users.js")
     pending_javascript_hash = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_pending.js")
+    management_js_hash      = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_management.js")
     stock_routes_js_hash    = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js")
     pending_doctype_hash    = filesha256("../apps/cdc_theme/cdc_theme/cdc_theme/doctype/cdc_ongsys_pending_order/cdc_ongsys_pending_order.json")
     pending_state_hash      = filesha256("../apps/cdc_theme/cdc_theme/cdc_theme/doctype/cdc_ongsys_sync_state/cdc_ongsys_sync_state.json")
@@ -114,6 +115,7 @@ resource "null_resource" "cdc_theme_setup" {
       set -euo pipefail
       echo "🎨 Instalando e migrando aplicativo cdc_theme..."
       node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_theme.js
+      node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_management.js
       node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js
       docker exec nexterp-backend-1 sh -lc "bench --site ${var.site_name} list-apps | grep -qx cdc_theme || bench --site ${var.site_name} install-app cdc_theme"
       docker exec nexterp-backend-1 bench --site ${var.site_name} migrate
