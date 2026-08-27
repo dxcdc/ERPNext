@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    var renderTimer;
+    var renderTimers = [];
     var OPTIONS = {page: 'items', dashboardId: 'cdc-items-dashboard', activeClass: 'cdc-custom-items-active'};
 
     function normalize(value) {
@@ -25,8 +25,8 @@
     }
 
     function schedule() {
-        if (renderTimer) clearTimeout(renderTimer);
-        renderTimer = setTimeout(render, 120);
+        renderTimers.forEach(clearTimeout);
+        renderTimers = [0, 250, 800, 1600].map(function(delay) { return setTimeout(render, delay); });
     }
 
     $(document).ready(schedule);

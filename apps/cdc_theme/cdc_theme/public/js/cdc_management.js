@@ -349,18 +349,22 @@
         if (!claim) return;
         var dashboard = claim.dashboard;
         claim.body.classList.add(config.activeClass);
-        var state = states[config.dashboardId] || {serial: 0, key: '', timer: null};
+        var state = states[config.dashboardId] || {serial: 0, key: '', timer: null, pending: false};
         states[config.dashboardId] = state;
         var requestKey = config.page + '|' + JSON.stringify(context);
         if (!force && dashboard.dataset.loaded === '1' && state.key === requestKey) return;
+        if (!force && state.pending && state.key === requestKey) return;
         state.serial += 1;
         var serial = state.serial;
         state.key = requestKey;
+        state.pending = true;
         if (state.timer) window.clearTimeout(state.timer);
         renderSkeleton(dashboard, config);
         state.timer = window.setTimeout(function() {
             if (serial !== state.serial) return;
-            renderFailure(dashboard, config, 'A consulta ultrapassou 15 segundos. Tente novamente ou abra a lista oficial.');
+            state.pending = false;
+            var currentClaim = window._cdc_claim_active_dashboard(config.dashboardId, 'section');
+            if (currentClaim) renderFailure(currentClaim.dashboard, config, 'A consulta ultrapassou 15 segundos. Tente novamente ou abra a lista oficial.');
         }, 15000);
         frappe.call({
             method: 'cdc_theme.api.get_catalog_management_dashboard_data',
@@ -369,6 +373,11 @@
                 if (serial !== state.serial) return;
                 window.clearTimeout(state.timer);
                 state.timer = null;
+                state.pending = false;
+                var currentClaim = window._cdc_claim_active_dashboard(config.dashboardId, 'section');
+                if (!currentClaim) return;
+                dashboard = currentClaim.dashboard;
+                currentClaim.body.classList.add(config.activeClass);
                 var data = response && response.message;
                 if (!data) {
                     renderFailure(dashboard, config, 'O servidor não retornou dados para este contexto.');
@@ -380,7 +389,9 @@
                 if (serial !== state.serial) return;
                 window.clearTimeout(state.timer);
                 state.timer = null;
-                renderFailure(dashboard, config, error && error.message ? error.message : 'Falha ao consultar o resumo gerencial.');
+                state.pending = false;
+                var currentClaim = window._cdc_claim_active_dashboard(config.dashboardId, 'section');
+                if (currentClaim) renderFailure(currentClaim.dashboard, config, error && error.message ? error.message : 'Falha ao consultar o resumo gerencial.');
             }
         });
     }

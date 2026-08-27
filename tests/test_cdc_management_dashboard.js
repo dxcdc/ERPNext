@@ -34,8 +34,11 @@ for (const [name, source, page] of [
     assert.match(source, new RegExp(`page: '${page}'`), `${name} deve declarar seu tipo de painel`);
     assert.match(source, /_cdc_render_management_dashboard\(OPTIONS\)/, `${name} deve usar o motor compartilhado`);
     assert.match(source, /_cdc_remove_management_dashboard\(OPTIONS\)/, `${name} deve remover estado ao sair da rota`);
-    assert.match(source, /clearTimeout\(renderTimer\)/, `${name} deve impedir agendamentos SPA duplicados`);
+    assert.match(source, /renderTimers\.forEach\(clearTimeout\)/, `${name} deve cancelar agendamentos SPA anteriores`);
 }
+
+assert.match(management, /state\.pending && state\.key === requestKey/, 'requisições idênticas em andamento devem ser deduplicadas');
+assert.match(management, /currentClaim\.dashboard/, 'callback deve recuperar o contêiner SPA ativo após a workspace finalizar');
 
 for (const control of [
     'data-cdc-manager-search', 'data-cdc-manager-company', 'data-cdc-manager-project',
