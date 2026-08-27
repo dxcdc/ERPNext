@@ -69,6 +69,8 @@ assert.doesNotMatch(warehouseBlock, /document\.body/, 'painel não pode ser mont
 assert.match(warehouseBlock, /fieldname === 'name' && operator === 'in'/, 'escopo interno não pode virar texto de pesquisa');
 assert.match(warehouseBlock, /filters\.search \? escapeHTML\(filters\.search\) : ''/, 'pesquisa vazia não pode receber marcador visual');
 assert.match(warehouseBlock, /list\.\$result && typeof list\.refresh === 'function'/, 'lista só pode atualizar depois de pronta');
+const routerBlock = source.slice(source.indexOf("frappe.router.on('change'", routeStart));
+assert.doesNotMatch(routerBlock, /warehouseDashboard\.dataset\.loaded = '0'/, 'evento da rota não pode invalidar um contexto idêntico');
 
 for (const controlId of [
     'cdc-warehouse-search',

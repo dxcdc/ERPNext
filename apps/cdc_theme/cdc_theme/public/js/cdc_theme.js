@@ -3646,11 +3646,6 @@
                 if (groupDashboard) groupDashboard.dataset.loaded = '0';
                 var itemDashboard = document.getElementById('cdc-item-list-dashboard');
                 if (itemDashboard) itemDashboard.dataset.loaded = '0';
-                var warehouseDashboard = document.getElementById('cdc-warehouse-dashboard');
-                if (warehouseDashboard) warehouseDashboard.dataset.loaded = '0';
-                if (warehouseListLoading) warehouseRequestSerial += 1;
-                warehouseListLoading = false;
-                warehouseActiveRequestKey = '';
                 renderItemGroup();
                 renderItemList();
                 renderWarehouseList();
