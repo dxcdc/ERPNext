@@ -142,6 +142,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("setNativeReportFilter(report, 'warehouse'", source)
         self.assertIn("setNativeReportFilter(report, 'warehouse', options.warehouses)", source)
         self.assertIn("Todos os armazéns permitidos", source)
+        self.assertIn("warehouse ? [warehouse] : permittedWarehouses", source)
         self.assertIn("!Array.isArray(queryReport.filters) || !queryReport.filters.length", source)
         self.assertIn("setNativeReportFilter(report, 'item_code'", source)
         self.assertIn("report.refresh()", source)

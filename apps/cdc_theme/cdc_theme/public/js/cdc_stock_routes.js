@@ -520,6 +520,7 @@
                     dashboard.innerHTML = '<div class="cdc-stock-context-state is-error">Não foi possível carregar os filtros permitidos.</div>';
                     return;
                 }
+                dashboard._cdcPermittedWarehouses = (options.warehouses || []).slice();
                 var report = window.frappe && frappe.query_report;
                 var selectedWarehouses = reportFilterValues('warehouse');
                 if (!selectedWarehouses.length && report && (options.warehouses || []).length) {
@@ -598,15 +599,19 @@
             var item = clearOptional ? '' : value('[data-cdc-report-item]');
             var warehouse = clearOptional ? '' : value('[data-cdc-report-warehouse]');
             var group = clearOptional ? '' : value('[data-cdc-report-group]');
+            var permittedWarehouses = Array.isArray(dashboard._cdcPermittedWarehouses) ? dashboard._cdcPermittedWarehouses : [];
             setNativeReportFilter(report, 'company', value('[data-cdc-report-company]'));
             setNativeReportFilter(report, 'from_date', fromDate);
             setNativeReportFilter(report, 'to_date', toDate);
-            setNativeReportFilter(report, 'warehouse', warehouse ? [warehouse] : []);
+            setNativeReportFilter(report, 'warehouse', warehouse ? [warehouse] : permittedWarehouses);
             setNativeReportFilter(report, 'item_code', item ? [item] : []);
             if (definition.key === 'stock-balance') setNativeReportFilter(report, 'item_group', group ? [group] : []);
-            dashboard.dataset.loaded = '0';
+            dashboard.dataset.loaded = '1';
+            dashboard.dataset.requestKey = definition.key + '|' + JSON.stringify(getReportContext());
             var result = typeof report.refresh === 'function' ? report.refresh() : null;
-            Promise.resolve(result).finally(function() { scheduleRender(220); });
+            Promise.resolve(result).finally(function() {
+                window.setTimeout(function() { updateReportMetrics(dashboard, definition); }, 220);
+            });
         }
         dashboard.querySelector('[data-cdc-report-apply]').addEventListener('click', function() { execute(false); });
         dashboard.querySelector('[data-cdc-report-item]').addEventListener('keydown', function(event) {

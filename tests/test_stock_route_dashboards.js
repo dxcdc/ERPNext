@@ -63,6 +63,7 @@ assert.match(source, /setNativeReportFilter\(report, 'warehouse'/, 'armazém dev
 assert.match(source, /setNativeReportFilter\(report, 'item_code'/, 'pesquisa deve atualizar o item oficial do Query Report');
 assert.match(source, /setNativeReportFilter\(report, 'warehouse', options\.warehouses\)/, 'relatório sem armazém deve receber todo o escopo permitido');
 assert.match(source, /Todos os armazéns permitidos/, 'filtro deve explicar o escopo RBAC aplicado');
+assert.match(source, /warehouse \? \[warehouse\] : permittedWarehouses/, 'reexecução deve preservar todo o escopo permitido sem filtro vazio');
 assert.match(source, /!Array\.isArray\(queryReport\.filters\) \|\| !queryReport\.filters\.length/, 'painel deve aguardar os filtros nativos antes de executar');
 assert.match(source, /typeof report\.refresh === 'function' \? report\.refresh\(\)/, 'relatório deve ser reexecutado após filtros');
 assert.match(source, /serial !== requestSerial/, 'respostas antigas de navegação SPA devem ser descartadas');
