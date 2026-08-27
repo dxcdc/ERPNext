@@ -101,6 +101,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("currentBody.insertBefore(dashboard, currentListBody)", warehouse_block)
         self.assertIn("frappe.set_route('List', 'Warehouse', 'List', routeFilters)", warehouse_block)
         self.assertIn("data.scope", warehouse_block)
+        self.assertIn("fieldname === 'name' && operator === 'in'", warehouse_block)
+        self.assertIn("list.$result && typeof list.refresh === 'function'", warehouse_block)
         for control_id in (
             "cdc-warehouse-search", "cdc-warehouse-project", "cdc-warehouse-company",
             "cdc-warehouse-status", "cdc-warehouse-kind", "cdc-warehouse-parent",

@@ -3390,13 +3390,26 @@
         });
     }
 
+    function getWarehouseRouteValue(fieldname) {
+        var params = new URLSearchParams(window.location.search || '');
+        if (params.has(fieldname)) return params.get(fieldname) || '';
+        var options = window.frappe && frappe.get_route_options ? frappe.get_route_options() : (window.frappe && frappe.route_options);
+        var value = options && options[fieldname];
+        if (Array.isArray(value)) {
+            var operator = normalizeRoute(value[0]);
+            if (fieldname === 'name' && operator === 'in') return '';
+            value = value.length > 1 ? value[1] : '';
+        }
+        return value === undefined || value === null ? '' : String(value);
+    }
+
     function getWarehouseListContext() {
         return {
-            search: getCatalogRouteValue('name').replace(/^%|%$/g, ''),
-            company: getCatalogRouteValue('company'),
-            disabled: getCatalogRouteValue('disabled'),
-            is_group: getCatalogRouteValue('is_group'),
-            parent_warehouse: getCatalogRouteValue('parent_warehouse'),
+            search: getWarehouseRouteValue('name').replace(/^%|%$/g, ''),
+            company: getWarehouseRouteValue('company'),
+            disabled: getWarehouseRouteValue('disabled'),
+            is_group: getWarehouseRouteValue('is_group'),
+            parent_warehouse: getWarehouseRouteValue('parent_warehouse'),
             selected_project: warehouseSelectedProject
         };
     }
@@ -3424,8 +3437,15 @@
             list._cdcWarehouseScope = {active: active, names: names};
             list._cdcWarehouseScopeKey = scopeKey;
             if ((previousKey !== undefined && previousKey !== scopeKey) || (previousKey === undefined && active)) {
-                list.start = 0;
-                list.refresh();
+                (function refreshWhenReady(attempt) {
+                    if (!isWarehouseListRoute() || window.cur_list !== list) return;
+                    if (list.$result && typeof list.refresh === 'function') {
+                        list.start = 0;
+                        list.refresh();
+                        return;
+                    }
+                    if (attempt < 8) setTimeout(function() { refreshWhenReady(attempt + 1); }, 150);
+                })(0);
             }
             return true;
         }

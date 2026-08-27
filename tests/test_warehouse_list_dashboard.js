@@ -36,6 +36,27 @@ assert.equal(detects([], '/app/warehouse/view/list'), true, 'URL canônica da li
 assert.equal(detects(['List', 'Item', 'List'], '/app/item'), false, 'lista de Itens não pode receber o painel de Armazéns');
 assert.equal(detects([], '/app/item-group'), false, 'rota não relacionada não pode receber o painel');
 
+const valueStart = source.indexOf('function getWarehouseRouteValue(', routeEnd);
+const valueEnd = source.indexOf('function getWarehouseListContext()', valueStart);
+assert.ok(valueStart > routeEnd && valueEnd > valueStart, 'leitor seguro dos filtros não encontrado');
+const valueSource = source.slice(valueStart, valueEnd);
+function routeValue(fieldname, options, search = '') {
+    const fakeWindow = {
+        location: {search},
+        frappe: {get_route_options() { return options; }}
+    };
+    const readValue = new Function(
+        'window',
+        'frappe',
+        `${source.slice(normalizeStart, normalizeEnd)}\n${valueSource}; return getWarehouseRouteValue(${JSON.stringify(fieldname)});`
+    );
+    return readValue(fakeWindow, fakeWindow.frappe);
+}
+assert.equal(routeValue('name', {name: ['in', ['A - C', 'B - C']]}), '', 'filtro interno de escopo não pode alimentar a pesquisa');
+assert.equal(routeValue('name', {name: ['like', '%Central%']}), '%Central%', 'pesquisa nativa deve ser preservada');
+assert.equal(routeValue('company', {company: 'CDC'}), 'CDC', 'empresa da rota deve ser preservada');
+assert.equal(routeValue('disabled', {}, '?disabled=0'), '0', 'query string deve prevalecer sobre estado interno');
+
 const warehouseBlock = source.slice(routeStart, source.indexOf('function init()', routeStart));
 assert.match(warehouseBlock, /get_warehouse_list_dashboard_data/, 'painel deve consultar o endpoint real');
 assert.match(warehouseBlock, /body\.insertBefore\(dashboard, listBody\)/, 'painel deve ficar acima da lista nativa');
@@ -43,6 +64,8 @@ assert.match(warehouseBlock, /warehouseActiveRequestKey === contextKey/, 'requis
 assert.match(warehouseBlock, /requestSerial !== warehouseRequestSerial/, 'respostas antigas devem ser descartadas');
 assert.match(warehouseBlock, /filters\.push\(\[this\.doctype, 'name', 'in', names\]\)/, 'projeto deve limitar a consulta nativa');
 assert.doesNotMatch(warehouseBlock, /document\.body/, 'painel não pode ser montado no body global');
+assert.match(warehouseBlock, /fieldname === 'name' && operator === 'in'/, 'escopo interno não pode virar texto de pesquisa');
+assert.match(warehouseBlock, /list\.\$result && typeof list\.refresh === 'function'/, 'lista só pode atualizar depois de pronta');
 
 for (const controlId of [
     'cdc-warehouse-search',
