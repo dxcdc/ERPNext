@@ -66,6 +66,7 @@ assert.match(source, /Todos os armazéns permitidos/, 'filtro deve explicar o es
 assert.match(source, /warehouse \? \[warehouse\] : permittedWarehouses/, 'reexecução deve preservar todo o escopo permitido sem filtro vazio');
 assert.match(source, /!Array\.isArray\(queryReport\.filters\) \|\| !queryReport\.filters\.length/, 'painel deve aguardar os filtros nativos antes de executar');
 assert.match(source, /typeof report\.refresh === 'function' \? report\.refresh\(\)/, 'relatório deve ser reexecutado após filtros');
+assert.match(source, /outQty \+= Math\.abs\(Number\(row\.out_qty \|\| 0\)\)/, 'card de saídas deve exibir volume positivo sem alterar a tabela nativa');
 assert.match(source, /serial !== requestSerial/, 'respostas antigas de navegação SPA devem ser descartadas');
 assert.doesNotMatch(source, /frappe\.db/, 'o navegador não pode consultar o banco diretamente');
 

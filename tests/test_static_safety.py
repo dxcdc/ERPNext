@@ -146,6 +146,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("!Array.isArray(queryReport.filters) || !queryReport.filters.length", source)
         self.assertIn("setNativeReportFilter(report, 'item_code'", source)
         self.assertIn("report.refresh()", source)
+        self.assertIn("outQty += Math.abs(Number(row.out_qty || 0))", source)
         self.assertNotIn("frappe.db", source)
 
         tree = ast.parse(api_source)

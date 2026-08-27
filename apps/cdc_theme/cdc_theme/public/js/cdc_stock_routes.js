@@ -443,7 +443,7 @@
             if (item) itemSet[item] = true;
             if (row.warehouse) warehouseSet[row.warehouse] = true;
             inQty += Number(row.in_qty || 0);
-            outQty += Number(row.out_qty || 0);
+            outQty += Math.abs(Number(row.out_qty || 0));
             var balance = Number(row.bal_qty !== undefined ? row.bal_qty : (row.qty_after_transaction || 0));
             balanceQty += balance;
             if (balance > 0) positive += 1;
