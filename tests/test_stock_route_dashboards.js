@@ -11,7 +11,7 @@ const source = fs.readFileSync(
 
 const definitionsStart = source.indexOf('var ROUTES =');
 const detectorEnd = source.indexOf('function removeDashboard()');
-assert.ok(definitionsStart >= 0 && detectorEnd > definitionsStart, 'detector contextual das quatro rotas não encontrado');
+assert.ok(definitionsStart >= 0 && detectorEnd > definitionsStart, 'detector contextual das cinco rotas não encontrado');
 const detectorSource = source.slice(definitionsStart, detectorEnd);
 
 function detect(route, pathname, search = '') {
@@ -36,6 +36,16 @@ assert.equal(
     'URL direta de lançamentos deve ser detectada'
 );
 assert.equal(
+    detect(['List', 'Stock Entry', 'List'], '/app/stock-entry'),
+    'stock-entry-list',
+    'lista nativa de Stock Entry deve ser detectada pela rota SPA'
+);
+assert.equal(
+    detect([], '/app/stock-entry/view/list'),
+    'stock-entry-list',
+    'URL direta da lista de Stock Entry deve ser detectada'
+);
+assert.equal(
     detect(['List', 'Stock Reconciliation', 'List'], '/app/stock-reconciliation'),
     'stock-reconciliation',
     'lista de conciliações deve ser detectada'
@@ -50,7 +60,7 @@ assert.equal(
     'stock-balance',
     'Balanço de Estoque deve aceitar URL acentuada'
 );
-assert.equal(detect(['List', 'Stock Entry', 'List'], '/app/stock-entry'), null, 'lista comum de Stock Entry não pode receber o painel');
+assert.equal(detect(['Form', 'Stock Entry', 'MAT-STE-1'], '/app/stock-entry/MAT-STE-1'), null, 'formulário individual de Stock Entry não pode receber o painel');
 assert.equal(detect(['Form', 'Stock Reconciliation', 'MAT-RECO-1'], '/app/stock-reconciliation/MAT-RECO-1'), null, 'formulário individual não pode receber o painel');
 assert.equal(detect(['query-report', 'Stock Balance'], '/app/query-report/Stock Balance'), null, 'relatório padrão não relacionado não pode ser alterado');
 
@@ -58,6 +68,7 @@ assert.match(source, /_cdc_claim_active_dashboard\('cdc-stock-route-dashboard'/,
 assert.match(source, /get_stock_document_dashboard_data/, 'cards documentais devem vir do endpoint real');
 assert.match(source, /get_stock_report_filter_options/, 'opções dos relatórios devem respeitar o backend');
 assert.match(source, /frappe\.set_route\('List', 'Stock Entry', 'Report'/, 'filtros de lançamentos devem atualizar o relatório nativo');
+assert.match(source, /frappe\.set_route\('List', 'Stock Entry', 'List'/, 'filtros de lançamentos devem atualizar a lista nativa');
 assert.match(source, /frappe\.set_route\('List', 'Stock Reconciliation', 'List'/, 'filtros de conciliação devem atualizar a lista nativa');
 assert.match(source, /setNativeReportFilter\(report, 'warehouse'/, 'armazém deve atualizar o filtro oficial do Query Report');
 assert.match(source, /setNativeReportFilter\(report, 'item_code'/, 'pesquisa deve atualizar o item oficial do Query Report');

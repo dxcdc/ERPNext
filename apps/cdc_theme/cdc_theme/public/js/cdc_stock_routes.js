@@ -9,6 +9,14 @@
     var pendingDocumentUntil = 0;
 
     var ROUTES = {
+        'stock-entry-list': {
+            kind: 'document',
+            doctype: 'Stock Entry',
+            movementField: 'stock_entry_type',
+            title: 'Lançamentos de Estoque',
+            subtitle: 'Indicadores e filtros aplicados à lista nativa de movimentações',
+            icon: '📦'
+        },
         'stock-entry-report': {
             kind: 'document',
             doctype: 'Stock Entry',
@@ -66,6 +74,11 @@
             (parts[0] === 'list' && parts[1] === 'stock-entry' && parts[2] === 'report' && parts[3] === 'lancamento-no-estoque-cdc') ||
             path === '/app/stock-entry/view/report/lancamento no estoque - cdc'
         ) return Object.assign({key: 'stock-entry-report'}, ROUTES['stock-entry-report']);
+
+        if (
+            (parts[0] === 'list' && parts[1] === 'stock-entry' && parts[2] === 'list') ||
+            path === '/app/stock-entry' || path === '/app/stock-entry/view/list'
+        ) return Object.assign({key: 'stock-entry-list'}, ROUTES['stock-entry-list']);
 
         if (
             (parts[0] === 'list' && parts[1] === 'stock-reconciliation') ||
@@ -238,7 +251,7 @@
     }
 
     function documentCards(definition, summary) {
-        if (definition.key === 'stock-entry-report') {
+        if (definition.doctype === 'Stock Entry') {
             return [
                 card('Resultados', number(summary.total_results), 'Documentos no contexto atual', 'is-info'),
                 card('Confirmados', number(summary.submitted), 'Movimentações enviadas', 'is-status'),
@@ -360,6 +373,9 @@
             } else if (definition.key === 'stock-entry-report') {
                 frappe.set_route('List', 'Stock Entry', 'Report', 'Lancamento no Estoque - CDC', filters);
                 scheduleRender(180);
+            } else if (definition.key === 'stock-entry-list') {
+                frappe.set_route('List', 'Stock Entry', 'List', filters);
+                scheduleRender(180);
             } else {
                 frappe.set_route('List', 'Stock Reconciliation', 'List', filters);
                 scheduleRender(180);
@@ -381,6 +397,9 @@
                 Promise.resolve(cleared).finally(function() { scheduleRender(180); });
             } else if (definition.key === 'stock-entry-report') {
                 frappe.set_route('List', 'Stock Entry', 'Report', 'Lancamento no Estoque - CDC');
+                scheduleRender(180);
+            } else if (definition.key === 'stock-entry-list') {
+                frappe.set_route('List', 'Stock Entry', 'List');
                 scheduleRender(180);
             } else {
                 frappe.set_route('List', 'Stock Reconciliation', 'List');
