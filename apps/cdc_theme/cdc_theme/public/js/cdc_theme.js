@@ -18,11 +18,18 @@
     var lastDiagnosticReportText = '';
     var stockRequestSerial = 0;
     var stockRequestTimer = null;
+    var stockActiveRequestKey = '';
     var stockRenderStage = 'inicialização';
 
     function claimCDCActiveDashboard(id, tagName) {
         var claim = window._cdc_claim_active_dashboard;
         return typeof claim === 'function' ? claim(id, tagName) : null;
+    }
+
+    function escapeHTML(value) {
+        var element = document.createElement('div');
+        element.textContent = value === null || value === undefined || value === '' ? '—' : String(value);
+        return element.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function getPilotProjectContext() {
@@ -962,10 +969,14 @@
 
     function renderStockDashboardFailure(message) {
         isDashboardLoading = false;
+        stockActiveRequestKey = '';
         window.clearTimeout(stockRequestTimer);
         stockRequestTimer = null;
         var claim = claimCDCActiveDashboard('cdc-stock-exec-dashboard', 'div');
         if (!claim || !isStockWorkspacePage()) return;
+        claim.dashboard.dataset.loaded = '0';
+        claim.dashboard.dataset.renderKey = '';
+        claim.dashboard.dataset.state = 'error';
         claim.dashboard.innerHTML = `<div class="cdc-dashboard-load-state is-error"><strong>${escapeHTML(message)}</strong><span>A lista nativa foi preservada e você pode tentar montar o painel novamente.</span><button type="button" class="btn btn-sm btn-primary" data-cdc-dashboard-retry="stock">Tentar novamente</button></div>`;
         restoreNativeStockWorkspaceContent();
     }
@@ -982,8 +993,24 @@
     function cancelStockDashboardRequest() {
         if (isDashboardLoading || stockRequestTimer) stockRequestSerial += 1;
         isDashboardLoading = false;
+        stockActiveRequestKey = '';
         window.clearTimeout(stockRequestTimer);
         stockRequestTimer = null;
+    }
+
+    function getStockDashboardRenderKey(pilotProject) {
+        var categoryState = Object.keys(activeCategoriesMap).sort().map(function(label) {
+            return label + ':' + (activeCategoriesMap[label] === false ? '0' : '1');
+        }).join(',');
+        return [
+            pilotProject ? pilotProject.name : '',
+            currentSelectedUnit,
+            currentSelectedPeriod,
+            currentOccurrencesType,
+            currentSelectedProjectFilter,
+            currentTableTypeFilter,
+            categoryState
+        ].join('|');
     }
 
     function renderStockDashboard() {
@@ -994,8 +1021,6 @@
             return;
         }
 
-        if (isDashboardLoading) return;
-
         var pilotProject = getPilotProjectContext();
         if (pilotProject) {
             currentSelectedUnit = 'All';
@@ -1005,15 +1030,29 @@
             currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
         }
 
+        var renderKey = getStockDashboardRenderKey(pilotProject);
+        if (isDashboardLoading) {
+            if (stockActiveRequestKey === renderKey) return;
+            cancelStockDashboardRequest();
+        }
+
         var claim = claimCDCActiveDashboard('cdc-stock-exec-dashboard', 'div');
         if (!claim) return;
         var workspaceBody = claim.body;
         var dashDiv = claim.dashboard;
+        if (dashDiv.dataset.loaded === '1' && dashDiv.dataset.renderKey === renderKey && dashDiv.querySelector('.cdc-exec-card')) {
+            hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
+            return;
+        }
         dashDiv.style.cssText = 'margin-bottom: 0; user-select: none; -webkit-user-select: none; width: 100%; min-height: 400px; display: block !important; visibility: visible !important; opacity: 1 !important;';
+        dashDiv.dataset.loaded = '0';
+        dashDiv.dataset.renderKey = '';
+        dashDiv.dataset.state = 'loading';
         dashDiv.innerHTML = '<div class="cdc-dashboard-load-state"><span class="cdc-dashboard-spinner" aria-hidden="true"></span><strong>Carregando o painel de estoque...</strong><span>Consultando dados reais e permissões dos armazéns.</span></div>';
         hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
         isDashboardLoading = true;
+        stockActiveRequestKey = renderKey;
         var requestSerial = ++stockRequestSerial;
         startStockLoadingWatchdog(requestSerial);
 
@@ -1031,6 +1070,7 @@
                 window.clearTimeout(stockRequestTimer);
                 stockRequestTimer = null;
                 isDashboardLoading = false;
+                stockActiveRequestKey = '';
                 stockRenderStage = 'validação da resposta';
                 try {
                 if (!r || !r.message) {
@@ -1545,6 +1585,9 @@
                     ${categoryFullWidthCard}
                     ${occurrencesSection}
                 `;
+                dashDiv.dataset.loaded = '1';
+                dashDiv.dataset.renderKey = getStockDashboardRenderKey(pilotProject);
+                dashDiv.dataset.state = 'ready';
                 stockRenderStage = 'inicialização dos gráficos';
                 setupStockPageNavigator(dashDiv);
 
@@ -1696,6 +1739,7 @@
                 if (requestSerial !== stockRequestSerial) return;
                 window.clearTimeout(stockRequestTimer);
                 stockRequestTimer = null;
+                stockActiveRequestKey = '';
                 renderStockDashboardFailure('Falha ao consultar o painel de estoque.');
             }
         });

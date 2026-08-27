@@ -1421,8 +1421,8 @@ QUALITY_GATE_COPY = {
         "stages": ("Preparação", "Permissões", "Assets e cache", "Montagem e watchdog", "Resultado"),
         "summary": "Detecta falhas de assets, cache, montagem SPA e render que causam tela branca ou carregamento infinito.",
         "details": (
-            "A verificação confirma CSS, JavaScript, versão de cache e proteções contra exceção ou tempo limite durante a montagem no navegador.",
-            "O reparo reconcilia workspaces e caches; se os dados chegam mas o render falha, o painel agora mostra a etapa exata e permite tentar novamente.",
+            "A verificação confirma CSS, JavaScript, versão de cache, escopo dos helpers e idempotência: eventos repetidos não podem recolocar o spinner nem consultar novamente sem mudança de filtro.",
+            "O reparo reconcilia workspaces e caches; se os dados chegam mas o render falha, o painel mostra a etapa exata e permite tentar novamente.",
         ),
     },
     "production-validation": {
@@ -1579,6 +1579,15 @@ def _theme_integrity_health(asset_paths, sources):
         and stale_guard in error_source and clear_timer in error_source
         and error_source.find(stale_guard) < error_source.find(clear_timer)
     )
+    stock_module_end = theme_source.find("})();")
+    stock_module_source = theme_source[:stock_module_end] if stock_module_end > 0 else ""
+    stock_render_safe = (
+        "function escapeHTML(value)" in stock_module_source
+        and "function getStockDashboardRenderKey" in stock_module_source
+        and "stockActiveRequestKey === renderKey" in stock_render_source
+        and "dashDiv.dataset.loaded === '1'" in stock_render_source
+        and "dashDiv.dataset.state = 'ready'" in callback_source
+    )
     spa_signatures = (
         "function claimActiveDashboard" in sources.get("theme", "")
         and "function claimCDCActiveDashboard" in sources.get("theme", "")
@@ -1588,13 +1597,14 @@ def _theme_integrity_health(asset_paths, sources):
         and "window._cdc_claim_active_dashboard" in sources.get("tests", "")
         and "repairBrowserThemeState" in sources.get("tests", "")
         and stock_watchdog_safe
+        and stock_render_safe
     )
     healthy = not missing_sources and not unpublished and version_consistent and spa_signatures
     if healthy:
         version = next(iter(versions))
         return True, (
             f"7 assets presentes e ligados ao volume público; cache {version} consistente; "
-            "montagem SPA ativa para prevenir telas brancas."
+            "montagem SPA com escopo correto e idempotência ativa para prevenir telas brancas."
         )
     details = []
     if missing_sources:
@@ -1604,7 +1614,7 @@ def _theme_integrity_health(asset_paths, sources):
     if not version_consistent:
         details.append("versões de cache divergentes ou ausentes")
     if not spa_signatures:
-        details.append("assinaturas de montagem SPA ou proteção contra requisições concorrentes incompletas")
+        details.append("escopo, idempotência ou proteção contra requisições concorrentes do Estoque incompletos")
     return False, "; ".join(details)
 
 

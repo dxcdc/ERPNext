@@ -45,6 +45,20 @@ assert.equal(
 );
 
 const mainThemeSource = themeSource.split('CDC MONITORING WORKSPACE DASHBOARD INITIALIZER', 1)[0];
+
+// Reproduz a causa confirmada no Chrome autenticado: o Estoque chamava
+// escapeHTML, mas o helper existia apenas no segundo IIFE (Monitoramento).
+const legacyEscapeCall = new Function(`'use strict'; return escapeHTML('Armazém');`);
+assert.throws(
+    legacyEscapeCall,
+    error => error && error.name === 'ReferenceError',
+    'a ausência do helper no módulo do Estoque deve reproduzir o spinner permanente'
+);
+assert.match(
+    mainThemeSource,
+    /function escapeHTML\(value\)/,
+    'escapeHTML precisa estar no mesmo módulo fechado que renderiza o Estoque'
+);
 assert.doesNotMatch(
     mainThemeSource,
     /(^|[^A-Za-z0-9_])claimActiveDashboard\(/m,
@@ -57,6 +71,10 @@ assert.match(mainThemeSource, /renderStockDashboardFailure/);
 assert.match(mainThemeSource, /stockRequestTimer/);
 assert.match(mainThemeSource, /Tempo limite ao aguardar a resposta do painel de estoque/);
 assert.match(mainThemeSource, /function cancelStockDashboardRequest\(\)/);
+assert.match(mainThemeSource, /function getStockDashboardRenderKey\(pilotProject\)/);
+assert.match(mainThemeSource, /stockActiveRequestKey === renderKey/);
+assert.match(mainThemeSource, /dashDiv\.dataset\.loaded === '1'/);
+assert.match(mainThemeSource, /dashDiv\.dataset\.state = 'ready'/);
 assert.doesNotMatch(mainThemeSource, /Date\.now\(\) - lastFetchTime > 6000/);
 assert.match(mainThemeSource, /stockRenderStage = 'montagem do conteúdo no navegador'/);
 assert.match(mainThemeSource, /Falha ao montar o painel na etapa:/);

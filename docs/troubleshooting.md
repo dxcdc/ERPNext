@@ -233,3 +233,18 @@ Esta seção documenta problemas reais ocorridos durante a homologação e teste
     1. Atualizado o `timeout` de `30s` para `90s` no arquivo `common.py` da GCP e repositório.
     2. Documentado no relatório de inquérito (`docs/diagnostico_integracao_ongsys.md`) que o gestor do ONGSYS precisa alterar os pedidos de `"Ordem gerada"` para `"Ordem finalizada"` (ou ajustar o filtro no código).
 *   **Lição Aprendida**: Em integrações com sistemas externos legados, aumente os limites de *timeout* HTTP e faça validações ponta-a-ponta dos estados dos objetos para distinguir falhas de transporte de regras de negócio.
+
+### Ocorrência 06: CDC Estoque preso no spinner mesmo com API HTTP 200
+*   **Sintoma**: A rota autenticada `/app/cdc-estoque` permanece em `Carregando o painel de estoque...`; atualizar a página repete o problema e os cards nunca aparecem.
+*   **Evidência do inquérito**:
+    1. O Nginx registrava várias chamadas a `cdc_theme.api.get_stock_dashboard_data`, todas com HTTP 200 e payload válido.
+    2. Um ensaio em Chrome autenticado confirmou `spinnerCount=1`, `cardCount=0` e o asset de cache esperado.
+    3. O Console revelou `ReferenceError: escapeHTML is not defined` na preparação dos filtros. O mesmo erro ocorria no tratamento da exceção, impedindo a mensagem de falha de substituir o spinner.
+*   **Causa raiz**: `renderStockDashboard` estava no primeiro módulo fechado (IIFE) do `cdc_theme.js`, mas `escapeHTML` existia somente no segundo IIFE, dedicado ao Monitoramento. Além disso, os múltiplos agendamentos de montagem não reconheciam um painel já concluído e repetiam consultas sem mudança de filtro.
+*   **Correção permanente**:
+    1. manter `escapeHTML` no mesmo IIFE do Estoque;
+    2. marcar o painel com estados `loading`, `ready` e `error`;
+    3. calcular uma chave determinística dos filtros e não consultar novamente quando o painel pronto ainda corresponde à mesma chave;
+    4. invalidar com segurança uma requisição ativa quando os filtros realmente mudarem;
+    5. testar explicitamente o escopo do helper, a idempotência, o watchdog e a ordem de descarte de respostas antigas.
+*   **Critério de aceite**: em Chrome autenticado, após pelo menos 20 segundos, deve existir exatamente um dashboard, nenhum spinner, cards renderizados, nenhuma exceção no Console e apenas uma chamada da API para a combinação corrente de filtros.

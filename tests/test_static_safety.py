@@ -100,6 +100,7 @@ class StaticSafetyTest(unittest.TestCase):
 
     def test_stock_request_watchdog_cannot_be_cancelled_by_stale_response(self):
         source = THEME_JS.read_text()
+        stock_module = source[:source.index("})();")]
         stock_block = source[
             source.index("function renderStockDashboard()"):
             source.index("// --- EVENT DELEGATION GLOBAL ---")
@@ -114,6 +115,11 @@ class StaticSafetyTest(unittest.TestCase):
         )
         self.assertNotIn("Date.now() - lastFetchTime > 6000", stock_block)
         self.assertIn("function cancelStockDashboardRequest()", source)
+        self.assertIn("function escapeHTML(value)", stock_module)
+        self.assertIn("function getStockDashboardRenderKey(pilotProject)", stock_module)
+        self.assertIn("stockActiveRequestKey === renderKey", stock_block)
+        self.assertIn("dashDiv.dataset.loaded === '1'", stock_block)
+        self.assertIn("dashDiv.dataset.state = 'ready'", callback_block)
 
     def test_infrastructure_has_no_default_admin_password(self):
         self.assertNotIn("MYSQL_ROOT_PASSWORD: admin", COMPOSE_YML.read_text())
