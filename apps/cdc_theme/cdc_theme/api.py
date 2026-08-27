@@ -1554,6 +1554,31 @@ def _theme_integrity_health(asset_paths, sources):
     hook_source = sources.get("hooks", "")
     versions = set(re.findall(r"cdc_theme/[^\"']+\?v=([0-9A-Za-z_-]+)", hook_source))
     version_consistent = len(versions) == 1
+    theme_source = sources.get("theme", "")
+    stock_render_start = theme_source.find("function renderStockDashboard()")
+    stock_render_end = theme_source.find("// --- EVENT DELEGATION GLOBAL ---", stock_render_start)
+    stock_render_source = (
+        theme_source[stock_render_start:stock_render_end]
+        if stock_render_start >= 0 and stock_render_end > stock_render_start else ""
+    )
+    callback_start = stock_render_source.find("callback: function(r)")
+    error_start = stock_render_source.find("error: function(err)", callback_start)
+    callback_source = (
+        stock_render_source[callback_start:error_start]
+        if callback_start >= 0 and error_start > callback_start else ""
+    )
+    error_source = stock_render_source[error_start:] if error_start >= 0 else ""
+    stale_guard = "requestSerial !== stockRequestSerial"
+    clear_timer = "window.clearTimeout(stockRequestTimer)"
+    stock_watchdog_safe = (
+        "function startStockLoadingWatchdog" in theme_source
+        and "function cancelStockDashboardRequest" in theme_source
+        and "Date.now() - lastFetchTime > 6000" not in stock_render_source
+        and stale_guard in callback_source and clear_timer in callback_source
+        and callback_source.find(stale_guard) < callback_source.find(clear_timer)
+        and stale_guard in error_source and clear_timer in error_source
+        and error_source.find(stale_guard) < error_source.find(clear_timer)
+    )
     spa_signatures = (
         "function claimActiveDashboard" in sources.get("theme", "")
         and "function claimCDCActiveDashboard" in sources.get("theme", "")
@@ -1562,6 +1587,7 @@ def _theme_integrity_health(asset_paths, sources):
         and "function isItemGroupRoute" in sources.get("theme", "")
         and "window._cdc_claim_active_dashboard" in sources.get("tests", "")
         and "repairBrowserThemeState" in sources.get("tests", "")
+        and stock_watchdog_safe
     )
     healthy = not missing_sources and not unpublished and version_consistent and spa_signatures
     if healthy:
@@ -1578,7 +1604,7 @@ def _theme_integrity_health(asset_paths, sources):
     if not version_consistent:
         details.append("versões de cache divergentes ou ausentes")
     if not spa_signatures:
-        details.append("assinaturas de montagem SPA incompletas")
+        details.append("assinaturas de montagem SPA ou proteção contra requisições concorrentes incompletas")
     return False, "; ".join(details)
 
 

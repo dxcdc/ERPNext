@@ -56,6 +56,8 @@ assert.match(mainThemeSource, /Carregando o painel de estoque/);
 assert.match(mainThemeSource, /renderStockDashboardFailure/);
 assert.match(mainThemeSource, /stockRequestTimer/);
 assert.match(mainThemeSource, /Tempo limite ao aguardar a resposta do painel de estoque/);
+assert.match(mainThemeSource, /function cancelStockDashboardRequest\(\)/);
+assert.doesNotMatch(mainThemeSource, /Date\.now\(\) - lastFetchTime > 6000/);
 assert.match(mainThemeSource, /stockRenderStage = 'montagem do conteúdo no navegador'/);
 assert.match(mainThemeSource, /Falha ao montar o painel na etapa:/);
 assert.match(mainThemeSource, /data-cdc-dashboard-retry="stock"/);
@@ -97,5 +99,30 @@ watchdog.start(3);
 assert.equal(typeof pendingTimeout, 'function');
 pendingTimeout();
 assert.equal(watchdog.failure(), 'Tempo limite ao aguardar a resposta do painel de estoque.');
+
+// Reproduz a corrida da terceira ocorrência: uma resposta antiga chegava após
+// uma nova solicitação e cancelava o watchdog novo antes de conferir o serial.
+const stockRenderStart = mainThemeSource.indexOf('function renderStockDashboard()');
+const stockRenderEnd = mainThemeSource.indexOf('// --- EVENT DELEGATION GLOBAL ---', stockRenderStart);
+const stockRenderSource = mainThemeSource.slice(stockRenderStart, stockRenderEnd);
+const stockCallbackStart = stockRenderSource.indexOf('callback: function(r)');
+const stockErrorStart = stockRenderSource.indexOf('error: function(err)', stockCallbackStart);
+const stockCallbackSource = stockRenderSource.slice(stockCallbackStart, stockErrorStart);
+const stockErrorSource = stockRenderSource.slice(stockErrorStart);
+assert.ok(
+    stockCallbackSource.indexOf('requestSerial !== stockRequestSerial') < stockCallbackSource.indexOf('window.clearTimeout(stockRequestTimer)'),
+    'uma resposta antiga deve ser ignorada antes de tocar no watchdog da solicitação atual'
+);
+assert.ok(
+    stockErrorSource.indexOf('requestSerial !== stockRequestSerial') < stockErrorSource.indexOf('window.clearTimeout(stockRequestTimer)'),
+    'um erro antigo deve ser ignorado antes de tocar no watchdog da solicitação atual'
+);
+const popstateStart = mainThemeSource.indexOf("window.addEventListener('popstate'");
+const popstateEnd = mainThemeSource.indexOf("$(document).on('page-change', scheduleThemeRender)", popstateStart);
+assert.doesNotMatch(
+    mainThemeSource.slice(popstateStart, popstateEnd),
+    /isDashboardLoading\s*=\s*false/,
+    'popstate não pode liberar uma segunda consulta enquanto a atual ainda está protegida'
+);
 
 console.log('Theme blank-page reproduction and recovery test: OK');

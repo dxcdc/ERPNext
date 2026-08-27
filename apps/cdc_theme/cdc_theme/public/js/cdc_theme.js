@@ -15,7 +15,6 @@
     var activeCategoriesMap = {}; // Controle de categorias ativas
     var isCategoryDropdownOpen = false;
     var isDashboardLoading = false;
-    var lastFetchTime = 0;
     var lastDiagnosticReportText = '';
     var stockRequestSerial = 0;
     var stockRequestTimer = null;
@@ -963,6 +962,8 @@
 
     function renderStockDashboardFailure(message) {
         isDashboardLoading = false;
+        window.clearTimeout(stockRequestTimer);
+        stockRequestTimer = null;
         var claim = claimCDCActiveDashboard('cdc-stock-exec-dashboard', 'div');
         if (!claim || !isStockWorkspacePage()) return;
         claim.dashboard.innerHTML = `<div class="cdc-dashboard-load-state is-error"><strong>${escapeHTML(message)}</strong><span>A lista nativa foi preservada e você pode tentar montar o painel novamente.</span><button type="button" class="btn btn-sm btn-primary" data-cdc-dashboard-retry="stock">Tentar novamente</button></div>`;
@@ -973,19 +974,24 @@
         window.clearTimeout(stockRequestTimer);
         stockRequestTimer = window.setTimeout(function() {
             if (requestSerial !== stockRequestSerial || !isDashboardLoading) return;
+            stockRequestTimer = null;
             renderStockDashboardFailure('Tempo limite ao aguardar a resposta do painel de estoque.');
         }, 12000);
     }
 
+    function cancelStockDashboardRequest() {
+        if (isDashboardLoading || stockRequestTimer) stockRequestSerial += 1;
+        isDashboardLoading = false;
+        window.clearTimeout(stockRequestTimer);
+        stockRequestTimer = null;
+    }
+
     function renderStockDashboard() {
         if (!isStockWorkspacePage()) {
+            cancelStockDashboardRequest();
             document.querySelectorAll('#cdc-stock-exec-dashboard').forEach(function(dashboard) { dashboard.remove(); });
             restoreNativeStockWorkspaceContent();
             return;
-        }
-
-        if (isDashboardLoading && (Date.now() - lastFetchTime > 6000)) {
-            isDashboardLoading = false;
         }
 
         if (isDashboardLoading) return;
@@ -1008,7 +1014,6 @@
         hideNativeStockWorkspaceContent(workspaceBody, dashDiv);
 
         isDashboardLoading = true;
-        lastFetchTime = Date.now();
         var requestSerial = ++stockRequestSerial;
         startStockLoadingWatchdog(requestSerial);
 
@@ -1022,8 +1027,9 @@
                 table_type: currentTableTypeFilter
             },
             callback: function(r) {
-                window.clearTimeout(stockRequestTimer);
                 if (requestSerial !== stockRequestSerial) return;
+                window.clearTimeout(stockRequestTimer);
+                stockRequestTimer = null;
                 isDashboardLoading = false;
                 stockRenderStage = 'validação da resposta';
                 try {
@@ -1687,8 +1693,9 @@
                 }
             },
             error: function(err) {
-                window.clearTimeout(stockRequestTimer);
                 if (requestSerial !== stockRequestSerial) return;
+                window.clearTimeout(stockRequestTimer);
+                stockRequestTimer = null;
                 renderStockDashboardFailure('Falha ao consultar o painel de estoque.');
             }
         });
@@ -1861,6 +1868,7 @@
 
     $(document).on('page-change', function() {
         if (!isStockWorkspacePage()) {
+            cancelStockDashboardRequest();
             var dashContainer = document.getElementById('cdc-stock-exec-dashboard');
             if (dashContainer) {
                 dashContainer.remove();
@@ -2048,8 +2056,7 @@
         currentSelectedProjectFilter = 'all';
         currentUsersProject = 'All';
         currentUsersWarehouse = 'All';
-        isDashboardLoading = false;
-        lastFetchTime = 0;
+        cancelStockDashboardRequest();
         removeStockPageNavigator();
         restoreNativeStockWorkspaceContent();
         document.querySelectorAll('#cdc-stock-exec-dashboard, #cdc-users-dashboard').forEach(function(dashboard) {
@@ -2085,7 +2092,7 @@
     $(document).on('click', '[data-cdc-dashboard-retry]', function() {
         var target = this.getAttribute('data-cdc-dashboard-retry');
         if (target === 'stock') {
-            isDashboardLoading = false;
+            cancelStockDashboardRequest();
             renderStockDashboard();
         } else if (target === 'users') {
             var dashboard = document.getElementById('cdc-users-dashboard');
@@ -2106,7 +2113,6 @@
     });
     $(window).on('hashchange route', scheduleThemeRender);
     window.addEventListener('popstate', function() {
-        isDashboardLoading = false;
         scheduleThemeRender();
     });
     $(document).on('page-change', scheduleThemeRender);

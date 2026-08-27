@@ -98,6 +98,23 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("frappe.boot.user.desk_theme = 'Light'", source)
         self.assertNotIn("UPDATE tabUser SET desk_theme", TERRAFORM_MAIN.read_text())
 
+    def test_stock_request_watchdog_cannot_be_cancelled_by_stale_response(self):
+        source = THEME_JS.read_text()
+        stock_block = source[
+            source.index("function renderStockDashboard()"):
+            source.index("// --- EVENT DELEGATION GLOBAL ---")
+        ]
+        callback_block = stock_block[
+            stock_block.index("callback: function(r)"):
+            stock_block.index("error: function(err)")
+        ]
+        self.assertLess(
+            callback_block.index("requestSerial !== stockRequestSerial"),
+            callback_block.index("window.clearTimeout(stockRequestTimer)"),
+        )
+        self.assertNotIn("Date.now() - lastFetchTime > 6000", stock_block)
+        self.assertIn("function cancelStockDashboardRequest()", source)
+
     def test_infrastructure_has_no_default_admin_password(self):
         self.assertNotIn("MYSQL_ROOT_PASSWORD: admin", COMPOSE_YML.read_text())
         self.assertNotIn('default     = "admin"', TERRAFORM_VARIABLES.read_text())
@@ -158,6 +175,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("Executar este teste", tests_source)
         self.assertIn("cdc_theme.api.run_cdc_quality_gate", tests_source)
         self.assertIn("def run_cdc_quality_gate", api_source)
+        self.assertIn("stock_watchdog_safe", api_source)
+        self.assertIn("proteção contra requisições concorrentes", api_source)
         tree = ast.parse(api_source)
         copy_node = next(
             node for node in tree.body
