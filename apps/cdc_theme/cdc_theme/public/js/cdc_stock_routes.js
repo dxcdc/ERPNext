@@ -482,6 +482,13 @@
         var claim = claimDashboard();
         if (!claim) return;
         var dashboard = claim.dashboard;
+        var queryReport = window.frappe && frappe.query_report;
+        if (!queryReport || !Array.isArray(queryReport.filters) || !queryReport.filters.length) {
+            dashboard.dataset.loaded = '0';
+            dashboard.innerHTML = '<div class="cdc-stock-context-state">Aguardando os filtros nativos do relatório...</div>';
+            scheduleRender(220);
+            return;
+        }
         var context = getReportContext();
         var requestKey = definition.key + '|' + JSON.stringify(context);
         if (dashboard.dataset.loaded === '1' && dashboard.dataset.requestKey === requestKey) {
@@ -566,7 +573,7 @@
     }
 
     function setNativeReportFilter(report, fieldname, value) {
-        if (!report || typeof report.set_filter_value !== 'function') return;
+        if (!report || !Array.isArray(report.filters) || !report.filters.length || typeof report.set_filter_value !== 'function') return;
         if (typeof report.get_filter === 'function' && !report.get_filter(fieldname)) return;
         report.set_filter_value(fieldname, value);
     }
@@ -578,7 +585,7 @@
         }
         function execute(clearOptional) {
             var report = window.frappe && frappe.query_report;
-            if (!report) {
+            if (!report || !Array.isArray(report.filters) || !report.filters.length) {
                 frappe.msgprint(__('O relatório ainda está sendo preparado. Tente novamente em instantes.'));
                 return;
             }
