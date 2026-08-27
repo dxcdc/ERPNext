@@ -268,11 +268,15 @@ class StaticSafetyTest(unittest.TestCase):
 
     def test_cdc_warehouse_is_only_a_shortcut_to_filtered_native_list(self):
         source = WAREHOUSE_JS.read_text()
+        theme_source = THEME_JS.read_text()
         self.assertIn("frappe.set_route('List', 'Warehouse', 'List'", source)
         self.assertIn("disabled: 0, company: 'CDC'", source)
         self.assertIn("window._cdc_claim_active_dashboard", source)
         self.assertNotIn("frappe.call", source)
         self.assertNotIn("frappe.db", source)
+        self.assertIn("function redirectCDCWarehouseWorkspaceAlias()", theme_source)
+        self.assertIn("frappe.set_route('Workspaces', 'CDC Armazém')", theme_source)
+        self.assertIn("href: '/app/cdc-armazém'", theme_source)
 
     def test_new_workspaces_are_preserved_in_backend_sidebar_and_terraform(self):
         api_source = API_PY.read_text()

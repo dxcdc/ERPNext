@@ -83,7 +83,7 @@
             {label: 'Usuários', href: '/app/cdc-usuários'},
             {label: 'Grupos', href: '/app/cdc-grupos'},
             {label: 'Itens', href: '/app/cdc-itens'},
-            {label: 'Armazéns', href: '/app/cdc-armazem'},
+            {label: 'Armazéns', href: '/app/cdc-armazém'},
             {label: 'Integrações', href: '/app/cdc-integrações'},
             {label: 'Pendências', href: '/app/cdc-pendências'},
             {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
@@ -1998,6 +1998,7 @@
     }
 
     function scheduleThemeRender() {
+        if (redirectCDCWarehouseWorkspaceAlias()) return;
         [0, 250, 700, 1500, 3500].forEach(function(delay) {
             setTimeout(function() {
                 syncCDCBrandLogos();
@@ -2005,6 +2006,20 @@
                 checkAndRenderThemeComponents();
             }, delay);
         });
+    }
+
+    var warehouseWorkspaceAliasRedirecting = false;
+    function redirectCDCWarehouseWorkspaceAlias() {
+        var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase();
+        if (pathname !== '/app/cdc-armazem') {
+            warehouseWorkspaceAliasRedirecting = false;
+            return false;
+        }
+        if (!warehouseWorkspaceAliasRedirecting && window.frappe && frappe.set_route) {
+            warehouseWorkspaceAliasRedirecting = true;
+            frappe.set_route('Workspaces', 'CDC Armazém');
+        }
+        return true;
     }
 
     function normalizeThemeCacheSnapshot(value) {
