@@ -63,6 +63,8 @@ const warehouseBlock = source.slice(routeStart, source.indexOf('function init()'
 assert.match(warehouseBlock, /get_warehouse_list_dashboard_data/, 'painel deve consultar o endpoint real');
 assert.match(warehouseBlock, /body\.insertBefore\(dashboard, listBody\)/, 'painel deve ficar acima da lista nativa');
 assert.match(warehouseBlock, /warehouseActiveRequestKey === contextKey/, 'requisições SPA duplicadas devem ser bloqueadas');
+assert.match(source, /function scheduleWarehouseRender\(delay\)/, 'mudanças transitórias da rota devem ser consolidadas');
+assert.match(source, /clearTimeout\(warehouseRenderTimer\)/, 'agendamento anterior deve ser cancelado');
 assert.match(warehouseBlock, /requestSerial !== warehouseRequestSerial/, 'respostas antigas devem ser descartadas');
 assert.match(warehouseBlock, /filters\.push\(\[this\.doctype, 'name', 'in', names\]\)/, 'projeto deve limitar a consulta nativa');
 assert.doesNotMatch(warehouseBlock, /document\.body/, 'painel não pode ser montado no body global');

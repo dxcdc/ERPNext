@@ -105,6 +105,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("JSON.parse(value)", warehouse_block)
         self.assertIn("filters.search ? escapeHTML(filters.search) : ''", warehouse_block)
         self.assertIn("list.$result && typeof list.refresh === 'function'", warehouse_block)
+        self.assertIn("function scheduleWarehouseRender(delay)", theme_source)
+        self.assertIn("clearTimeout(warehouseRenderTimer)", theme_source)
         router_block = theme_source[theme_source.index("frappe.router.on('change'"):]
         self.assertNotIn("warehouseDashboard.dataset.loaded = '0'", router_block)
         for control_id in (

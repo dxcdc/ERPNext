@@ -3369,7 +3369,16 @@
     var warehouseListLoading = false;
     var warehouseRequestSerial = 0;
     var warehouseActiveRequestKey = '';
+    var warehouseRenderTimer = null;
     var warehouseSelectedProject = sessionStorage.getItem('cdc_warehouse_project') || 'All';
+
+    function scheduleWarehouseRender(delay) {
+        if (warehouseRenderTimer) clearTimeout(warehouseRenderTimer);
+        warehouseRenderTimer = setTimeout(function() {
+            warehouseRenderTimer = null;
+            renderWarehouseList();
+        }, delay || 140);
+    }
 
     function isWarehouseListRoute() {
         var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
@@ -3588,7 +3597,7 @@
                     if (parentSelect && parentSelect.value) routeFilters.parent_warehouse = parentSelect.value;
                     dashboard.dataset.loaded = '0';
                     frappe.set_route('List', 'Warehouse', 'List', routeFilters);
-                    [250, 700].forEach(function(delay) { setTimeout(renderWarehouseList, delay); });
+                    scheduleWarehouseRender(180);
                 }
                 dashboard.querySelector('#cdc-warehouse-apply').addEventListener('click', applyFilters);
                 if (searchInput) searchInput.addEventListener('keydown', function(event) {
@@ -3599,7 +3608,7 @@
                     sessionStorage.setItem('cdc_warehouse_project', 'All');
                     dashboard.dataset.loaded = '0';
                     frappe.set_route('List', 'Warehouse', 'List');
-                    [250, 700].forEach(function(delay) { setTimeout(renderWarehouseList, delay); });
+                    scheduleWarehouseRender(180);
                 });
                 dashboard.querySelector('#cdc-btn-refresh-warehouses').addEventListener('click', function() {
                     dashboard.dataset.loaded = '0';
@@ -3633,7 +3642,7 @@
             if (isMonitoringRoute()) render();
             renderItemGroup();
             renderItemList();
-            renderWarehouseList();
+            scheduleWarehouseRender();
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -3648,7 +3657,7 @@
                 if (itemDashboard) itemDashboard.dataset.loaded = '0';
                 renderItemGroup();
                 renderItemList();
-                renderWarehouseList();
+                scheduleWarehouseRender();
             });
         }
     }
