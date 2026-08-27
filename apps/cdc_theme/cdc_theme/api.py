@@ -2153,6 +2153,8 @@ def _run_warehouse_rbac_audit():
 
             metrics["forbidden_attempts"] = 1
             forbidden_blocked = False
+            message_log = getattr(frappe.local, "message_log", [])
+            message_count = len(message_log)
             try:
                 get_catalog_management_dashboard_data(
                     dashboard_type="warehouses",
@@ -2161,6 +2163,9 @@ def _run_warehouse_rbac_audit():
                 )
             except frappe.PermissionError:
                 forbidden_blocked = True
+                current_messages = getattr(frappe.local, "message_log", [])
+                if isinstance(current_messages, list):
+                    del current_messages[message_count:]
             stage_results.append(_warehouse_rbac_stage(
                 5, "Tentativa proibida", "passed" if forbidden_blocked else "failed",
                 "O armazém fora do escopo foi rejeitado com PermissionError."

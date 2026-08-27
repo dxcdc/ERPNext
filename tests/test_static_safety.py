@@ -316,6 +316,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("get_catalog_management_dashboard_data", audit_source)
         self.assertIn("get_stock_dashboard_data", audit_source)
         self.assertIn("except frappe.PermissionError", audit_source)
+        self.assertIn('getattr(frappe.local, "message_log", [])', audit_source)
+        self.assertIn("del current_messages[message_count:]", audit_source)
         self.assertIn("frappe.set_user", audit_source)
         self.assertIn("finally:", audit_source)
         self.assertIn("finally:", finder_source)
