@@ -380,10 +380,14 @@ class StaticSafetyTest(unittest.TestCase):
 
     def test_sidebar_orders_groups_items_and_warehouse_after_users(self):
         api_source = API_PY.read_text()
+        terraform_source = TERRAFORM_MAIN.read_text()
         self.assertIn('_ensure_cdc_workspace("CDC Usuários", "users", 2.0)', api_source)
         self.assertIn('_ensure_cdc_workspace(CDC_GROUPS_WORKSPACE, "folder-normal", 3.0)', api_source)
         self.assertIn('_ensure_cdc_workspace(CDC_ITEMS_WORKSPACE, "assets", 4.0)', api_source)
-        self.assertIn('_ensure_cdc_workspace(CDC_WAREHOUSE_WORKSPACE, "home", 5.0)', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_WAREHOUSE_WORKSPACE, "organization", 5.0)', api_source)
+        self.assertNotIn('_ensure_cdc_workspace(CDC_WAREHOUSE_WORKSPACE, "home", 5.0)', api_source)
+        self.assertIn("'CDC Armazém', 'CDC Armazém', 5.0, 'Core', 'organization'", terraform_source)
+        self.assertNotIn("SET icon = 'home' WHERE name = 'CDC Armazém'", terraform_source)
 
     def test_spa_dashboards_claim_only_the_active_page_container(self):
         theme_source = THEME_JS.read_text()
