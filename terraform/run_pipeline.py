@@ -84,18 +84,23 @@ def main():
         return "Serviços essenciais ativos"
 
     def assets():
-        subprocess.check_call(
-            ["node", "--check", str(ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_theme.js")],
-            cwd=ROOT,
+        assets_to_check = (
+            ("cdc_theme.js", 50_000),
+            ("cdc_stock_routes.js", 10_000),
         )
-        request = urllib.request.Request(
-            "http://localhost:8085/assets/cdc_theme/js/cdc_theme.js?v=20260731_v150",
-            headers={"User-Agent": "CDC-Test-Pipeline"},
-        )
-        with urllib.request.urlopen(request, timeout=10) as response:
-            body = response.read()
-        assert response.status == 200 and len(body) > 50_000
-        return f"Asset ativo via HTTP 200 ({len(body) // 1024} KB)"
+        sizes = []
+        for filename, minimum_size in assets_to_check:
+            source = ROOT / "apps/cdc_theme/cdc_theme/public/js" / filename
+            subprocess.check_call(["node", "--check", str(source)], cwd=ROOT)
+            request = urllib.request.Request(
+                f"http://localhost:8085/assets/cdc_theme/js/{filename}?v=20260827_stock_routes_v36",
+                headers={"User-Agent": "CDC-Test-Pipeline"},
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                body = response.read()
+            assert response.status == 200 and len(body) > minimum_size
+            sizes.append(f"{filename} {len(body) // 1024} KB")
+        return "Assets ativos via HTTP 200 (" + ", ".join(sizes) + ")"
 
     def stock_api():
         data = bench(args.site, "cdc_theme.api.get_stock_dashboard_data")

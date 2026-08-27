@@ -43,6 +43,7 @@ docker info >/dev/null 2>&1 || fail "Docker nao esta em execucao."
 [[ -f docker-compose.yml ]] || fail "docker-compose.yml nao encontrado em $ROOT_DIR."
 [[ -f apps/cdc_theme/cdc_theme/public/css/cdc_theme.css ]] || fail "CSS do cdc_theme nao encontrado."
 [[ -f apps/cdc_theme/cdc_theme/public/js/cdc_theme.js ]] || fail "JavaScript do cdc_theme nao encontrado."
+[[ -f apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js ]] || fail "JavaScript dos relatorios de estoque nao encontrado."
 
 log "validando configuracao e fontes do tema"
 docker compose config --quiet
@@ -114,6 +115,9 @@ curl --fail --silent --show-error --retry 15 --retry-delay 2 \
 curl --fail --silent --show-error --retry 15 --retry-delay 2 \
   "$URL/assets/cdc_theme/js/cdc_theme.js" >/dev/null \
   || fail "JavaScript nao foi publicado em $URL. Consulte: docker compose logs frontend backend"
+curl --fail --silent --show-error --retry 15 --retry-delay 2 \
+  "$URL/assets/cdc_theme/js/cdc_stock_routes.js" >/dev/null \
+  || fail "JavaScript dos relatorios de estoque nao foi publicado em $URL. Consulte: docker compose logs frontend backend"
 
 log "tema recuperado e publicado em $URL"
 docker compose ps

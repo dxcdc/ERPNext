@@ -289,7 +289,7 @@ def get_cdc_admin_diagnostics():
         required = (
             "css/cdc_theme.css", "js/cdc_theme.js", "js/cdc_tests.js",
             "js/cdc_groups.js", "js/cdc_items.js", "js/cdc_warehouse.js",
-            "js/cdc_admin.js",
+            "js/cdc_stock_routes.js", "js/cdc_admin.js",
         )
         missing = [item for item in required if not os.path.isfile(os.path.join(public_path, item))]
         if missing:
@@ -1510,7 +1510,7 @@ def _workspace_navigation_health(sources):
         if name in by_name and by_name[name].icon != icon
     ]
 
-    routed_assets = ("pending", "tests", "groups", "items", "warehouse", "admin")
+    routed_assets = ("pending", "tests", "groups", "items", "warehouse", "stock_routes", "admin")
     main_theme_source = sources.get("theme", "").split("CDC MONITORING WORKSPACE DASHBOARD INITIALIZER", 1)[0]
     active_mount_safe = (
         "function claimActiveDashboard" in sources.get("theme", "")
@@ -1547,6 +1547,7 @@ def _theme_integrity_health(asset_paths, sources):
         "groups": "js/cdc_groups.js",
         "items": "js/cdc_items.js",
         "warehouse": "js/cdc_warehouse.js",
+        "stock_routes": "js/cdc_stock_routes.js",
         "admin": "js/cdc_admin.js",
         "css": "css/cdc_theme.css",
     }
@@ -1613,7 +1614,7 @@ def _theme_integrity_health(asset_paths, sources):
     if healthy:
         version = next(iter(versions))
         return True, (
-            f"8 assets presentes e ligados ao volume público; cache {version} consistente; "
+            f"9 assets presentes e ligados ao volume público; cache {version} consistente; "
             "montagem SPA com escopo correto e idempotência ativa para prevenir telas brancas."
         )
     details = []
@@ -1637,6 +1638,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
         "groups": frappe.get_app_path("cdc_theme", "public", "js", "cdc_groups.js"),
         "items": frappe.get_app_path("cdc_theme", "public", "js", "cdc_items.js"),
         "warehouse": frappe.get_app_path("cdc_theme", "public", "js", "cdc_warehouse.js"),
+        "stock_routes": frappe.get_app_path("cdc_theme", "public", "js", "cdc_stock_routes.js"),
         "admin": frappe.get_app_path("cdc_theme", "public", "js", "cdc_admin.js"),
         "css": frappe.get_app_path("cdc_theme", "public", "css", "cdc_theme.css"),
         "hooks": frappe.get_app_path("cdc_theme", "hooks.py"),
@@ -2269,4 +2271,157 @@ def get_warehouse_list_dashboard_data(
             "active": requested_project != "All",
             "names": [row.name for row in filtered_rows] if requested_project != "All" else [],
         },
+    }
+
+
+@frappe.whitelist()
+def get_stock_document_dashboard_data(
+    document_type=None,
+    search=None,
+    company=None,
+    from_date=None,
+    to_date=None,
+    docstatus=None,
+    movement_type=None,
+):
+    """Resume listas de movimentação sem contornar permissões do Frappe."""
+    definitions = {
+        "Stock Entry": {
+            "movement_field": "stock_entry_type",
+            "fields": [
+                "name", "company", "posting_date", "docstatus", "purpose",
+                "stock_entry_type", "from_warehouse", "to_warehouse",
+            ],
+        },
+        "Stock Reconciliation": {
+            "movement_field": "purpose",
+            "fields": [
+                "name", "company", "posting_date", "docstatus", "purpose",
+                "difference_amount",
+            ],
+        },
+    }
+    if document_type not in definitions:
+        frappe.throw("Tipo de documento de estoque inválido.", frappe.ValidationError)
+
+    _require_read_permission(document_type)
+    definition = definitions[document_type]
+    movement_field = definition["movement_field"]
+    requested_search = (search or "").strip()[:120]
+    requested_company = (company or "").strip()
+    requested_movement = (movement_type or "").strip()
+    requested_status = str(docstatus).strip() if docstatus is not None else ""
+    if requested_status not in {"", "0", "1", "2"}:
+        frappe.throw("Situação documental inválida.", frappe.ValidationError)
+
+    try:
+        requested_from = str(getdate(from_date)) if from_date else ""
+        requested_to = str(getdate(to_date)) if to_date else ""
+    except Exception:
+        frappe.throw("Período inválido.", frappe.ValidationError)
+    if requested_from and requested_to and getdate(requested_from) > getdate(requested_to):
+        frappe.throw("A data inicial não pode ser posterior à data final.", frappe.ValidationError)
+
+    option_rows = frappe.get_list(
+        document_type,
+        fields=["company", movement_field],
+        limit_page_length=0,
+    )
+    companies = sorted({row.company for row in option_rows if row.company})
+    movement_types = sorted({row.get(movement_field) for row in option_rows if row.get(movement_field)})
+    if requested_company and requested_company not in companies:
+        frappe.throw("Empresa indisponível para o usuário atual.", frappe.PermissionError)
+    if requested_movement and requested_movement not in movement_types:
+        frappe.throw("Tipo de movimentação indisponível para o usuário atual.", frappe.PermissionError)
+
+    filters = {}
+    if requested_search:
+        filters["name"] = ["like", f"%{requested_search}%"]
+    if requested_company:
+        filters["company"] = requested_company
+    if requested_movement:
+        filters[movement_field] = requested_movement
+    if requested_status:
+        filters["docstatus"] = int(requested_status)
+    if requested_from and requested_to:
+        filters["posting_date"] = ["between", [requested_from, requested_to]]
+    elif requested_from:
+        filters["posting_date"] = [">=", requested_from]
+    elif requested_to:
+        filters["posting_date"] = ["<=", requested_to]
+
+    rows = frappe.get_list(
+        document_type,
+        filters=filters,
+        fields=definition["fields"],
+        order_by="posting_date desc, modified desc",
+        limit_page_length=0,
+    )
+    submitted = sum(1 for row in rows if int(row.docstatus or 0) == 1)
+    drafts = sum(1 for row in rows if int(row.docstatus or 0) == 0)
+    cancelled = sum(1 for row in rows if int(row.docstatus or 0) == 2)
+    summary = {
+        "total_results": len(rows),
+        "submitted": submitted,
+        "drafts": drafts,
+        "cancelled": cancelled,
+    }
+    if document_type == "Stock Entry":
+        purposes = [str(row.purpose or row.stock_entry_type or "").casefold() for row in rows]
+        summary.update({
+            "receipts": sum("receipt" in value for value in purposes),
+            "issues": sum("issue" in value for value in purposes),
+            "transfers": sum("transfer" in value for value in purposes),
+        })
+    else:
+        summary["difference_amount"] = sum(
+            float(row.difference_amount or 0)
+            for row in rows if int(row.docstatus or 0) == 1
+        )
+
+    return {
+        "document_type": document_type,
+        "summary": summary,
+        "filters": {
+            "companies": companies,
+            "movement_types": movement_types,
+            "selected_company": requested_company,
+            "selected_movement_type": requested_movement,
+            "selected_docstatus": requested_status,
+            "search": requested_search,
+            "from_date": requested_from,
+            "to_date": requested_to,
+        },
+    }
+
+
+@frappe.whitelist()
+def get_stock_report_filter_options(report_key=None):
+    """Retorna somente opções visíveis para os relatórios CDC de inventário."""
+    if report_key not in {"inventory-ledger", "stock-balance"}:
+        frappe.throw("Relatório de estoque inválido.", frappe.ValidationError)
+    _require_read_permission("Stock Ledger Entry")
+    _require_read_permission("Warehouse")
+    if report_key == "stock-balance":
+        _require_read_permission("Item Group")
+
+    warehouses = frappe.get_list(
+        "Warehouse",
+        filters={"is_group": 0, "disabled": 0},
+        fields=["name", "company"],
+        order_by="name asc",
+        limit_page_length=0,
+    )
+    groups = []
+    if report_key == "stock-balance":
+        groups = frappe.get_list(
+            "Item Group",
+            fields=["name"],
+            order_by="name asc",
+            limit_page_length=0,
+        )
+    return {
+        "companies": sorted({row.company for row in warehouses if row.company}),
+        "warehouses": [row.name for row in warehouses],
+        "item_groups": [row.name for row in groups],
     }

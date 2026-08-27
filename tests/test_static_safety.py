@@ -11,6 +11,7 @@ THEME_CSS = ROOT / "apps/cdc_theme/cdc_theme/public/css/cdc_theme.css"
 GROUPS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_groups.js"
 ITEMS_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_items.js"
 WAREHOUSE_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_warehouse.js"
+STOCK_ROUTES_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js"
 ADMIN_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
@@ -130,6 +131,40 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('frappe.get_list(', endpoint_source)
         self.assertNotIn('frappe.get_all(', endpoint_source)
         self.assertIn('"scope"', endpoint_source)
+
+    def test_stock_routes_preserve_native_components_and_permission_scoped_data(self):
+        source = STOCK_ROUTES_JS.read_text()
+        api_source = API_PY.read_text()
+        self.assertIn("window._cdc_claim_active_dashboard('cdc-stock-route-dashboard'", source)
+        self.assertIn("cdc-stock-route-native", source)
+        self.assertIn("frappe.set_route('List', 'Stock Entry', 'Report'", source)
+        self.assertIn("frappe.set_route('List', 'Stock Reconciliation', 'List'", source)
+        self.assertIn("setNativeReportFilter(report, 'warehouse'", source)
+        self.assertIn("setNativeReportFilter(report, 'warehouse', options.warehouses)", source)
+        self.assertIn("Todos os armazéns permitidos", source)
+        self.assertIn("setNativeReportFilter(report, 'item_code'", source)
+        self.assertIn("report.refresh()", source)
+        self.assertNotIn("frappe.db", source)
+
+        tree = ast.parse(api_source)
+        document_endpoint = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "get_stock_document_dashboard_data"
+        )
+        report_endpoint = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "get_stock_report_filter_options"
+        )
+        document_source = ast.get_source_segment(api_source, document_endpoint)
+        report_source = ast.get_source_segment(api_source, report_endpoint)
+        self.assertIn("_require_read_permission(document_type)", document_source)
+        self.assertIn("frappe.get_list(", document_source)
+        self.assertNotIn("frappe.get_all(", document_source)
+        for doctype in ("Stock Ledger Entry", "Warehouse", "Item Group"):
+            self.assertIn(f'_require_read_permission("{doctype}")', report_source)
+        self.assertIn('if report_key == "stock-balance"', report_source)
+        self.assertIn("frappe.get_list(", report_source)
+        self.assertNotIn("frappe.get_all(", report_source)
 
     def test_fake_sync_messages_are_absent(self):
         source = PENDING_JS.read_text()
@@ -305,7 +340,7 @@ class StaticSafetyTest(unittest.TestCase):
     def test_spa_dashboards_claim_only_the_active_page_container(self):
         theme_source = THEME_JS.read_text()
         self.assertIn("function claimActiveDashboard", theme_source)
-        for asset in (PENDING_JS, TESTS_JS, GROUPS_JS, ITEMS_JS, WAREHOUSE_JS, ADMIN_JS):
+        for asset in (PENDING_JS, TESTS_JS, GROUPS_JS, ITEMS_JS, WAREHOUSE_JS, STOCK_ROUTES_JS, ADMIN_JS):
             with self.subTest(asset=asset.name):
                 self.assertIn("window._cdc_claim_active_dashboard", asset.read_text())
 

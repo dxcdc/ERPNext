@@ -1468,6 +1468,112 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     }
 }
 
+/* CDC STOCK DOCUMENTS AND REPORTS ------------------------------------- */
+#cdc-stock-route-dashboard {
+    margin-bottom: 1rem;
+    color: var(--text-color, #0f172a);
+    animation: cdcFadeIn .22s ease-out;
+}
+
+.cdc-stock-context-wrapper {
+    padding: 1rem 0 .2rem;
+}
+
+.cdc-stock-context-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.cdc-stock-context-header h1 {
+    margin: 0 0 4px;
+    color: var(--text-color, #0f172a);
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.cdc-stock-context-header p {
+    margin: 0;
+    color: var(--text-muted, #64748b);
+    font-size: 13px;
+}
+
+.cdc-stock-context-cards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.cdc-stock-context-card {
+    min-height: 120px;
+    padding: 16px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-left: 4px solid #2490ef;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+}
+
+.cdc-stock-context-card.is-status { border-left-color: #10b981; }
+.cdc-stock-context-card.is-warning { border-left-color: #f59e0b; }
+.cdc-stock-context-card.is-danger { border-left-color: #ef4444; }
+.cdc-stock-context-card .cdc-card-label { color: var(--text-muted, #64748b); }
+.cdc-stock-context-card .cdc-card-value {
+    color: var(--text-color, #0f172a);
+    font-size: clamp(21px, 2vw, 30px);
+}
+
+.cdc-stock-context-filters {
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.cdc-stock-context-filters label {
+    flex: 1 1 165px;
+}
+
+.cdc-stock-context-filters label.is-search {
+    flex-basis: 255px;
+}
+
+.cdc-stock-context-state {
+    min-height: 96px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 1rem;
+    padding: 20px;
+    color: var(--text-muted, #64748b);
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+.cdc-stock-context-state.is-error {
+    color: #b42318;
+    border-color: rgba(239, 68, 68, .35);
+    background: rgba(254, 242, 242, .8);
+}
+
+.cdc-stock-route-native .frappe-list,
+.cdc-stock-route-native .datatable {
+    border-radius: 10px;
+}
+
+@media (max-width: 1180px) {
+    .cdc-stock-context-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+    .cdc-stock-context-header { align-items: stretch; flex-direction: column; }
+    .cdc-stock-context-cards { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
     .cdc-control-map { grid-template-columns: 1fr; }
 
