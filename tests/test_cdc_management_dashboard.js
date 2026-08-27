@@ -43,6 +43,10 @@ assert.match(management, /function watchDashboardContent/, 'painel deve observar
 assert.match(management, /window\._cdc_get_active_page_body\(\)/, 'restauração deve localizar somente o contêiner SPA ativo');
 assert.match(management, /activeBody \? activeBody\.querySelector\('#' \+ config\.dashboardId\)/, 'restauração deve exigir o dashboard correto na página ativa');
 assert.match(management, /renderDashboard\(currentDashboard, config, state\.data\)/, 'nó substituído deve ser restaurado com o último resultado real');
+assert.match(management, /function guardDashboardContent/, 'painel deve ter verificação periódica contra substituições silenciosas da workspace');
+assert.match(management, /window\.setInterval\(function\(\)/, 'verificação de integridade deve continuar após os eventos iniciais da rota');
+assert.match(management, /renderDashboard\(activeDashboard, config, state\.data\)/, 'verificador deve reutilizar somente o último resultado real');
+assert.match(management, /if \(state\.guard\) window\.clearInterval\(state\.guard\)/, 'verificador deve ser encerrado ao sair da página');
 
 for (const control of [
     'data-cdc-manager-search', 'data-cdc-manager-company', 'data-cdc-manager-project',

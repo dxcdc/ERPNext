@@ -360,12 +360,23 @@
         state.observer.observe(document.body, {childList: true, subtree: true});
     }
 
+    function guardDashboardContent(config, state) {
+        if (state.guard) window.clearInterval(state.guard);
+        state.guard = window.setInterval(function() {
+            if (!state.data) return;
+            var activeBody = typeof window._cdc_get_active_page_body === 'function' ? window._cdc_get_active_page_body() : null;
+            var activeDashboard = activeBody ? activeBody.querySelector('#' + config.dashboardId) : null;
+            if (!activeDashboard || activeDashboard.querySelector('.cdc-management-shell')) return;
+            renderDashboard(activeDashboard, config, state.data);
+        }, 750);
+    }
+
     function load(config, context, force) {
         var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard(config.dashboardId, 'section');
         if (!claim) return;
         var dashboard = claim.dashboard;
         claim.body.classList.add(config.activeClass);
-        var state = states[config.dashboardId] || {serial: 0, key: '', timer: null, pending: false, observer: null, data: null};
+        var state = states[config.dashboardId] || {serial: 0, key: '', timer: null, guard: null, pending: false, observer: null, data: null};
         states[config.dashboardId] = state;
         var requestKey = config.page + '|' + JSON.stringify(context);
         if (!force && dashboard.dataset.loaded === '1' && state.key === requestKey) return;
@@ -402,6 +413,7 @@
                 renderDashboard(dashboard, config, data);
                 state.data = data;
                 watchDashboardContent(dashboard, config, state);
+                guardDashboardContent(config, state);
             },
             error: function(error) {
                 if (serial !== state.serial) return;
@@ -426,6 +438,7 @@
         if (state) {
             state.serial += 1;
             if (state.timer) window.clearTimeout(state.timer);
+            if (state.guard) window.clearInterval(state.guard);
             if (state.observer) state.observer.disconnect();
             delete states[options.dashboardId];
         }
