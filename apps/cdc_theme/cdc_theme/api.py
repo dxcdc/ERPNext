@@ -2165,3 +2165,97 @@ def get_item_group_dashboard_data(selected_project=None, selected_warehouse=None
         },
         "filters": filter_payload,
     }
+
+
+@frappe.whitelist()
+def get_warehouse_list_dashboard_data(
+    search=None,
+    company=None,
+    disabled=None,
+    is_group=None,
+    parent_warehouse=None,
+    selected_project=None,
+):
+    """Resume a lista nativa de Warehouse dentro do contexto permitido ao usuário."""
+    _require_read_permission("Warehouse")
+    rows = frappe.get_list(
+        "Warehouse",
+        fields=[
+            "name", "warehouse_name", "company", "disabled",
+            "is_group", "parent_warehouse",
+        ],
+        order_by="name asc",
+        limit_page_length=0,
+    )
+
+    companies = sorted({row.company for row in rows if row.company})
+    parent_groups = sorted({row.name for row in rows if int(row.is_group or 0)})
+    represented_projects = [
+        project for project in CDC_PROJECTS
+        if any(_warehouse_project(row.name) == project for row in rows)
+    ]
+
+    requested_company = (company or "").strip()
+    requested_parent = (parent_warehouse or "").strip()
+    requested_project = (selected_project or "All").strip()
+    requested_search = (search or "").strip()[:120]
+    requested_disabled = str(disabled).strip() if disabled is not None else ""
+    requested_group = str(is_group).strip() if is_group is not None else ""
+
+    if requested_company and requested_company not in companies:
+        frappe.throw("Empresa indisponível para o usuário atual.", frappe.PermissionError)
+    if requested_parent and requested_parent not in parent_groups:
+        frappe.throw("Grupo pai indisponível para o usuário atual.", frappe.PermissionError)
+    if requested_project != "All" and requested_project not in represented_projects:
+        frappe.throw("Projeto indisponível para o usuário atual.", frappe.PermissionError)
+    if requested_disabled not in {"", "0", "1"}:
+        frappe.throw("Filtro de status inválido.", frappe.ValidationError)
+    if requested_group not in {"", "0", "1"}:
+        frappe.throw("Filtro de tipo inválido.", frappe.ValidationError)
+
+    search_key = requested_search.casefold()
+    filtered_rows = []
+    for row in rows:
+        if requested_company and row.company != requested_company:
+            continue
+        if requested_parent and row.parent_warehouse != requested_parent:
+            continue
+        if requested_project != "All" and _warehouse_project(row.name) != requested_project:
+            continue
+        if requested_disabled and int(row.disabled or 0) != int(requested_disabled):
+            continue
+        if requested_group and int(row.is_group or 0) != int(requested_group):
+            continue
+        if search_key and search_key not in f"{row.name} {row.warehouse_name or ''}".casefold():
+            continue
+        filtered_rows.append(row)
+
+    operational = [row for row in filtered_rows if not int(row.is_group or 0)]
+    groups = [row for row in filtered_rows if int(row.is_group or 0)]
+    inactive = [row for row in filtered_rows if int(row.disabled or 0)]
+    projects_in_context = {_warehouse_project(row.name) for row in filtered_rows}
+
+    return {
+        "summary": {
+            "total_results": len(filtered_rows),
+            "operational_warehouses": len(operational),
+            "warehouse_groups": len(groups),
+            "inactive_warehouses": len(inactive),
+            "projects_in_context": len(projects_in_context),
+        },
+        "filters": {
+            "companies": companies,
+            "parent_groups": parent_groups,
+            "projects": represented_projects,
+            "selected_company": requested_company,
+            "selected_parent": requested_parent,
+            "selected_project": requested_project,
+            "selected_disabled": requested_disabled,
+            "selected_is_group": requested_group,
+            "search": requested_search,
+        },
+        "scope": {
+            "active": requested_project != "All",
+            "names": [row.name for row in filtered_rows] if requested_project != "All" else [],
+        },
+    }

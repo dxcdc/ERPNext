@@ -87,6 +87,37 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("getDiagnosticPanelHTML", render_block)
         self.assertNotIn("bindDiagnosticActions", render_block)
 
+    def test_warehouse_list_has_permission_scoped_cards_and_native_filters(self):
+        theme_source = THEME_JS.read_text()
+        api_source = API_PY.read_text()
+        warehouse_block = theme_source[
+            theme_source.index("function isWarehouseListRoute()"):
+            theme_source.index("function init()", theme_source.index("function isWarehouseListRoute()"))
+        ]
+        self.assertIn("routeType === 'list' && routeDoctype === 'warehouse'", warehouse_block)
+        self.assertIn("pathname === '/app/warehouse/view/list'", warehouse_block)
+        self.assertNotIn("window.location.href", warehouse_block)
+        self.assertIn("body.insertBefore(dashboard, listBody)", warehouse_block)
+        self.assertIn("currentBody.insertBefore(dashboard, currentListBody)", warehouse_block)
+        self.assertIn("frappe.set_route('List', 'Warehouse', 'List', routeFilters)", warehouse_block)
+        self.assertIn("data.scope", warehouse_block)
+        for control_id in (
+            "cdc-warehouse-search", "cdc-warehouse-project", "cdc-warehouse-company",
+            "cdc-warehouse-status", "cdc-warehouse-kind", "cdc-warehouse-parent",
+        ):
+            self.assertIn(control_id, warehouse_block)
+
+        tree = ast.parse(api_source)
+        endpoint = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "get_warehouse_list_dashboard_data"
+        )
+        endpoint_source = ast.get_source_segment(api_source, endpoint)
+        self.assertIn('_require_read_permission("Warehouse")', endpoint_source)
+        self.assertIn('frappe.get_list(', endpoint_source)
+        self.assertNotIn('frappe.get_all(', endpoint_source)
+        self.assertIn('"scope"', endpoint_source)
+
     def test_fake_sync_messages_are_absent(self):
         source = PENDING_JS.read_text()
         self.assertNotIn("58 pendências atualizadas", source)

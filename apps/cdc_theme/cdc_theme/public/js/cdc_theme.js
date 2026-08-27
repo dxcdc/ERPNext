@@ -3366,15 +3366,249 @@
         });
     }
 
+    var warehouseListLoading = false;
+    var warehouseRequestSerial = 0;
+    var warehouseActiveRequestKey = '';
+    var warehouseSelectedProject = sessionStorage.getItem('cdc_warehouse_project') || 'All';
+
+    function isWarehouseListRoute() {
+        var route = window.frappe && frappe.get_route ? frappe.get_route() : [];
+        var routeType = normalizeRoute(route && route[0]);
+        var routeDoctype = normalizeRoute(route && route[1]);
+        if (routeType === 'list' && routeDoctype === 'warehouse') return true;
+        var pathname = normalizeRoute(decodeURIComponent(window.location.pathname || ''));
+        return pathname === '/app/warehouse' || pathname === '/app/warehouse/view/list';
+    }
+
+    function removeWarehouseDashboard() {
+        if (warehouseListLoading) warehouseRequestSerial += 1;
+        warehouseListLoading = false;
+        warehouseActiveRequestKey = '';
+        document.querySelectorAll('#cdc-warehouse-dashboard').forEach(function(dashboard) { dashboard.remove(); });
+        document.querySelectorAll('.cdc-catalog-list-enhanced.is-warehouse-list').forEach(function(list) {
+            list.classList.remove('cdc-catalog-list-enhanced', 'is-warehouse-list');
+        });
+    }
+
+    function getWarehouseListContext() {
+        return {
+            search: getCatalogRouteValue('name').replace(/^%|%$/g, ''),
+            company: getCatalogRouteValue('company'),
+            disabled: getCatalogRouteValue('disabled'),
+            is_group: getCatalogRouteValue('is_group'),
+            parent_warehouse: getCatalogRouteValue('parent_warehouse'),
+            selected_project: warehouseSelectedProject
+        };
+    }
+
+    function bindWarehouseNativeScope(scope) {
+        function bind() {
+            var list = window.cur_list;
+            if (!list || normalizeRoute(list.doctype) !== 'warehouse') return false;
+            if (!list._cdcWarehouseOriginalGetFiltersForArgs) {
+                list._cdcWarehouseOriginalGetFiltersForArgs = list.get_filters_for_args;
+                list.get_filters_for_args = function() {
+                    var filters = (this._cdcWarehouseOriginalGetFiltersForArgs.apply(this, arguments) || []).slice();
+                    var currentScope = this._cdcWarehouseScope;
+                    if (currentScope && currentScope.active) {
+                        var names = currentScope.names.length ? currentScope.names : ['__cdc_sem_resultado__'];
+                        filters.push([this.doctype, 'name', 'in', names]);
+                    }
+                    return filters;
+                };
+            }
+            var names = scope && Array.isArray(scope.names) ? scope.names : [];
+            var active = !!(scope && scope.active);
+            var scopeKey = [active ? '1' : '0', warehouseSelectedProject, names.length, names[0] || '', names[names.length - 1] || ''].join('|');
+            var previousKey = list._cdcWarehouseScopeKey;
+            list._cdcWarehouseScope = {active: active, names: names};
+            list._cdcWarehouseScopeKey = scopeKey;
+            if ((previousKey !== undefined && previousKey !== scopeKey) || (previousKey === undefined && active)) {
+                list.start = 0;
+                list.refresh();
+            }
+            return true;
+        }
+        if (!bind()) [150, 500].forEach(function(delay) { setTimeout(bind, delay); });
+    }
+
+    function renderWarehouseList() {
+        if (!isWarehouseListRoute()) {
+            removeWarehouseDashboard();
+            return;
+        }
+        var listBody = getActiveWorkspaceBody();
+        var body = listBody && listBody.parentNode;
+        if (!body) return;
+        listBody.classList.add('cdc-catalog-list-enhanced', 'is-warehouse-list');
+        var dashboard = body.querySelector('#cdc-warehouse-dashboard');
+        document.querySelectorAll('#cdc-warehouse-dashboard').forEach(function(candidate) {
+            if (candidate !== dashboard) candidate.remove();
+        });
+        if (!dashboard) {
+            dashboard = document.createElement('section');
+            dashboard.id = 'cdc-warehouse-dashboard';
+        }
+        if (dashboard.parentNode !== body) body.insertBefore(dashboard, listBody);
+
+        var context = getWarehouseListContext();
+        var contextKey = JSON.stringify(context);
+        if (dashboard.dataset.loaded === '1' && dashboard.dataset.contextKey === contextKey && dashboard.querySelector('.cdc-warehouse-wrapper')) return;
+        if (warehouseListLoading) {
+            if (warehouseActiveRequestKey === contextKey) return;
+            warehouseRequestSerial += 1;
+            warehouseListLoading = false;
+        }
+
+        warehouseListLoading = true;
+        warehouseActiveRequestKey = contextKey;
+        var requestSerial = ++warehouseRequestSerial;
+        dashboard.dataset.loaded = '0';
+        dashboard.dataset.contextKey = contextKey;
+        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando indicadores dos armazéns...</div>';
+
+        frappe.call({
+            method: 'cdc_theme.api.get_warehouse_list_dashboard_data',
+            args: context,
+            callback: function(response) {
+                if (requestSerial !== warehouseRequestSerial) return;
+                warehouseListLoading = false;
+                warehouseActiveRequestKey = '';
+                if (!isWarehouseListRoute()) {
+                    removeWarehouseDashboard();
+                    return;
+                }
+                var currentListBody = getActiveWorkspaceBody();
+                var currentBody = currentListBody && currentListBody.parentNode;
+                if (!currentBody) return;
+                currentListBody.classList.add('cdc-catalog-list-enhanced', 'is-warehouse-list');
+                var currentDashboard = currentBody.querySelector('#cdc-warehouse-dashboard');
+                if (currentDashboard) dashboard = currentDashboard;
+                else {
+                    dashboard = document.createElement('section');
+                    dashboard.id = 'cdc-warehouse-dashboard';
+                    currentBody.insertBefore(dashboard, currentListBody);
+                }
+
+                var data = response && response.message;
+                if (!data) {
+                    dashboard.dataset.loaded = '0';
+                    dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Falha ao obter o contexto dos armazéns.</div>';
+                    return;
+                }
+                var summary = data.summary || {};
+                var filters = data.filters || {};
+                warehouseSelectedProject = filters.selected_project || 'All';
+                sessionStorage.setItem('cdc_warehouse_project', warehouseSelectedProject);
+
+                var companyOptions = '<option value="">Todas as empresas</option>' + (filters.companies || []).map(function(value) {
+                    return `<option value="${escapeHTML(value)}"${value === filters.selected_company ? ' selected' : ''}>${escapeHTML(value)}</option>`;
+                }).join('');
+                var projectOptions = '<option value="All">Todos os projetos</option>' + (filters.projects || []).map(function(value) {
+                    return `<option value="${escapeHTML(value)}"${value === warehouseSelectedProject ? ' selected' : ''}>${escapeHTML(value)}</option>`;
+                }).join('');
+                var parentOptions = '<option value="">Todos os grupos pais</option>' + (filters.parent_groups || []).map(function(value) {
+                    return `<option value="${escapeHTML(value)}"${value === filters.selected_parent ? ' selected' : ''}>${escapeHTML(value.replace(/\s+-\s+C$/, ''))}</option>`;
+                }).join('');
+                var breadcrumb = window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html('Estoque', 'Armazéns') : '';
+
+                dashboard.innerHTML = `
+                    ${breadcrumb}
+                    <div class="cdc-warehouse-wrapper">
+                        <div class="cdc-monitoring-header">
+                            <div class="cdc-monitoring-title-box">
+                                <h1 class="cdc-monitoring-h1">🏭 Armazéns</h1>
+                                <p class="cdc-monitoring-sub">Indicadores e filtros aplicados à lista oficial do ERPNext</p>
+                            </div>
+                            <button class="btn btn-sm btn-default" id="cdc-btn-refresh-warehouses">🔄 Atualizar contexto</button>
+                        </div>
+                        <div class="cdc-monitoring-cards-grid">
+                            <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Resultados</div><div class="cdc-card-value">${summary.total_results || 0}</div><div class="cdc-card-desc">Registros no contexto atual</div></div>
+                            <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Operacionais</div><div class="cdc-card-value">${summary.operational_warehouses || 0}</div><div class="cdc-card-desc">Armazéns que recebem movimentações</div></div>
+                            <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Grupos</div><div class="cdc-card-value">${summary.warehouse_groups || 0}</div><div class="cdc-card-desc">Nós organizadores da árvore</div></div>
+                            <div class="cdc-monitoring-card ${summary.inactive_warehouses > 0 ? 'is-warning' : 'is-status'}"><div class="cdc-card-label">Inativos</div><div class="cdc-card-value">${summary.inactive_warehouses || 0}</div><div class="cdc-card-desc">Desabilitados no contexto</div></div>
+                            <div class="cdc-monitoring-card is-status"><div class="cdc-card-label">Projetos</div><div class="cdc-card-value">${summary.projects_in_context || 0}</div><div class="cdc-card-desc">Projetos representados</div></div>
+                        </div>
+                        <div class="cdc-linked-filters cdc-warehouse-filters" aria-label="Filtros de Armazéns">
+                            <label class="is-search"><span>Pesquisar</span><input id="cdc-warehouse-search" type="search" value="${escapeHTML(filters.search || '')}" placeholder="Nome ou código do armazém"></label>
+                            <label><span>Projetos</span><select id="cdc-warehouse-project">${projectOptions}</select></label>
+                            <label><span>Empresa</span><select id="cdc-warehouse-company">${companyOptions}</select></label>
+                            <label><span>Status</span><select id="cdc-warehouse-status"><option value="">Todos</option><option value="0"${filters.selected_disabled === '0' ? ' selected' : ''}>Ativos</option><option value="1"${filters.selected_disabled === '1' ? ' selected' : ''}>Inativos</option></select></label>
+                            <label><span>Tipo</span><select id="cdc-warehouse-kind"><option value="">Todos</option><option value="0"${filters.selected_is_group === '0' ? ' selected' : ''}>Operacional</option><option value="1"${filters.selected_is_group === '1' ? ' selected' : ''}>Grupo</option></select></label>
+                            <label><span>Grupo pai</span><select id="cdc-warehouse-parent">${parentOptions}</select></label>
+                            <button type="button" class="btn btn-sm btn-primary" id="cdc-warehouse-apply">Aplicar filtros</button>
+                            <button type="button" class="btn btn-sm btn-default" id="cdc-warehouse-clear">Limpar filtros</button>
+                        </div>
+                        <p class="cdc-catalog-filter-note">Cards e filtros usam somente armazéns permitidos ao usuário. A lista, paginação, seleção e ações permanecem nativas.</p>
+                    </div>`;
+                dashboard.dataset.loaded = '1';
+                dashboard.dataset.contextKey = contextKey;
+                bindWarehouseNativeScope(data.scope || {});
+
+                var searchInput = dashboard.querySelector('#cdc-warehouse-search');
+                var projectSelect = dashboard.querySelector('#cdc-warehouse-project');
+                var companySelect = dashboard.querySelector('#cdc-warehouse-company');
+                var statusSelect = dashboard.querySelector('#cdc-warehouse-status');
+                var kindSelect = dashboard.querySelector('#cdc-warehouse-kind');
+                var parentSelect = dashboard.querySelector('#cdc-warehouse-parent');
+                function applyFilters() {
+                    warehouseSelectedProject = projectSelect ? projectSelect.value : 'All';
+                    sessionStorage.setItem('cdc_warehouse_project', warehouseSelectedProject);
+                    var routeFilters = {};
+                    var term = searchInput ? searchInput.value.trim() : '';
+                    if (term) routeFilters.name = ['like', '%' + term + '%'];
+                    if (companySelect && companySelect.value) routeFilters.company = companySelect.value;
+                    if (statusSelect && statusSelect.value !== '') routeFilters.disabled = Number(statusSelect.value);
+                    if (kindSelect && kindSelect.value !== '') routeFilters.is_group = Number(kindSelect.value);
+                    if (parentSelect && parentSelect.value) routeFilters.parent_warehouse = parentSelect.value;
+                    dashboard.dataset.loaded = '0';
+                    frappe.set_route('List', 'Warehouse', 'List', routeFilters);
+                    [250, 700].forEach(function(delay) { setTimeout(renderWarehouseList, delay); });
+                }
+                dashboard.querySelector('#cdc-warehouse-apply').addEventListener('click', applyFilters);
+                if (searchInput) searchInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') applyFilters();
+                });
+                dashboard.querySelector('#cdc-warehouse-clear').addEventListener('click', function() {
+                    warehouseSelectedProject = 'All';
+                    sessionStorage.setItem('cdc_warehouse_project', 'All');
+                    dashboard.dataset.loaded = '0';
+                    frappe.set_route('List', 'Warehouse', 'List');
+                    [250, 700].forEach(function(delay) { setTimeout(renderWarehouseList, delay); });
+                });
+                dashboard.querySelector('#cdc-btn-refresh-warehouses').addEventListener('click', function() {
+                    dashboard.dataset.loaded = '0';
+                    if (window.cur_list && normalizeRoute(window.cur_list.doctype) === 'warehouse') window.cur_list.refresh();
+                    renderWarehouseList();
+                    frappe.show_alert({message: __('Indicadores dos armazéns atualizados.'), indicator: 'green'}, 3);
+                });
+            },
+            error: function(error) {
+                if (requestSerial !== warehouseRequestSerial) return;
+                warehouseListLoading = false;
+                warehouseActiveRequestKey = '';
+                if (!isWarehouseListRoute()) {
+                    removeWarehouseDashboard();
+                    return;
+                }
+                dashboard.dataset.loaded = '0';
+                var message = error && error.message ? error.message : 'Não foi possível consultar os armazéns.';
+                dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">' + escapeHTML(message) + '</div>';
+            }
+        });
+    }
+
     function init() {
         render();
         renderItemGroup();
         renderItemList();
+        renderWarehouseList();
         if (observer) observer.disconnect();
         observer = new MutationObserver(function() {
             if (isMonitoringRoute()) render();
             renderItemGroup();
             renderItemList();
+            renderWarehouseList();
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -3387,8 +3621,14 @@
                 if (groupDashboard) groupDashboard.dataset.loaded = '0';
                 var itemDashboard = document.getElementById('cdc-item-list-dashboard');
                 if (itemDashboard) itemDashboard.dataset.loaded = '0';
+                var warehouseDashboard = document.getElementById('cdc-warehouse-dashboard');
+                if (warehouseDashboard) warehouseDashboard.dataset.loaded = '0';
+                if (warehouseListLoading) warehouseRequestSerial += 1;
+                warehouseListLoading = false;
+                warehouseActiveRequestKey = '';
                 renderItemGroup();
                 renderItemList();
+                renderWarehouseList();
             });
         }
     }

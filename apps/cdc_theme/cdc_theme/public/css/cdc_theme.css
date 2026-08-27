@@ -1970,40 +1970,47 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     margin-bottom: 1rem;
 }
 
-#cdc-item-list-dashboard {
+#cdc-item-list-dashboard,
+#cdc-warehouse-dashboard {
     color: var(--text-color);
     animation: cdcFadeIn .25s ease-out;
     margin-bottom: 1rem;
 }
 
 .cdc-item-group-wrapper,
-.cdc-item-list-wrapper {
+.cdc-item-list-wrapper,
+.cdc-warehouse-wrapper {
     padding: 1rem 0;
 }
 
 #cdc-item-group-dashboard .cdc-monitoring-header,
-#cdc-item-list-dashboard .cdc-monitoring-header {
+#cdc-item-list-dashboard .cdc-monitoring-header,
+#cdc-warehouse-dashboard .cdc-monitoring-header {
     border-bottom-color: var(--border-color, #e2e8f0);
 }
 
 #cdc-item-group-dashboard .cdc-monitoring-h1,
-#cdc-item-list-dashboard .cdc-monitoring-h1 {
+#cdc-item-list-dashboard .cdc-monitoring-h1,
+#cdc-warehouse-dashboard .cdc-monitoring-h1 {
     color: var(--text-color, #0f172a);
 }
 
 #cdc-item-group-dashboard .cdc-monitoring-sub,
-#cdc-item-list-dashboard .cdc-monitoring-sub {
+#cdc-item-list-dashboard .cdc-monitoring-sub,
+#cdc-warehouse-dashboard .cdc-monitoring-sub {
     color: var(--text-muted, #64748b);
 }
 
 #cdc-item-group-dashboard .cdc-monitoring-cards-grid,
-#cdc-item-list-dashboard .cdc-monitoring-cards-grid {
+#cdc-item-list-dashboard .cdc-monitoring-cards-grid,
+#cdc-warehouse-dashboard .cdc-monitoring-cards-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
 }
 
 #cdc-item-group-dashboard .cdc-monitoring-card,
-#cdc-item-list-dashboard .cdc-monitoring-card {
+#cdc-item-list-dashboard .cdc-monitoring-card,
+#cdc-warehouse-dashboard .cdc-monitoring-card {
     min-height: 126px;
     padding: 17px 16px;
     background: var(--card-bg, #fff);
@@ -2014,17 +2021,31 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 }
 
 #cdc-item-group-dashboard .cdc-card-label,
-#cdc-item-list-dashboard .cdc-card-label {
+#cdc-item-list-dashboard .cdc-card-label,
+#cdc-warehouse-dashboard .cdc-card-label {
     color: var(--text-muted, #64748b);
 }
 
 #cdc-item-group-dashboard .cdc-card-value,
-#cdc-item-list-dashboard .cdc-card-value {
+#cdc-item-list-dashboard .cdc-card-value,
+#cdc-warehouse-dashboard .cdc-card-value {
     color: var(--text-color, #0f172a);
 }
 
 .cdc-catalog-filters label {
     flex-basis: 180px;
+}
+
+.cdc-warehouse-filters {
+    flex-wrap: wrap;
+}
+
+.cdc-warehouse-filters label {
+    flex: 1 1 170px;
+}
+
+.cdc-warehouse-filters label.is-search {
+    flex-basis: 260px;
 }
 
 .cdc-catalog-scope-filters {
@@ -2130,14 +2151,16 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 
 @media (max-width: 1100px) {
     #cdc-item-group-dashboard .cdc-monitoring-cards-grid,
-    #cdc-item-list-dashboard .cdc-monitoring-cards-grid {
+    #cdc-item-list-dashboard .cdc-monitoring-cards-grid,
+    #cdc-warehouse-dashboard .cdc-monitoring-cards-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 600px) {
     #cdc-item-group-dashboard .cdc-monitoring-cards-grid,
-    #cdc-item-list-dashboard .cdc-monitoring-cards-grid {
+    #cdc-item-list-dashboard .cdc-monitoring-cards-grid,
+    #cdc-warehouse-dashboard .cdc-monitoring-cards-grid {
         grid-template-columns: 1fr;
     }
 
