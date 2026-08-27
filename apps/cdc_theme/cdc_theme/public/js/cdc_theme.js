@@ -2009,6 +2009,24 @@
     }
 
     var warehouseWorkspaceAliasRedirecting = false;
+    function dismissCDCWarehouseAliasNotFound() {
+        document.querySelectorAll('.modal').forEach(function(modal) {
+            var text = (modal.textContent || '').toLowerCase().normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+            if (text.indexOf('pagina cdc-armazem nao encontrado') === -1) return;
+            if (window.jQuery && typeof window.jQuery(modal).modal === 'function') {
+                window.jQuery(modal).modal('hide');
+            } else {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+        });
+        if (!document.querySelector('.modal.show')) {
+            document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) { backdrop.remove(); });
+            document.body.classList.remove('modal-open');
+        }
+    }
+
     function redirectCDCWarehouseWorkspaceAlias() {
         var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase();
         if (pathname !== '/app/cdc-armazem') {
@@ -2018,6 +2036,9 @@
         if (!warehouseWorkspaceAliasRedirecting && window.frappe && frappe.set_route) {
             warehouseWorkspaceAliasRedirecting = true;
             frappe.set_route('Workspaces', 'CDC Armazém');
+            [0, 150, 400, 900, 1600].forEach(function(delay) {
+                setTimeout(dismissCDCWarehouseAliasNotFound, delay);
+            });
         }
         return true;
     }

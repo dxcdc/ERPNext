@@ -275,6 +275,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("frappe.call", source)
         self.assertNotIn("frappe.db", source)
         self.assertIn("function redirectCDCWarehouseWorkspaceAlias()", theme_source)
+        self.assertIn("function dismissCDCWarehouseAliasNotFound()", theme_source)
+        self.assertIn("pagina cdc-armazem nao encontrado", theme_source)
         self.assertIn("frappe.set_route('Workspaces', 'CDC Armazém')", theme_source)
         self.assertIn("href: '/app/cdc-armazém'", theme_source)
 
