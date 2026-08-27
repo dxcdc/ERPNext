@@ -344,12 +344,24 @@
         });
     }
 
+    function watchDashboardContent(dashboard, config, state) {
+        if (state.observer) state.observer.disconnect();
+        state.observer = new MutationObserver(function() {
+            if (!dashboard.isConnected || !state.data || dashboard.querySelector('.cdc-management-shell')) return;
+            window.setTimeout(function() {
+                if (!dashboard.isConnected || dashboard.querySelector('.cdc-management-shell') || !state.data) return;
+                renderDashboard(dashboard, config, state.data);
+            }, 40);
+        });
+        state.observer.observe(dashboard, {childList: true});
+    }
+
     function load(config, context, force) {
         var claim = window._cdc_claim_active_dashboard && window._cdc_claim_active_dashboard(config.dashboardId, 'section');
         if (!claim) return;
         var dashboard = claim.dashboard;
         claim.body.classList.add(config.activeClass);
-        var state = states[config.dashboardId] || {serial: 0, key: '', timer: null, pending: false};
+        var state = states[config.dashboardId] || {serial: 0, key: '', timer: null, pending: false, observer: null, data: null};
         states[config.dashboardId] = state;
         var requestKey = config.page + '|' + JSON.stringify(context);
         if (!force && dashboard.dataset.loaded === '1' && state.key === requestKey) return;
@@ -384,6 +396,8 @@
                     return;
                 }
                 renderDashboard(dashboard, config, data);
+                state.data = data;
+                watchDashboardContent(dashboard, config, state);
             },
             error: function(error) {
                 if (serial !== state.serial) return;
@@ -408,6 +422,7 @@
         if (state) {
             state.serial += 1;
             if (state.timer) window.clearTimeout(state.timer);
+            if (state.observer) state.observer.disconnect();
             delete states[options.dashboardId];
         }
         document.querySelectorAll('#' + options.dashboardId).forEach(function(node) { node.remove(); });
