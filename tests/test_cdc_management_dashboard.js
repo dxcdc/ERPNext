@@ -11,6 +11,8 @@ const items = fs.readFileSync(path.join(root, 'cdc_items.js'), 'utf8');
 const warehouses = fs.readFileSync(path.join(root, 'cdc_warehouse.js'), 'utf8');
 
 assert.match(management, /get_catalog_management_dashboard_data/, 'dados devem vir do endpoint real');
+assert.match(management, /breadcrumb: 'Armazéns'/, 'CDC Armazém deve usar o rótulo plural registrado no breadcrumb');
+assert.doesNotMatch(management, /config\.title\.replace\('CDC ', ''\)/, 'breadcrumb não deve ser inferido do título visível');
 assert.match(management, /_cdc_claim_active_dashboard/, 'montagem deve usar somente a página SPA ativa');
 assert.match(management, /serial !== state\.serial/, 'respostas antigas devem ser descartadas');
 assert.match(management, /window\.clearTimeout\(state\.timer\)/, 'watchdog deve ser cancelado após resposta');

@@ -5,6 +5,7 @@
     var PAGE_CONFIG = {
         groups: {
             title: 'CDC Grupos',
+            breadcrumb: 'Grupos',
             subtitle: 'Organização, utilização e valor do catálogo por grupo de itens',
             eyebrow: 'Estrutura do catálogo',
             icon: '🏷️',
@@ -13,6 +14,7 @@
         },
         items: {
             title: 'CDC Itens',
+            breadcrumb: 'Itens',
             subtitle: 'Disponibilidade, valor e situações que exigem atenção',
             eyebrow: 'Saúde dos itens',
             icon: '📦',
@@ -21,6 +23,7 @@
         },
         warehouses: {
             title: 'CDC Armazém',
+            breadcrumb: 'Armazéns',
             subtitle: 'Distribuição, movimentações e riscos nos armazéns permitidos',
             eyebrow: 'Posição do estoque',
             icon: '🏭',
@@ -71,7 +74,7 @@
     }
 
     function renderSkeleton(dashboard, config) {
-        dashboard.innerHTML = `${window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html(config.title.replace('CDC ', ''), 'Resumo gerencial') : ''}
+        dashboard.innerHTML = `${window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html(config.breadcrumb, 'Resumo gerencial') : ''}
             <div class="cdc-management-shell">
                 <section class="cdc-management-hero is-loading">
                     <div class="cdc-management-hero-icon">${config.icon}</div>
@@ -84,7 +87,7 @@
 
     function renderFailure(dashboard, config, message) {
         dashboard.dataset.loaded = 'error';
-        dashboard.innerHTML = `${window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html(config.title.replace('CDC ', ''), 'Resumo gerencial') : ''}
+        dashboard.innerHTML = `${window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html(config.breadcrumb, 'Resumo gerencial') : ''}
             <div class="cdc-management-shell">
                 <div class="cdc-management-error" role="alert">
                     <strong>Não foi possível carregar o resumo gerencial.</strong>
@@ -192,7 +195,7 @@
             return optionHTML(value, value, filters.selected_group);
         }).join('');
         dashboard.dataset.loaded = '1';
-        dashboard.innerHTML = `${window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html(config.title.replace('CDC ', ''), 'Resumo gerencial') : ''}
+        dashboard.innerHTML = `${window._cdc_get_breadcrumb_html ? window._cdc_get_breadcrumb_html(config.breadcrumb, 'Resumo gerencial') : ''}
             <div class="cdc-management-shell">
                 <section class="cdc-management-hero">
                     <div class="cdc-management-hero-icon" aria-hidden="true">${config.icon}</div>
