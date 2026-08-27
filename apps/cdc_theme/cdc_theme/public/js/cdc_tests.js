@@ -589,6 +589,40 @@
         finishGateRun(gateId, result, false, options, done);
     }
 
+    function executeWarehouseRbacStages(gateId, result, options, done) {
+        var stageResults = Array.isArray(result.check.stage_results)
+            ? result.check.stage_results.slice().sort(function(left, right) {
+                return Number(left.index) - Number(right.index);
+            })
+            : [];
+        if (!stageResults.length) {
+            appendGateLog(gateId, 'WARN', 'O servidor não devolveu as etapas detalhadas da auditoria RBAC.');
+            finishGenericEvidence(gateId, result, options, done);
+            return;
+        }
+        var position = 0;
+        function advance() {
+            if (position >= stageResults.length) {
+                finishGateRun(gateId, result, false, options, done);
+                return;
+            }
+            var stage = stageResults[position];
+            var index = Number(stage.index);
+            var status = stage.status === 'passed' ? 'passed' : (stage.status === 'warning' ? 'warning' : 'failed');
+            var level = status === 'passed' ? 'PASS' : (status === 'warning' ? 'WARN' : 'FAIL');
+            var detail = String(stage.detail || 'Etapa concluída sem evidência descritiva.');
+            setGateStage(gateId, index, 'running', `Processando a evidência real de ${String(stage.label || 'RBAC').toLowerCase()}.`);
+            appendGateLog(gateId, 'RUN', `${stage.label || 'Etapa RBAC'}: analisando resultado retornado pelo servidor...`);
+            window.setTimeout(function() {
+                setGateStage(gateId, index, status, detail);
+                appendGateLog(gateId, level, `${stage.label || 'Etapa RBAC'} — ${detail}`);
+                position += 1;
+                advance();
+            }, 120);
+        }
+        advance();
+    }
+
     function executeAutomatedRouteStages(gateId, result, options, done) {
         var state = gateProgressState[gateId];
         var stockIndex = 2;
@@ -685,7 +719,9 @@
                     result.check.status === 'passed' ? 'PASS' : (result.check.status === 'blocked' ? 'BLOCK' : 'WARN'),
                     result.check.evidence
                 );
-                if (gateId === 'automated-tests') {
+                if (gateId === 'warehouse-rbac') {
+                    executeWarehouseRbacStages(gateId, result, options, done);
+                } else if (gateId === 'automated-tests') {
                     executeAutomatedRouteStages(gateId, result, options, done);
                 } else {
                     finishGenericEvidence(gateId, result, options, done);

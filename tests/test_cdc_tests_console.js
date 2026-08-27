@@ -103,9 +103,10 @@ const fakeFrappe = {
         if (options.method === 'cdc_theme.api.get_cdc_tests_dashboard') {
             options.callback({message: {
                 checked_at: 'agora',
-                summary: {total: 3, passed: 1, warnings: 2, blocked: 0},
+                summary: {total: 4, passed: 1, warnings: 2, blocked: 1},
                 checks: [
                     {id: 'item-group-route', title: '1. Rotas', summary: 'Rotas corretas.', details: ['Um', 'Dois', 'Três'], evidence: 'Rotas válidas', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Rotas', 'Evidências', 'Resultado']},
+                    {id: 'warehouse-rbac', title: '5. RBAC por armazém', summary: 'Isolamento por armazém.', details: ['Um', 'Dois', 'Três'], evidence: 'SQL legado ainda não comprovado', status: 'blocked', execution_type: 'Automático', stages: ['Preparação', 'Autorização administrativa', 'Configuração RBAC', 'Usuário restrito', 'Consulta permitida', 'Tentativa proibida', 'Agregados legados', 'Resultado']},
                     {id: 'automated-tests', title: '7. APIs', summary: 'APIs reais.', details: ['Um', 'Dois', 'Três'], evidence: 'CI externa pendente', status: 'warning', execution_type: 'Híbrido', stages: ['Preparação', 'Permissões', 'API Estoque', 'API Usuários', 'Evidências e CI', 'Resultado']},
                     {id: 'theme-integrity', title: '9. Tema', summary: 'Tema íntegro.', details: ['Um', 'Dois', 'Três'], evidence: 'Validação externa pendente', status: 'warning', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Assets', 'Montagem', 'Resultado']}
                 ]
@@ -133,6 +134,17 @@ const fakeFrappe = {
         if (options.method === 'cdc_theme.api.run_cdc_quality_gate') {
             const sourceCheck = {
                 'item-group-route': {title: '1. Rotas', evidence: 'Rotas válidas novamente', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Rotas', 'Evidências', 'Resultado']},
+                'warehouse-rbac': {
+                    title: '5. RBAC por armazém', evidence: 'Auditoria bloqueada: agregados legados sem identidade elegível.', status: 'blocked', execution_type: 'Automático',
+                    stages: ['Preparação', 'Autorização administrativa', 'Configuração RBAC', 'Usuário restrito', 'Consulta permitida', 'Tentativa proibida', 'Agregados legados', 'Resultado'],
+                    stage_results: [
+                        {index: 2, label: 'Configuração RBAC', status: 'passed', detail: '89 permissões para 52 usuários e 20 armazéns.'},
+                        {index: 3, label: 'Usuário restrito', status: 'passed', detail: 'Identidade u***@cdc.org possui acesso parcial.'},
+                        {index: 4, label: 'Consulta permitida', status: 'passed', detail: 'Cinco cards e nenhum armazém externo.'},
+                        {index: 5, label: 'Tentativa proibida', status: 'passed', detail: 'Armazém externo rejeitado com PermissionError.'},
+                        {index: 6, label: 'Agregados legados', status: 'failed', detail: 'Nenhum Stock Manager restrito elegível.'}
+                    ]
+                },
                 'automated-tests': {title: '7. APIs', evidence: 'CI externa pendente', status: 'warning', execution_type: 'Híbrido', stages: ['Preparação', 'Permissões', 'API Estoque', 'API Usuários', 'Evidências e CI', 'Resultado']},
                 'theme-integrity': {title: '9. Tema', evidence: 'Tema íntegro novamente', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Assets', 'Montagem', 'Resultado']}
             }[options.args.gate_id];
@@ -146,7 +158,8 @@ const fakeFrappe = {
                     evidence: sourceCheck.evidence,
                     status: sourceCheck.status,
                     execution_type: sourceCheck.execution_type,
-                    stages: sourceCheck.stages
+                    stages: sourceCheck.stages,
+                    stage_results: sourceCheck.stage_results
                 }
             }});
             return;
@@ -201,6 +214,7 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
         'cdc_theme.api.get_cdc_tests_dashboard',
         'cdc_theme.api.run_cdc_quality_gate',
         'cdc_theme.api.run_cdc_quality_gate',
+        'cdc_theme.api.run_cdc_quality_gate',
         'cdc_theme.api.get_stock_dashboard_data',
         'cdc_theme.api.get_users_dashboard_data',
         'cdc_theme.api.run_cdc_quality_gate',
@@ -208,6 +222,7 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     ], 'o botão deve executar os gates em sequência, verificar as duas APIs reais e finalizar os diagnósticos');
     assert.match(terminalOutput.textContent, /\[START\].*Execução sequencial autenticada/s);
     assert.match(terminalOutput.textContent, /\[PASS\] 1\. Rotas — Rotas válidas novamente/);
+    assert.match(terminalOutput.textContent, /\[BLOCK\] 5\. RBAC por armazém — Auditoria bloqueada/);
     assert.match(terminalOutput.textContent, /\[WARN\] 7\. APIs — CI externa pendente/);
     assert.match(terminalOutput.textContent, /\[PASS\] 9\. Tema — Tema íntegro novamente/);
     assert.match(terminalOutput.textContent, /\[PASS\] Banco — Conectado/);
@@ -232,6 +247,18 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     assert.match(itemTerminal.output.textContent, /\[DONE\] Verificação concluída/);
     assert.equal(itemTerminal.status.textContent, 'APROVADO');
     assert.equal(expandedGateDetails.open, true, 'a explicação deve abrir após executar o item');
+
+    const rbacGateButton = {
+        disabled: false,
+        textContent: 'Executar este teste',
+        getAttribute(name) { return name === 'data-cdc-run-gate' ? 'warehouse-rbac' : null; }
+    };
+    runGate.call(rbacGateButton);
+    const rbacTerminal = getGateTerminal('warehouse-rbac');
+    assert.match(rbacTerminal.output.textContent, /Configuração RBAC — 89 permissões para 52 usuários e 20 armazéns/);
+    assert.match(rbacTerminal.output.textContent, /Tentativa proibida — Armazém externo rejeitado com PermissionError/);
+    assert.match(rbacTerminal.output.textContent, /Agregados legados — Nenhum Stock Manager restrito elegível/);
+    assert.equal(rbacTerminal.status.textContent, 'BLOQUEADO');
 
     const automatedGateButton = {
         disabled: false,

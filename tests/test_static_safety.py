@@ -240,7 +240,7 @@ class StaticSafetyTest(unittest.TestCase):
         )
         for gate_id in expected_ids:
             with self.subTest(gate_id=gate_id):
-                self.assertEqual(api_source.count(f'"{gate_id}"'), 2)
+                self.assertGreaterEqual(api_source.count(f'"{gate_id}"'), 2)
         self.assertIn('"ready_to_publish"', api_source)
         self.assertIn("get_cdc_tests_dashboard", api_source)
         self.assertNotIn("tab-validacoes", theme_source)
@@ -281,7 +281,7 @@ class StaticSafetyTest(unittest.TestCase):
         for gate_id, copy in gate_copy.items():
             with self.subTest(explanation_gate=gate_id):
                 self.assertTrue(copy["summary"])
-                self.assertEqual(len(copy["details"]), 2)
+                self.assertGreaterEqual(len(copy["details"]), 2)
                 self.assertIn(copy["execution_type"], {"Automático", "Híbrido", "Externo"})
                 self.assertGreaterEqual(len(copy["stages"]), 5)
                 self.assertEqual(copy["stages"][0], "Preparação")
@@ -296,6 +296,42 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('"repair_theme"', api_source)
         self.assertIn("_theme_integrity_health", api_source)
         self.assertNotIn("Todos os testes foram aprovados", tests_source)
+
+    def test_warehouse_rbac_gate_runs_read_only_behavioral_audit(self):
+        api_source = API_PY.read_text()
+        tests_source = TESTS_JS.read_text()
+        tree = ast.parse(api_source)
+        audit_node = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_run_warehouse_rbac_audit"
+        )
+        audit_source = ast.get_source_segment(api_source, audit_node)
+        finder_node = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_find_restricted_warehouse_user"
+        )
+        finder_source = ast.get_source_segment(api_source, finder_node)
+
+        self.assertIn("stage_results", audit_source)
+        self.assertIn("get_catalog_management_dashboard_data", audit_source)
+        self.assertIn("get_stock_dashboard_data", audit_source)
+        self.assertIn("except frappe.PermissionError", audit_source)
+        self.assertIn("frappe.set_user", audit_source)
+        self.assertIn("finally:", audit_source)
+        self.assertIn("finally:", finder_source)
+        self.assertIn("frappe.set_user(original_user)", finder_source)
+        self.assertIn("require_stock_manager=True", audit_source)
+        self.assertIn("Nenhum Stock Manager existente possui escopo parcial", audit_source)
+        for forbidden_mutation in (
+            "frappe.db.set_value", ".save(", ".insert(", "frappe.new_doc",
+            'frappe.get_doc({"doctype": "User Permission"',
+        ):
+            with self.subTest(forbidden_mutation=forbidden_mutation):
+                self.assertNotIn(forbidden_mutation, audit_source + finder_source)
+
+        self.assertIn("function executeWarehouseRbacStages", tests_source)
+        self.assertIn("result.check.stage_results", tests_source)
+        self.assertIn("gateId === 'warehouse-rbac'", tests_source)
 
     def test_cdc_groups_uses_permission_scoped_management_dashboard(self):
         source = GROUPS_JS.read_text()

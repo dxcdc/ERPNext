@@ -7,21 +7,21 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_catalog_management_v47"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_rbac_audit_v48"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_pending.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_tests.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_management.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_groups.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_items.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_warehouse.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260827_catalog_management_v47",
-    "/assets/cdc_theme/js/cdc_admin.js?v=20260827_catalog_management_v47",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_pending.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_tests.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_management.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_groups.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_items.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_warehouse.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260827_rbac_audit_v48",
+    "/assets/cdc_theme/js/cdc_admin.js?v=20260827_rbac_audit_v48",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_catalog_management_v47"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260827_catalog_management_v47"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_rbac_audit_v48"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260827_rbac_audit_v48"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"

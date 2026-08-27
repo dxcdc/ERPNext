@@ -1915,11 +1915,16 @@ QUALITY_GATE_COPY = {
     },
     "warehouse-rbac": {
         "execution_type": "Automático",
-        "stages": ("Preparação", "Permissões", "Papel do usuário", "Escopo por armazém", "Resultado"),
-        "summary": "Confere se cada consulta respeita o papel e os armazéns permitidos para o usuário.",
+        "stages": (
+            "Preparação", "Autorização administrativa", "Configuração RBAC",
+            "Usuário restrito", "Consulta permitida", "Tentativa proibida",
+            "Agregados legados", "Resultado",
+        ),
+        "summary": "Comprova, com uma identidade restrita, que consultas permitidas funcionam e armazéns externos são bloqueados.",
         "details": (
             "RBAC controla quem pode acessar o painel, enquanto User Permission limita quais armazéns essa pessoa pode consultar.",
-            "O teste só aprova quando as consultas agregadas também aplicam o escopo por armazém, e não apenas o papel geral.",
+            "A execução usa somente permissões existentes, mascara a identidade avaliada e restaura o usuário administrativo ao terminar.",
+            "O teste só aprova quando a consulta permitida, a tentativa proibida e os agregados legados comprovam o mesmo isolamento.",
         ),
     },
     "security-ci": {
@@ -1970,7 +1975,10 @@ QUALITY_GATE_COPY = {
 }
 
 
-def _monitoring_quality_gate(gate_id, title, status, evidence, action=None, action_label=None):
+def _monitoring_quality_gate(
+    gate_id, title, status, evidence, action=None, action_label=None,
+    stage_results=None, metrics=None,
+):
     copy = QUALITY_GATE_COPY.get(gate_id, {})
     details = list(copy.get("details", ()))
     details.append(f"Resultado desta execução: {evidence}")
@@ -1987,7 +1995,261 @@ def _monitoring_quality_gate(gate_id, title, status, evidence, action=None, acti
     if action:
         gate["action"] = action
         gate["action_label"] = action_label or "Executar correção"
+    if stage_results is not None:
+        gate["stage_results"] = stage_results
+    if metrics is not None:
+        gate["metrics"] = metrics
     return gate
+
+
+def _mask_rbac_identity(user):
+    value = str(user or "").strip()
+    if "@" not in value:
+        return (value[:1] or "u") + "***"
+    local, domain = value.split("@", 1)
+    return (local[:1] or "u") + "***@" + domain
+
+
+def _warehouse_rbac_stage(index, label, status, detail):
+    return {"index": index, "label": label, "status": status, "detail": detail}
+
+
+def _warehouse_permission_snapshot():
+    rows = frappe.get_all(
+        "User Permission",
+        filters={"allow": "Warehouse"},
+        fields=["user", "for_value"],
+        limit_page_length=0,
+    )
+    return {
+        "permission_rows": len(rows),
+        "users_with_scope": len({row.user for row in rows if row.user}),
+        "warehouses_referenced": len({row.for_value for row in rows if row.for_value}),
+        "permission_users": sorted({row.user for row in rows if row.user}),
+    }
+
+
+def _find_restricted_warehouse_user(all_warehouses, require_stock_manager=False):
+    """Localiza uma identidade existente e apenas lê seu escopo efetivo."""
+    original_user = frappe.session.user
+    snapshot = _warehouse_permission_snapshot()
+    enabled_users = set(frappe.get_all(
+        "User",
+        filters={"enabled": 1, "user_type": "System User"},
+        pluck="name",
+        limit_page_length=0,
+    ))
+    candidates = [
+        user for user in snapshot["permission_users"]
+        if user in enabled_users and user not in {"Administrator", "Guest"}
+    ]
+    required_doctypes = (
+        ("Warehouse", "Stock Entry")
+        if require_stock_manager
+        else ("Warehouse", "Bin", "Stock Ledger Entry", "Item", "Item Group")
+    )
+    try:
+        for user in candidates:
+            try:
+                roles = set(frappe.get_roles(user))
+                if require_stock_manager and "Stock Manager" not in roles:
+                    continue
+                frappe.set_user(user)
+                if not all(frappe.has_permission(doctype, "read") for doctype in required_doctypes):
+                    continue
+                visible = set(frappe.get_list(
+                    "Warehouse",
+                    filters={"is_group": 0},
+                    pluck="name",
+                    order_by="name asc",
+                    limit_page_length=0,
+                ))
+                if visible and visible < all_warehouses:
+                    return {
+                        "user": user,
+                        "masked_user": _mask_rbac_identity(user),
+                        "visible_warehouses": visible,
+                        "roles": roles,
+                    }
+            except Exception:
+                # Uma identidade incompleta não invalida os demais candidatos.
+                continue
+            finally:
+                frappe.set_user(original_user)
+    finally:
+        frappe.set_user(original_user)
+    return None
+
+
+def _run_warehouse_rbac_audit():
+    """Audita o isolamento sem criar usuários, papéis, permissões ou sessões."""
+    original_user = frappe.session.user
+    all_warehouses = set(frappe.get_all(
+        "Warehouse",
+        filters={"is_group": 0},
+        pluck="name",
+        limit_page_length=0,
+    ))
+    snapshot = _warehouse_permission_snapshot()
+    stage_results = []
+    metrics = {
+        "permission_rows": snapshot["permission_rows"],
+        "users_with_scope": snapshot["users_with_scope"],
+        "warehouses_referenced": snapshot["warehouses_referenced"],
+        "leaf_warehouses": len(all_warehouses),
+        "forbidden_attempts": 0,
+        "unexpected_warehouses": 0,
+    }
+
+    configured = bool(all_warehouses and snapshot["permission_rows"] and snapshot["users_with_scope"])
+    stage_results.append(_warehouse_rbac_stage(
+        2, "Configuração RBAC", "passed" if configured else "failed",
+        (
+            f"{snapshot['permission_rows']} permissões de Warehouse para "
+            f"{snapshot['users_with_scope']} usuário(s), cobrindo "
+            f"{snapshot['warehouses_referenced']} armazém(ns) referenciado(s)."
+            if configured else "Não há permissões de Warehouse suficientes para uma comparação real."
+        ),
+    ))
+
+    catalog_candidate = _find_restricted_warehouse_user(all_warehouses)
+    if catalog_candidate:
+        metrics["catalog_identity"] = catalog_candidate["masked_user"]
+        metrics["catalog_visible_warehouses"] = len(catalog_candidate["visible_warehouses"])
+        stage_results.append(_warehouse_rbac_stage(
+            3, "Usuário restrito", "passed",
+            f"Identidade {catalog_candidate['masked_user']} possui acesso efetivo a "
+            f"{len(catalog_candidate['visible_warehouses'])} de {len(all_warehouses)} armazéns.",
+        ))
+        permitted = sorted(catalog_candidate["visible_warehouses"])[0]
+        forbidden = sorted(all_warehouses - catalog_candidate["visible_warehouses"])[0]
+        try:
+            frappe.set_user(catalog_candidate["user"])
+            allowed_result = get_catalog_management_dashboard_data(
+                dashboard_type="warehouses",
+                selected_warehouse=permitted,
+                period_days=7,
+            )
+            filter_names = {
+                row.get("name") for row in (allowed_result.get("filters", {}).get("warehouses") or [])
+                if row.get("name")
+            }
+            table_names = {
+                row.get("name") for row in (allowed_result.get("table", {}).get("rows") or [])
+                if row.get("name")
+            }
+            unexpected = (filter_names | table_names) - catalog_candidate["visible_warehouses"]
+            allowed_ok = (
+                allowed_result.get("filters", {}).get("selected_warehouse") == permitted
+                and not unexpected
+                and len(allowed_result.get("cards") or []) == 5
+            )
+            metrics["unexpected_warehouses"] += len(unexpected)
+            stage_results.append(_warehouse_rbac_stage(
+                4, "Consulta permitida", "passed" if allowed_ok else "failed",
+                "Painel restrito respondeu com cinco cards e nenhum armazém externo."
+                if allowed_ok else "A consulta permitida retornou escopo divergente ou dados externos.",
+            ))
+
+            metrics["forbidden_attempts"] = 1
+            forbidden_blocked = False
+            try:
+                get_catalog_management_dashboard_data(
+                    dashboard_type="warehouses",
+                    selected_warehouse=forbidden,
+                    period_days=7,
+                )
+            except frappe.PermissionError:
+                forbidden_blocked = True
+            stage_results.append(_warehouse_rbac_stage(
+                5, "Tentativa proibida", "passed" if forbidden_blocked else "failed",
+                "O armazém fora do escopo foi rejeitado com PermissionError."
+                if forbidden_blocked else "A API aceitou um armazém fora do escopo da identidade avaliada.",
+            ))
+        except Exception as error:
+            error_name = type(error).__name__
+            if not any(result["index"] == 4 for result in stage_results):
+                stage_results.append(_warehouse_rbac_stage(
+                    4, "Consulta permitida", "failed",
+                    f"A consulta permitida terminou com erro do tipo {error_name}.",
+                ))
+            if not any(result["index"] == 5 for result in stage_results):
+                stage_results.append(_warehouse_rbac_stage(
+                    5, "Tentativa proibida", "warning",
+                    "A tentativa proibida não foi executada porque a consulta permitida falhou.",
+                ))
+        finally:
+            frappe.set_user(original_user)
+    else:
+        metrics["catalog_identity"] = "indisponível"
+        stage_results.extend([
+            _warehouse_rbac_stage(
+                3, "Usuário restrito", "warning",
+                "Nenhum usuário existente combina escopo parcial e todas as leituras exigidas pelo painel gerencial.",
+            ),
+            _warehouse_rbac_stage(
+                4, "Consulta permitida", "warning",
+                "Etapa não executada: falta uma identidade restrita elegível.",
+            ),
+            _warehouse_rbac_stage(
+                5, "Tentativa proibida", "warning",
+                "Etapa não executada: falta uma identidade restrita elegível.",
+            ),
+        ])
+
+    manager_candidate = _find_restricted_warehouse_user(all_warehouses, require_stock_manager=True)
+    if manager_candidate:
+        metrics["legacy_identity"] = manager_candidate["masked_user"]
+        metrics["legacy_visible_warehouses"] = len(manager_candidate["visible_warehouses"])
+        try:
+            frappe.set_user(manager_candidate["user"])
+            legacy_result = get_stock_dashboard_data(
+                selected_unit="All", period="quarter", entry_type="receipt", table_type="all",
+            )
+            legacy_units = {
+                row.get("value") for row in (legacy_result.get("available_units") or [])
+                if row.get("value") and row.get("value") != "All"
+            }
+            unexpected = legacy_units - manager_candidate["visible_warehouses"]
+            legacy_ok = (
+                not unexpected
+                and int(legacy_result.get("total_warehouses") or 0)
+                <= len(manager_candidate["visible_warehouses"])
+            )
+            metrics["unexpected_warehouses"] += len(unexpected)
+            stage_results.append(_warehouse_rbac_stage(
+                6, "Agregados legados", "passed" if legacy_ok else "failed",
+                "CDC Estoque respeitou o mesmo conjunto de armazéns permitidos."
+                if legacy_ok else "CDC Estoque expôs opções ou totais além do escopo permitido.",
+            ))
+        except Exception as error:
+            stage_results.append(_warehouse_rbac_stage(
+                6, "Agregados legados", "failed",
+                f"A validação do CDC Estoque terminou com erro do tipo {type(error).__name__}.",
+            ))
+        finally:
+            frappe.set_user(original_user)
+    else:
+        metrics["legacy_identity"] = "indisponível"
+        stage_results.append(_warehouse_rbac_stage(
+            6, "Agregados legados", "failed",
+            "Nenhum Stock Manager existente possui escopo parcial de Warehouse; o isolamento dos SQL agregados não pôde ser comprovado.",
+        ))
+
+    frappe.set_user(original_user)
+    failed = [result for result in stage_results if result["status"] == "failed"]
+    warnings = [result for result in stage_results if result["status"] == "warning"]
+    status = "blocked" if failed else "warning" if warnings else "passed"
+    if status == "passed":
+        evidence = (
+            f"Isolamento comprovado com {metrics['forbidden_attempts']} tentativa proibida e "
+            f"{metrics['unexpected_warehouses']} armazém(ns) externo(s) retornado(s)."
+        )
+    elif status == "warning":
+        evidence = "Auditoria sem vazamento detectado, mas uma ou mais etapas ficaram inconclusivas."
+    else:
+        evidence = "Auditoria bloqueada: " + " ".join(result["detail"] for result in failed)
+    return {"status": status, "evidence": evidence, "stage_results": stage_results, "metrics": metrics}
 
 
 def _normalize_workspace_identity(value):
@@ -2272,7 +2534,10 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
             "passed" if source_has_role_guard and source_has_warehouse_scope else "blocked",
             "Papel e User Permission de Warehouse aplicados aos SQL agregados."
             if source_has_role_guard and source_has_warehouse_scope
-            else "O papel está protegido, mas o escopo por User Permission de Warehouse ainda exige implementação.",
+            else (
+                "As páginas gerenciais usam o escopo nativo, mas os SQL agregados do CDC Estoque "
+                "ainda não têm isolamento comprovado. Execute este item para testar uma identidade restrita real."
+            ),
         ),
         _monitoring_quality_gate(
             "security-ci", "6. Segredos, backups e workflow de PR", "warning",
@@ -2359,6 +2624,16 @@ def run_cdc_quality_gate(gate_id):
     check = next((item for item in dashboard["checks"] if item["id"] == gate_id), None)
     if not check:
         frappe.throw("O teste solicitado não retornou resultado.", frappe.ValidationError)
+    if gate_id == "warehouse-rbac":
+        audit = _run_warehouse_rbac_audit()
+        check = _monitoring_quality_gate(
+            "warehouse-rbac",
+            "5. RBAC por armazém nas consultas",
+            audit["status"],
+            audit["evidence"],
+            stage_results=audit["stage_results"],
+            metrics=audit["metrics"],
+        )
     return {"check": check, "checked_at": dashboard["checked_at"]}
 
 
