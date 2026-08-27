@@ -3370,6 +3370,8 @@
     var warehouseRequestSerial = 0;
     var warehouseActiveRequestKey = '';
     var warehouseRenderTimer = null;
+    var warehousePendingContext = null;
+    var warehousePendingContextUntil = 0;
     var warehouseSelectedProject = sessionStorage.getItem('cdc_warehouse_project') || 'All';
 
     function scheduleWarehouseRender(delay) {
@@ -3393,6 +3395,8 @@
         if (warehouseListLoading) warehouseRequestSerial += 1;
         warehouseListLoading = false;
         warehouseActiveRequestKey = '';
+        warehousePendingContext = null;
+        warehousePendingContextUntil = 0;
         document.querySelectorAll('#cdc-warehouse-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.cdc-catalog-list-enhanced.is-warehouse-list').forEach(function(list) {
             list.classList.remove('cdc-catalog-list-enhanced', 'is-warehouse-list');
@@ -3418,7 +3422,7 @@
     }
 
     function getWarehouseListContext() {
-        return {
+        var context = {
             search: getWarehouseRouteValue('name').replace(/^%|%$/g, ''),
             company: getWarehouseRouteValue('company'),
             disabled: getWarehouseRouteValue('disabled'),
@@ -3426,6 +3430,12 @@
             parent_warehouse: getWarehouseRouteValue('parent_warehouse'),
             selected_project: warehouseSelectedProject
         };
+        if (warehousePendingContext && Date.now() < warehousePendingContextUntil) {
+            return Object.assign({}, warehousePendingContext);
+        }
+        warehousePendingContext = null;
+        warehousePendingContextUntil = 0;
+        return context;
     }
 
     function bindWarehouseNativeScope(scope) {
@@ -3595,6 +3605,15 @@
                     if (statusSelect && statusSelect.value !== '') routeFilters.disabled = Number(statusSelect.value);
                     if (kindSelect && kindSelect.value !== '') routeFilters.is_group = Number(kindSelect.value);
                     if (parentSelect && parentSelect.value) routeFilters.parent_warehouse = parentSelect.value;
+                    warehousePendingContext = {
+                        search: term,
+                        company: companySelect ? companySelect.value : '',
+                        disabled: statusSelect ? statusSelect.value : '',
+                        is_group: kindSelect ? kindSelect.value : '',
+                        parent_warehouse: parentSelect ? parentSelect.value : '',
+                        selected_project: warehouseSelectedProject
+                    };
+                    warehousePendingContextUntil = Date.now() + 1200;
                     dashboard.dataset.loaded = '0';
                     frappe.set_route('List', 'Warehouse', 'List', routeFilters);
                     scheduleWarehouseRender(180);
@@ -3606,6 +3625,11 @@
                 dashboard.querySelector('#cdc-warehouse-clear').addEventListener('click', function() {
                     warehouseSelectedProject = 'All';
                     sessionStorage.setItem('cdc_warehouse_project', 'All');
+                    warehousePendingContext = {
+                        search: '', company: '', disabled: '', is_group: '',
+                        parent_warehouse: '', selected_project: 'All'
+                    };
+                    warehousePendingContextUntil = Date.now() + 1200;
                     dashboard.dataset.loaded = '0';
                     frappe.set_route('List', 'Warehouse', 'List');
                     scheduleWarehouseRender(180);

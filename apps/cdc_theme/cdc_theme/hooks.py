@@ -7,18 +7,18 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_list_v29"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_list_v30"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_list_v29",
-    "/assets/cdc_theme/js/cdc_pending.js?v=20260827_warehouse_list_v29",
-    "/assets/cdc_theme/js/cdc_tests.js?v=20260827_warehouse_list_v29",
-    "/assets/cdc_theme/js/cdc_groups.js?v=20260827_warehouse_list_v29",
-    "/assets/cdc_theme/js/cdc_items.js?v=20260827_warehouse_list_v29",
-    "/assets/cdc_theme/js/cdc_admin.js?v=20260827_warehouse_list_v29",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_list_v30",
+    "/assets/cdc_theme/js/cdc_pending.js?v=20260827_warehouse_list_v30",
+    "/assets/cdc_theme/js/cdc_tests.js?v=20260827_warehouse_list_v30",
+    "/assets/cdc_theme/js/cdc_groups.js?v=20260827_warehouse_list_v30",
+    "/assets/cdc_theme/js/cdc_items.js?v=20260827_warehouse_list_v30",
+    "/assets/cdc_theme/js/cdc_admin.js?v=20260827_warehouse_list_v30",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_list_v29"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_list_v29"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260827_warehouse_list_v30"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260827_warehouse_list_v30"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"
