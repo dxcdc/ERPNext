@@ -23,6 +23,32 @@ TROUBLESHOOTING_DOC = ROOT / "docs/troubleshooting.md"
 
 
 class StaticSafetyTest(unittest.TestCase):
+    def test_ongsys_admin_mapping_and_resilient_importer_are_guarded(self):
+        api_source = API_PY.read_text()
+        admin_source = (ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js").read_text()
+        common_source = (ROOT / "extractor/common.py").read_text()
+        importer_source = (ROOT / "extractor/5_extrator_requisicoes_v2.py").read_text()
+        mapping_json = (ROOT / "apps/cdc_theme/cdc_theme/cdc_theme/doctype/cdc_ongsys_warehouse_mapping/cdc_ongsys_warehouse_mapping.json").read_text()
+        self.assertIn('ONGSYS_MAPPING_DOCTYPE = "CDC ONGSYS Warehouse Mapping"', api_source)
+        for endpoint in (
+            "get_cdc_admin_ongsys_dashboard", "save_ongsys_warehouse_mapping",
+            "validate_ongsys_warehouse_mapping", "activate_ongsys_warehouse_mapping",
+            "get_ongsys_warehouse_mappings_for_extractor",
+        ):
+            self.assertIn(f"def {endpoint}", api_source)
+        self.assertIn("_require_system_manager()", api_source)
+        self.assertIn('"track_changes": 1', mapping_json)
+        self.assertIn('"unique":1', mapping_json)
+        self.assertIn("data-cdc-admin-ongsys", admin_source)
+        self.assertIn("Nenhuma movimentação de estoque será criada", admin_source)
+        self.assertIn("Retry(", common_source)
+        self.assertIn("status_forcelist=(429, 500, 502, 503, 504, 520, 522, 524)", common_source)
+        self.assertIn('parser.add_argument("--dry-run"', importer_source)
+        self.assertIn('parser.add_argument("--order-id"', importer_source)
+        self.assertIn("def preflight_orders", importer_source)
+        self.assertIn("api/method/cdc_theme.api.get_ongsys_warehouse_mappings_for_extractor", importer_source)
+        self.assertIn('row.get("status") == "Bloqueado"', importer_source)
+
     def test_item_group_route_does_not_match_query_parameters(self):
         source = THEME_JS.read_text()
         route_block = source[source.index("function isItemGroupRoute"):source.index("function removeItemGroupDashboard")]

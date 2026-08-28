@@ -41,6 +41,16 @@ def fetch_page(api: Common, page: int) -> Optional[List[Dict[str, Any]]]:
     return response.json().get("data") or None
 
 
+def fetch_order(api: Common, order_id: int) -> Dict[str, Any]:
+    response = api.ongsys_request("GET", "pedidos", order_number=order_id, timeout=120)
+    require_response(response, f"Consulta ONGSYS do pedido {order_id}")
+    rows = response.json().get("data") or []
+    order = next((row for row in rows if str(row.get("idPedido")) == str(order_id)), None)
+    if not order:
+        raise RuntimeError(f"Pedido {order_id} não retornado pelo ONGSYS")
+    return order
+
+
 def discover_last_page(api: Common, hint: int = 0) -> int:
     if hint > 0:
         page = hint
@@ -90,14 +100,24 @@ def should_run_full(state: Dict[str, Any], force_full: bool) -> bool:
     return not last_full or datetime.now() - last_full >= timedelta(hours=FULL_IMPORT_INTERVAL_HOURS)
 
 
-def load_warehouse_map() -> Dict[str, str]:
+def load_warehouse_map(api: Optional[Common] = None) -> Dict[str, str]:
     mapping_path = Path(__file__).with_name("centro_de_custo_armazen.csv")
     with mapping_path.open(encoding="latin-1", newline="") as stream:
         rows = csv.DictReader(stream, delimiter=";")
-        return {
+        mappings = {
             str(row["centro_custo"]).strip(): str(row["armazem"]).strip()
             for row in rows
         }
+    if api:
+        response = api.erp_request("GET", "api/method/cdc_theme.api.get_ongsys_warehouse_mappings_for_extractor")
+        if response.status_code == 200:
+            for row in response.json().get("message") or []:
+                code = str(row.get("cost_center_code") or "").strip()
+                if row.get("status") == "Ativo" and row.get("warehouse"):
+                    mappings[code] = str(row["warehouse"]).removesuffix(" - C")
+                elif row.get("status") == "Bloqueado":
+                    mappings.pop(code, None)
+    return mappings
 
 
 def ensure_fiscal_year(api: Common) -> None:
@@ -203,9 +223,51 @@ def import_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict[st
     return created, skipped, len(eligible)
 
 
-def main(force_full: bool = False) -> None:
+def preflight_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict[str, str]):
+    """Valida destino e duplicidade sem criar movimentações."""
+    results = []
+    for order in orders:
+        order_id = str(order.get("idPedido"))
+        result = {
+            "order_id": order_id,
+            "title": order.get("titulo"),
+            "status": order.get("statusPedido"),
+            "type": order.get("tipoPedido"),
+            "eligible": bool(
+                is_product_order(order.get("tipoPedido"))
+                and order.get("statusPedido") == FINAL_STATUS
+            ),
+            "already_imported": order_exists(api, order_id),
+        }
+        try:
+            items = build_items(order, warehouses)
+            result.update({
+                "warehouses": sorted({item["t_warehouse"] for item in items}),
+                "items_count": len(items),
+                "total_quantity": sum(float(item["qty"]) for item in items),
+                "valid": True,
+            })
+        except Exception as exc:
+            result.update({"valid": False, "error": str(exc)})
+        results.append(result)
+    return results
+
+
+def main(force_full: bool = False, dry_run: bool = False, order_id: Optional[int] = None) -> None:
     api = Common()
-    ensure_fiscal_year(api)
+    warehouses = load_warehouse_map(api)
+    if order_id is not None:
+        orders = [fetch_order(api, order_id)]
+        checks = preflight_orders(api, orders, warehouses)
+        print(json.dumps({"mode": "dry-run" if dry_run else "controlled", "checks": checks}, ensure_ascii=False))
+        if dry_run:
+            return
+        if not checks[0]["valid"] or not checks[0]["eligible"]:
+            raise RuntimeError("Pedido controlado não passou na pré-validação")
+        ensure_fiscal_year(api)
+        created, skipped, eligible = import_orders(api, orders, warehouses)
+        print(f"Importação controlada: {eligible} elegível, {created} criado e {skipped} existente")
+        return
     state, state_resource = get_state(api)
     last_page = discover_last_page(api, int(state.get("last_page") or 0))
     if not last_page:
@@ -215,7 +277,11 @@ def main(force_full: bool = False) -> None:
         range(max(1, last_page - FAST_WINDOW_PAGES + 1), last_page + 1)
     )
     orders = fetch_pages(api, pages)
-    created, skipped, eligible = import_orders(api, orders, load_warehouse_map())
+    if dry_run:
+        print(json.dumps({"mode": "dry-run", "checks": preflight_orders(api, orders, warehouses)}, ensure_ascii=False))
+        return
+    ensure_fiscal_year(api)
+    created, skipped, eligible = import_orders(api, orders, warehouses)
     now = datetime.now().isoformat(timespec="seconds")
     payload = {
         "last_page": last_page,
@@ -236,5 +302,7 @@ def main(force_full: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--full", action="store_true", help="Força auditoria de todas as páginas")
+    parser.add_argument("--dry-run", action="store_true", help="Valida sem criar movimentações")
+    parser.add_argument("--order-id", type=int, help="Consulta ou processa somente um pedido")
     arguments, _ = parser.parse_known_args()
-    main(force_full=arguments.full)
+    main(force_full=arguments.full, dry_run=arguments.dry_run, order_id=arguments.order_id)

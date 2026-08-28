@@ -276,6 +276,125 @@ def _admin_check(check_id, label, callback, repair=None):
         }
 
 
+ONGSYS_MAPPING_DOCTYPE = "CDC ONGSYS Warehouse Mapping"
+
+
+def _require_ongsys_mapping_doctype():
+    if not frappe.db.exists("DocType", ONGSYS_MAPPING_DOCTYPE):
+        frappe.throw("Cadastro de mapeamentos ONGSYS ainda não foi migrado.", frappe.ValidationError)
+
+
+@frappe.whitelist()
+def get_cdc_admin_ongsys_dashboard():
+    """Fotografia persistida e auditável da integração; não consulta nem altera o ONGSYS."""
+    _require_system_manager()
+    _require_ongsys_mapping_doctype()
+    mappings = frappe.get_all(
+        ONGSYS_MAPPING_DOCTYPE,
+        fields=[
+            "name", "cost_center_code", "description", "warehouse", "status", "enabled",
+            "evidence_order_id", "source", "verified_by", "verified_at", "last_used_at", "modified",
+        ],
+        order_by="cost_center_code asc",
+        limit_page_length=1000,
+    )
+    last_success = frappe.db.get_single_value("CDC ONGSYS Sync State", "last_success_at")
+    last_page = frappe.db.get_single_value("CDC ONGSYS Sync State", "last_page") or 0
+    last_mode = (
+        frappe.db.get_single_value("CDC ONGSYS Sync State", "last_import_mode")
+        or frappe.db.get_single_value("CDC ONGSYS Sync State", "last_mode")
+        or "Sem execução"
+    )
+    imported_orders = frappe.db.sql("""
+        SELECT COUNT(*) FROM `tabStock Entry`
+        WHERE docstatus=1 AND COALESCE(idpedido_ongsys, '') <> ''
+    """)[0][0] or 0
+    counts = {status: 0 for status in ("Descoberto", "Pendente", "Validado", "Ativo", "Bloqueado")}
+    for row in mappings:
+        counts[row.status] = counts.get(row.status, 0) + 1
+    return {
+        "summary": {
+            "mappings": len(mappings), "active": counts.get("Ativo", 0),
+            "pending": counts.get("Pendente", 0) + counts.get("Descoberto", 0),
+            "blocked": counts.get("Bloqueado", 0), "imported_orders": imported_orders,
+        },
+        "sync": {
+            "last_success_at": frappe.utils.format_datetime(last_success, "dd/MM/yyyy HH:mm:ss") if last_success else "Sem checkpoint",
+            "last_page": int(last_page), "last_mode": last_mode,
+            "executor": "Não confirmado", "automatic_schedule": False,
+        },
+        "mappings": mappings,
+        "checked_at": frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy HH:mm:ss"),
+    }
+
+
+@frappe.whitelist()
+def get_ongsys_warehouse_mappings_for_extractor():
+    """Contrato mínimo para o integrador autenticado; nunca expõe credenciais."""
+    _require_stock_dashboard_access()
+    _require_ongsys_mapping_doctype()
+    return frappe.get_all(
+        ONGSYS_MAPPING_DOCTYPE,
+        fields=["cost_center_code", "warehouse", "status"],
+        order_by="cost_center_code asc", limit_page_length=1000,
+    )
+
+
+@frappe.whitelist(methods=["POST"])
+def save_ongsys_warehouse_mapping(cost_center_code, warehouse=None, description=None, evidence_order_id=None, notes=None):
+    """Cria/atualiza um rascunho; ativação é deliberadamente separada."""
+    _require_system_manager()
+    _require_ongsys_mapping_doctype()
+    code = (cost_center_code or "").strip()
+    if not re.fullmatch(r"[0-9A-Za-z._-]{2,40}", code):
+        frappe.throw("Código de centro de custo inválido.", frappe.ValidationError)
+    name = frappe.db.exists(ONGSYS_MAPPING_DOCTYPE, {"cost_center_code": code})
+    doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, name) if name else frappe.new_doc(ONGSYS_MAPPING_DOCTYPE)
+    doc.cost_center_code = code
+    doc.description = (description or "").strip()[:140]
+    doc.warehouse = (warehouse or "").strip() or None
+    doc.evidence_order_id = (evidence_order_id or "").strip()[:140]
+    doc.notes = (notes or "").strip()[:1000]
+    doc.source = doc.source or "Cadastro administrativo"
+    if doc.status in (None, "", "Descoberto", "Bloqueado"):
+        doc.status = "Pendente"
+    doc.enabled = 0
+    doc.save(ignore_permissions=False)
+    return {"ok": True, "name": doc.name, "message": f"Mapeamento {code} salvo como pendente."}
+
+
+@frappe.whitelist(methods=["POST"])
+def validate_ongsys_warehouse_mapping(name):
+    _require_system_manager()
+    _require_ongsys_mapping_doctype()
+    doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, name)
+    if not doc.warehouse:
+        frappe.throw("Selecione o armazém antes de validar.", frappe.ValidationError)
+    warehouse = frappe.db.get_value("Warehouse", doc.warehouse, ["is_group", "disabled"], as_dict=True)
+    if not warehouse or warehouse.is_group or warehouse.disabled:
+        frappe.throw("O armazém precisa ser operacional e estar ativo.", frappe.ValidationError)
+    if not doc.evidence_order_id:
+        frappe.throw("Informe um pedido ONGSYS como evidência.", frappe.ValidationError)
+    doc.status = "Validado"
+    doc.enabled = 0
+    doc.verified_by = frappe.session.user
+    doc.verified_at = frappe.utils.now_datetime()
+    doc.save()
+    return {"ok": True, "message": f"Mapeamento {doc.cost_center_code} validado; ainda não está ativo."}
+
+
+@frappe.whitelist(methods=["POST"])
+def activate_ongsys_warehouse_mapping(name, enabled=1):
+    _require_system_manager()
+    _require_ongsys_mapping_doctype()
+    doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, name)
+    activate = frappe.utils.cint(enabled) == 1
+    if activate and doc.status not in ("Validado", "Ativo"):
+        frappe.throw("Somente mapeamentos validados podem ser ativados.", frappe.ValidationError)
+    doc.status = "Ativo" if activate else "Bloqueado"
+    doc.enabled = 1 if activate else 0
+    doc.save()
+    return {"ok": True, "message": f"Mapeamento {doc.cost_center_code} {'ativado' if activate else 'desativado'}."}
 @frappe.whitelist()
 def get_cdc_admin_diagnostics():
     """Diagnosticos leves, sem shell e sem alterar dados."""

@@ -10,6 +10,8 @@ import unicodedata
 import requests
 from typing import Any, Dict, List, Optional
 from requests.auth import HTTPBasicAuth
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 def normalize_order_type(value: Any) -> str:
@@ -29,7 +31,9 @@ class Common:
     DEFAULT_UOM: str = "Unidade"
     MAX_WAIT_CREATE: int = 60  # Espera máxima para confirmação de criação
     VERIFY_INTERVAL: int = 3   # Intervalo para verificar a criação
-    ONGSYS_TIMEOUT: int = 90   # Produção pode levar mais de 60 s para responder
+    ONGSYS_CONNECT_TIMEOUT: int = 10
+    ONGSYS_READ_TIMEOUT: int = 120
+    ONGSYS_RETRIES: int = 3
 
     def __init__(self) -> None:
         # Carregar configurações do arquivo JSON
@@ -65,6 +69,16 @@ class Common:
         }
 
         self._logger = logging.getLogger(__name__)
+        retry = Retry(
+            total=self.ONGSYS_RETRIES, connect=self.ONGSYS_RETRIES,
+            read=self.ONGSYS_RETRIES, status=self.ONGSYS_RETRIES,
+            backoff_factor=1.5,
+            status_forcelist=(429, 500, 502, 503, 504, 520, 522, 524),
+            allowed_methods=frozenset({"GET"}),
+            respect_retry_after_header=True, raise_on_status=False,
+        )
+        self._ongsys_session = requests.Session()
+        self._ongsys_session.mount("https://", HTTPAdapter(max_retries=retry))
 
     # ------- MESMA LÓGICA: erp_request -------
     def erp_request(
@@ -77,7 +91,7 @@ class Common:
     ) -> requests.Response:
         base = self.ERP_URL.rstrip("/")
         url = f"{base}/{path.lstrip('/')}"
-        if not path.startswith("api/resource/"):
+        if not path.startswith(("api/resource/", "api/method/")):
             url = f"{base}/api/resource/{path.lstrip('/')}"
 
         try:
@@ -102,27 +116,32 @@ class Common:
         path: str,
         *,
         page_number: Optional[int] = None,  # controla apenas pageNumber (opcional)
+        order_number: Optional[int] = None,
         payload: Optional[Dict[str, Any]] = None,
-        timeout: int = ONGSYS_TIMEOUT,
+        timeout: Optional[int] = None,
     ) -> requests.Response:
         """
         Requisição genérica ao ONGSYS.
-        Controla somente o 'pageNumber' via parâmetro opcional.
+        Controla paginação e consulta exata por pedido via parâmetros opcionais.
         Ex.: self.ongsys_request("GET", "/pedidos", page_number=1)
         """
         base = self.ONGSYS_URL.rstrip("/")
         url = f"{base}/{path.lstrip('/')}"
 
-        params = {"pageNumber": int(page_number)} if page_number is not None else None
+        params = {}
+        if page_number is not None:
+            params["pageNumber"] = int(page_number)
+        if order_number is not None:
+            params["numero_pedido"] = int(order_number)
 
         try:
-            resp = requests.request(
+            resp = self._ongsys_session.request(
                 method=method.upper(),
                 url=url,
                 headers=self.HEADERS_ONGSYS,
-                params=params,
+                params=params or None,
                 json=payload,
-                timeout=timeout,
+                timeout=(self.ONGSYS_CONNECT_TIMEOUT, timeout or self.ONGSYS_READ_TIMEOUT),
                 auth=HTTPBasicAuth(self.ONGSYS_USER or "", self.ONGSYS_PASS or ""),
             )
             return resp

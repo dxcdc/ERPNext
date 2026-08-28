@@ -1,1 +1,2 @@
 cdc_theme.patches.v1_0.ensure_ongsys_stock_entry_unique
+cdc_theme.patches.v1_0.migrate_ongsys_warehouse_mappings

@@ -69,6 +69,11 @@
                     </div>
                 </section>
 
+                <section class="cdc-admin-section cdc-admin-ongsys" data-cdc-admin-ongsys>
+                    <div class="cdc-admin-section-title"><div><h2>Integração ONGSYS</h2><p>Mapeamentos, checkpoint e operações controladas.</p></div><button class="btn btn-sm btn-default" data-cdc-ongsys-new>Novo mapeamento</button></div>
+                    <div class="cdc-admin-loading">Carregando estado persistido da integração...</div>
+                </section>
+
                 <section class="cdc-admin-section">
                     <div class="cdc-admin-section-title"><div><h2>Correções rápidas</h2><p>Ações limitadas, com confirmação e sem comandos livres.</p></div></div>
                     <div class="cdc-admin-action-grid">
@@ -85,6 +90,71 @@
                 </section>
                 <p class="cdc-admin-footnote">Acesso restrito a System Manager · usuário ${escapeHTML(data.user)}</p>
             </div>`;
+        loadOngsysDashboard();
+    }
+
+    function mappingBadge(status) {
+        return '<span class="cdc-admin-map-status is-' + escapeHTML(String(status || '').toLowerCase()) + '">' + escapeHTML(status || 'Descoberto') + '</span>';
+    }
+
+    function renderOngsysDashboard(data) {
+        var host = document.querySelector('[data-cdc-admin-ongsys]');
+        if (!host) return;
+        var summary = data.summary || {};
+        var sync = data.sync || {};
+        var mappings = data.mappings || [];
+        host.innerHTML = `
+            <div class="cdc-admin-section-title"><div><h2>Integração ONGSYS</h2><p>Leitura persistida em ${escapeHTML(data.checked_at)} · executor ${escapeHTML(sync.executor)}</p></div><div><button class="btn btn-sm btn-default" data-cdc-ongsys-refresh>Atualizar</button> <button class="btn btn-sm btn-primary" data-cdc-ongsys-new>Novo mapeamento</button></div></div>
+            <div class="cdc-admin-ongsys-summary">
+                <article><span>Mapeamentos</span><strong>${summary.mappings || 0}</strong></article>
+                <article><span>Ativos</span><strong>${summary.active || 0}</strong></article>
+                <article><span>Pendentes</span><strong>${summary.pending || 0}</strong></article>
+                <article><span>Pedidos importados</span><strong>${summary.imported_orders || 0}</strong></article>
+            </div>
+            <div class="cdc-admin-sync-note"><strong>Último checkpoint:</strong> ${escapeHTML(sync.last_success_at)} · ${escapeHTML(sync.last_mode)} · página ${escapeHTML(sync.last_page)}. <strong>Agendamento automático:</strong> ${sync.automatic_schedule ? 'ativo' : 'bloqueado até confirmação do executor único'}.</div>
+            <div class="cdc-admin-map-table-wrap"><table class="cdc-admin-map-table"><thead><tr><th>Centro ONGSYS</th><th>Armazém</th><th>Situação</th><th>Evidência</th><th>Ações</th></tr></thead><tbody>
+                ${mappings.length ? mappings.map(function(row) { return `<tr>
+                    <td><strong>${escapeHTML(row.cost_center_code)}</strong><small>${escapeHTML(row.description || '')}</small></td>
+                    <td>${escapeHTML(row.warehouse || 'Não selecionado')}</td><td>${mappingBadge(row.status)}</td>
+                    <td>${escapeHTML(row.evidence_order_id || 'Pendente')}</td>
+                    <td><div class="cdc-admin-map-actions">${row.status !== 'Ativo' ? `<button class="btn btn-xs btn-default" data-cdc-map-validate="${escapeHTML(row.name)}">Validar</button>` : ''}${row.status === 'Validado' ? `<button class="btn btn-xs btn-primary" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="1">Ativar</button>` : ''}${row.status === 'Ativo' ? `<button class="btn btn-xs btn-default" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="0">Desativar</button>` : ''}</div></td>
+                </tr>`; }).join('') : '<tr><td colspan="5" class="cdc-admin-map-empty">Nenhum mapeamento migrado.</td></tr>'}
+            </tbody></table></div>`;
+    }
+
+    function loadOngsysDashboard() {
+        frappe.call({method: 'cdc_theme.api.get_cdc_admin_ongsys_dashboard', callback: function(r) {
+            if (r.message) renderOngsysDashboard(r.message);
+        }, error: function() {
+            var host = document.querySelector('[data-cdc-admin-ongsys]');
+            if (host) host.querySelector('.cdc-admin-loading').textContent = 'Cadastro ONGSYS indisponível até a migração do aplicativo.';
+        }});
+    }
+
+    function newMapping() {
+        frappe.prompt([
+            {fieldname: 'cost_center_code', fieldtype: 'Data', label: 'Código do centro de custo', reqd: 1},
+            {fieldname: 'description', fieldtype: 'Data', label: 'Descrição observada'},
+            {fieldname: 'warehouse', fieldtype: 'Link', options: 'Warehouse', label: 'Armazém NextERP', reqd: 1},
+            {fieldname: 'evidence_order_id', fieldtype: 'Data', label: 'Pedido ONGSYS de evidência', reqd: 1},
+            {fieldname: 'notes', fieldtype: 'Small Text', label: 'Observações'}
+        ], function(values) {
+            frappe.call({method: 'cdc_theme.api.save_ongsys_warehouse_mapping', type: 'POST', args: values, freeze: true, callback: function(r) {
+                if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 6);
+                loadOngsysDashboard();
+            }});
+        }, 'Novo mapeamento ONGSYS', 'Salvar como pendente');
+    }
+
+    function mappingAction(method, name, enabled) {
+        frappe.confirm('Confirma esta operação no mapeamento? Nenhuma movimentação de estoque será criada.', function() {
+            var args = {name: name};
+            if (enabled !== undefined) args.enabled = enabled;
+            frappe.call({method: method, type: 'POST', args: args, freeze: true, callback: function(r) {
+                if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 6);
+                loadOngsysDashboard();
+            }});
+        });
     }
 
     function load(force) {
@@ -147,6 +217,10 @@
     }
 
     $(document).on('click', '[data-cdc-admin-refresh]', function() { load(true); });
+    $(document).on('click', '[data-cdc-ongsys-refresh]', loadOngsysDashboard);
+    $(document).on('click', '[data-cdc-ongsys-new]', newMapping);
+    $(document).on('click', '[data-cdc-map-validate]', function() { mappingAction('cdc_theme.api.validate_ongsys_warehouse_mapping', this.dataset.cdcMapValidate); });
+    $(document).on('click', '[data-cdc-map-toggle]', function() { mappingAction('cdc_theme.api.activate_ongsys_warehouse_mapping', this.dataset.cdcMapToggle, this.dataset.enabled); });
     $(document).on('click', '[data-cdc-admin-action]', function() { runAction(this.dataset.cdcAdminAction); });
     $(document).on('click', '[data-cdc-copy-command]', function() {
         navigator.clipboard.writeText('./scripts/reparar_tema.sh').then(function() {
