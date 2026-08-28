@@ -7,7 +7,7 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_training_preview_v50"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_training_orange_v51"
 app_include_js = [
     "/assets/cdc_theme/js/cdc_theme.js?v=20260828_training_preview_v50",
     "/assets/cdc_theme/js/cdc_pending.js?v=20260828_training_preview_v50",
@@ -20,7 +20,7 @@ app_include_js = [
     "/assets/cdc_theme/js/cdc_admin.js?v=20260828_training_preview_v50",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_training_preview_v50"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_training_orange_v51"
 web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260828_training_preview_v50"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
