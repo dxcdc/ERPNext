@@ -22,6 +22,8 @@
   "discovery_pages",
   "discovery_orders",
   "discovery_matches",
+  "discovery_strategy",
+  "discovery_direct_orders",
   "discovery_error"
  ],
  "fields": [
@@ -118,6 +120,16 @@
    "fieldname": "discovery_matches",
    "fieldtype": "Int",
    "label": "Evidências encontradas"
+  },
+  {
+   "fieldname": "discovery_strategy",
+   "fieldtype": "Data",
+   "label": "Estratégia da descoberta"
+  },
+  {
+   "fieldname": "discovery_direct_orders",
+   "fieldtype": "Int",
+   "label": "Pedidos consultados diretamente"
   },
   {
    "fieldname": "discovery_error",

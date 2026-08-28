@@ -37,6 +37,7 @@ class StaticSafetyTest(unittest.TestCase):
             "validate_ongsys_warehouse_mapping", "activate_ongsys_warehouse_mapping",
             "get_ongsys_warehouse_mappings_for_extractor",
             "request_ongsys_mapping_discovery", "record_ongsys_mapping_discovery",
+            "get_ongsys_mapping_discovery_context",
             "activate_ongsys_warehouse_mappings",
         ):
             self.assertIn(f"def {endpoint}", api_source)
@@ -71,6 +72,9 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("page_errors.append", discovery_source)
         self.assertIn("consecutive_errors >= 3", discovery_source)
         self.assertIn("requested_codes", discovery_source)
+        self.assertIn("fetch_order_direct", discovery_source)
+        self.assertIn("DIRECT_WORKERS = 4", discovery_source)
+        self.assertIn("direct-and-pagination", discovery_source)
         self.assertNotIn("discover_last_page", discovery_source)
         self.assertIn("NoNewPrivileges=true", discovery_service)
         self.assertIn("TimeoutStartSec=3min", discovery_service)

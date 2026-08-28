@@ -313,7 +313,8 @@ def get_cdc_admin_ongsys_dashboard():
     discovery = frappe.db.get_value(
         "CDC ONGSYS Sync State", "CDC ONGSYS Sync State",
         ["discovery_requested_at", "discovery_started_at", "discovery_completed_at", "discovery_status",
-         "discovery_pages", "discovery_orders", "discovery_matches", "discovery_error"], as_dict=True,
+         "discovery_pages", "discovery_orders", "discovery_matches", "discovery_strategy",
+         "discovery_direct_orders", "discovery_error"], as_dict=True,
     ) or {}
     imported_orders = frappe.db.sql("""
         SELECT COUNT(*) FROM `tabStock Entry`
@@ -380,6 +381,45 @@ def get_ongsys_mapping_discovery_request():
     }
 
 
+@frappe.whitelist()
+def get_ongsys_mapping_discovery_context():
+    """Fornece candidatos locais para confirmação direta no ONGSYS."""
+    _require_stock_dashboard_access()
+    state = frappe.get_single("CDC ONGSYS Sync State")
+    requested_codes = set(frappe.parse_json(state.discovery_requested_codes) or []) if state.discovery_requested_codes else set()
+    mappings = frappe.get_all(
+        ONGSYS_MAPPING_DOCTYPE,
+        filters={"status": ["in", ["Descoberto", "Pendente", "Validado"]]},
+        fields=["cost_center_code", "warehouse"], limit_page_length=1000,
+    )
+    if requested_codes:
+        mappings = [row for row in mappings if row.cost_center_code in requested_codes]
+    candidates = frappe.db.sql("""
+        SELECT sed.t_warehouse AS warehouse,
+               MAX(CASE WHEN se.idpedido_ongsys REGEXP '^[0-9]+$'
+                        THEN CAST(se.idpedido_ongsys AS UNSIGNED) END) AS order_id
+        FROM `tabStock Entry Detail` sed
+        INNER JOIN `tabStock Entry` se ON se.name=sed.parent AND se.docstatus=1
+        WHERE sed.docstatus=1 AND COALESCE(se.idpedido_ongsys, '') <> ''
+        GROUP BY sed.t_warehouse
+    """, as_dict=True)
+    candidate_by_warehouse = {row.warehouse: row.order_id for row in candidates if row.order_id}
+    maximum = frappe.db.sql("""
+        SELECT MAX(CAST(idpedido_ongsys AS UNSIGNED))
+        FROM `tabStock Entry`
+        WHERE docstatus=1 AND idpedido_ongsys REGEXP '^[0-9]+$'
+    """)[0][0] or 0
+    return {
+        "requested_codes": sorted(requested_codes),
+        "max_imported_order_id": int(maximum),
+        "mappings": [{
+            "cost_center_code": row.cost_center_code,
+            "warehouse": row.warehouse,
+            "candidate_order_id": candidate_by_warehouse.get(row.warehouse),
+        } for row in mappings],
+    }
+
+
 @frappe.whitelist(methods=["POST"])
 def start_ongsys_mapping_discovery():
     _require_stock_dashboard_access()
@@ -428,6 +468,11 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
             continue
         if requested_codes and code not in requested_codes:
             continue
+        order_type = _normalized_mapping_label(finding.get("order_type"))
+        order_status = _normalized_mapping_label(finding.get("status"))
+        if order_type not in ("PRODUTO", "PEDIDO DE PRODUTO") or "CANCEL" in order_status:
+            exceptions += 1
+            continue
         name = frappe.db.exists(ONGSYS_MAPPING_DOCTYPE, {"cost_center_code": code})
         if not name:
             doc = frappe.new_doc(ONGSYS_MAPPING_DOCTYPE)
@@ -464,11 +509,24 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
             exceptions += 1
         doc.save()
         matched += 1
+    found_codes = {str(row.get("cost_center_code") or "").strip() for row in findings}
+    for missing_code in requested_codes - found_codes:
+        missing_name = frappe.db.exists(ONGSYS_MAPPING_DOCTYPE, {"cost_center_code": missing_code})
+        if not missing_name:
+            continue
+        missing_doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, missing_name)
+        if missing_doc.status in ("Descoberto", "Pendente", "Validado"):
+            missing_doc.confidence = 0
+            missing_doc.validation_detail = "Nenhum pedido ONGSYS elegível foi encontrado nas fontes consultadas; vínculo permanece pendente."
+            missing_doc.save()
+            exceptions += 1
     state.discovery_completed_at = frappe.utils.now_datetime()
     state.discovery_status = "Concluída com exceções" if exceptions else "Concluída"
     state.discovery_pages = frappe.utils.cint(stats.get("pages"))
     state.discovery_orders = frappe.utils.cint(stats.get("orders"))
     state.discovery_matches = matched
+    state.discovery_strategy = str(stats.get("strategy") or "paginação")[:140]
+    state.discovery_direct_orders = frappe.utils.cint(stats.get("direct_orders_tested"))
     state.discovery_error = " | ".join(str(item) for item in page_errors)[:1000] or None
     state.discovery_requested_codes = None
     state.save()
