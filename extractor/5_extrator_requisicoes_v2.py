@@ -42,7 +42,13 @@ def fetch_page(api: Common, page: int) -> Optional[List[Dict[str, Any]]]:
 
 
 def fetch_order(api: Common, order_id: int) -> Dict[str, Any]:
-    response = api.ongsys_request("GET", "pedidos", order_number=order_id, timeout=120)
+    response = api.ongsys_request(
+        "GET",
+        "pedidos",
+        page_number=1,
+        order_number=order_id,
+        timeout=120,
+    )
     require_response(response, f"Consulta ONGSYS do pedido {order_id}")
     rows = response.json().get("data") or []
     order = next((row for row in rows if str(row.get("idPedido")) == str(order_id)), None)
