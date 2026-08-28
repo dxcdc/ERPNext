@@ -1,0 +1,60 @@
+---
+- name: Aplicar handlers antes das verificacoes
+  ansible.builtin.meta: flush_handlers
+
+- name: Confirmar conteineres ativos
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, "{{ '{{.State.Status}}' }}", "{{ item }}"]
+  loop: "{{ cdc_containers }}"
+  register: validate_service_results
+  changed_when: false
+  failed_when: validate_service_results.stdout != 'running'
+
+- name: Confirmar resposta publica
+  ansible.builtin.uri:
+    url: "{{ cdc_public_url }}/app/cdc-admin"
+    method: GET
+    follow_redirects: none
+    status_code: [200, 301, 302, 303]
+    timeout: 15
+  register: validate_route_result
+
+- name: Confirmar asset principal do CDC Admin
+  ansible.builtin.uri:
+    url: "{{ cdc_public_url }}/assets/cdc_theme/js/cdc_admin.js"
+    method: GET
+    status_code: 200
+    return_content: true
+    timeout: 15
+  register: validate_asset_result
+  failed_when: >-
+    validate_asset_result.status != 200 or
+    'Integração ONGSYS' not in validate_asset_result.content
+
+- name: Capturar invariantes de estoque depois da operacao
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ cdc_backend_container }}"
+      - bench
+      - --site
+      - "{{ cdc_site }}"
+      - mariadb
+      - --skip-column-names
+      - -e
+      - >-
+        SELECT COUNT(*) FROM `tabStock Entry`;
+        SELECT COUNT(*) FROM `tabStock Entry Detail`;
+        SELECT COUNT(*) FROM `tabStock Ledger Entry`;
+    chdir: "{{ cdc_project_path }}"
+  register: validate_stock_invariants_after
+  changed_when: false
+  no_log: true
+
+- name: Garantir que o deploy nao criou movimentacoes de estoque
+  ansible.builtin.assert:
+    that: >-
+      preflight_stock_invariants_before is not defined or
+      preflight_stock_invariants_before.stdout_lines == validate_stock_invariants_after.stdout_lines
+    fail_msg: As contagens de estoque mudaram durante a implantacao; investigue antes de prosseguir.

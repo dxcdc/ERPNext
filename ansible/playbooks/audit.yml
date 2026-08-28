@@ -1,0 +1,7 @@
+---
+- name: Auditar a VPS CDC sem realizar alteracoes
+  hosts: cdc_production
+  gather_facts: true
+  become: false
+  roles:
+    - role: audit

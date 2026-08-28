@@ -1,0 +1,30 @@
+---
+- name: Confirmar que a revisao de rollback existe na VPS
+  ansible.builtin.command:
+    argv: [git, cat-file, -e, "{{ rollback_commit }}^{commit}"]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: false
+
+- name: Retornar o codigo para a revisao autorizada
+  ansible.builtin.command:
+    argv: [git, checkout, --detach, "{{ rollback_commit }}"]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: true
+
+- name: Recompilar assets apos rollback
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, build, --app, "{{ cdc_app }}"]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: true
+
+- name: Limpar cache apos rollback
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", clear-cache]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: true
+
+- name: Reiniciar servicos Compose apos rollback
+  ansible.builtin.command:
+    argv: [docker, restart, "{{ item }}"]
+  loop: "{{ cdc_restart_containers }}"
+  changed_when: true

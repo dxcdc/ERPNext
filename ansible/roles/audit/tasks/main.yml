@@ -1,0 +1,84 @@
+---
+- name: Verificar o diretorio do projeto Compose
+  ansible.builtin.stat:
+    path: "{{ cdc_project_path }}"
+  register: audit_project
+
+- name: Ler a revisao atualmente implantada
+  ansible.builtin.command:
+    argv: [git, rev-parse, HEAD]
+    chdir: "{{ cdc_project_path }}"
+  register: audit_sha
+  changed_when: false
+  when: audit_project.stat.isdir | default(false)
+
+- name: Verificar alteracoes locais na VPS
+  ansible.builtin.command:
+    argv: [git, status, --porcelain]
+    chdir: "{{ cdc_project_path }}"
+  register: audit_git_status
+  changed_when: false
+  when: audit_project.stat.isdir | default(false)
+
+- name: Listar aplicativos do site
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", list-apps]
+  register: audit_apps
+  changed_when: false
+  when: audit_project.stat.isdir | default(false)
+
+- name: Consultar estado dos conteineres essenciais
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, "{{ '{{.State.Status}}' }}", "{{ item }}"]
+  loop: "{{ cdc_containers }}"
+  register: audit_container_results
+  changed_when: false
+  failed_when: false
+
+- name: Consultar unidades Systemd somente observadas
+  ansible.builtin.command:
+    argv: [systemctl, is-active, "{{ item }}"]
+  loop: "{{ cdc_observed_systemd_units }}"
+  register: audit_unit_results
+  changed_when: false
+  failed_when: false
+
+- name: Consultar espaco livre do Bench
+  ansible.builtin.command:
+    argv: [df, -Pk, "{{ cdc_project_path }}"]
+  register: audit_disk
+  changed_when: false
+  when: audit_project.stat.isdir | default(false)
+
+- name: Montar fotografia sanitizada
+  ansible.builtin.set_fact:
+    audit_report:
+      generated_at: "{{ ansible_date_time.iso8601 }}"
+      host: "{{ inventory_hostname }}"
+      distribution: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+      project_path: "{{ cdc_project_path }}"
+      project_exists: "{{ audit_project.stat.isdir | default(false) }}"
+      runtime: docker-compose
+      site: "{{ cdc_site }}"
+      revision: "{{ audit_sha.stdout | default('indisponivel') }}"
+      worktree_clean: "{{ (audit_git_status.stdout | default('')) | length == 0 }}"
+      apps: "{{ audit_apps.stdout_lines | default([]) }}"
+      containers: "{{ audit_container_results.results | default([]) | map(attribute='stdout') | list }}"
+      observed_units: "{{ audit_unit_results.results | default([]) | map(attribute='stdout') | list }}"
+      disk: "{{ audit_disk.stdout_lines | default([]) }}"
+
+- name: Criar diretorio local de relatorios
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../reports"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Salvar relatorio sanitizado no controlador
+  ansible.builtin.copy:
+    content: "{{ audit_report | to_nice_json }}\n"
+    dest: "{{ playbook_dir }}/../reports/audit-{{ inventory_hostname }}.json"
+    mode: "0600"
+  delegate_to: localhost
+  become: false

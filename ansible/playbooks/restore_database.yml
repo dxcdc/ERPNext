@@ -1,0 +1,34 @@
+---
+- name: Restaurar banco somente com autorizacao destrutiva explicita
+  hosts: cdc_production
+  gather_facts: true
+  become: false
+  serial: 1
+  pre_tasks:
+    - name: Bloquear restauracao acidental
+      ansible.builtin.assert:
+        that:
+          - database_backup_file is defined
+          - database_backup_file | length > 10
+          - confirm_database_restore | default('') == 'RESTAURAR-BANCO'
+        fail_msg: Informe database_backup_file e confirm_database_restore=RESTAURAR-BANCO.
+  tasks:
+    - name: Confirmar que o backup informado existe
+      ansible.builtin.stat:
+        path: "{{ database_backup_file }}"
+      register: requested_database_backup
+
+    - name: Recusar arquivo ausente ou permissivo
+      ansible.builtin.assert:
+        that:
+          - requested_database_backup.stat.exists
+          - requested_database_backup.stat.isreg
+          - requested_database_backup.stat.mode in ['0600', '0400']
+        fail_msg: O backup deve existir na VPS e possuir permissao 0600 ou 0400.
+
+    - name: Informar que a restauracao permanece deliberadamente manual
+      ansible.builtin.fail:
+        msg: >-
+          O arquivo foi validado, mas a restauracao automatica ainda nao foi
+          habilitada. Revise o runbook e implemente o procedimento especifico
+          somente apos um ensaio de restauracao fora da producao.

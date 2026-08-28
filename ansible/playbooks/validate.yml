@@ -1,0 +1,8 @@
+---
+- name: Validar a VPS CDC sem realizar alteracoes
+  hosts: cdc_production
+  gather_facts: false
+  become: false
+  roles:
+    - role: preflight
+    - role: validate

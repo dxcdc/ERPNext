@@ -1,0 +1,6 @@
+.venv/
+.tmp/
+.home/
+reports/
+*.retry
+inventories/**/vault.yml

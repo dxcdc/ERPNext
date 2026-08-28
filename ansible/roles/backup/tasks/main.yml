@@ -1,0 +1,103 @@
+---
+- name: Criar diretorio restrito de backups gerenciados
+  ansible.builtin.file:
+    path: "{{ cdc_backup_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Criar backup do site com arquivos
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", backup, --with-files, --compress]
+    chdir: "{{ cdc_project_path }}"
+  register: backup_bench_result
+  changed_when: true
+  no_log: true
+
+- name: Listar arquivos recentes produzidos no volume do Bench
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ cdc_backend_container }}"
+      - find
+      - "{{ cdc_bench_path }}/sites/{{ cdc_site }}/private/backups"
+      - -maxdepth
+      - "1"
+      - -type
+      - f
+      - -mmin
+      - "-10"
+      - -print
+  register: backup_recent_files
+  changed_when: false
+
+- name: Exigir conjunto de backup produzido
+  ansible.builtin.assert:
+    that: backup_recent_files.stdout_lines | length >= 3
+    fail_msg: O Bench nao produziu o conjunto esperado de banco e arquivos.
+
+- name: Copiar backups recentes do volume para o host
+  ansible.builtin.command:
+    argv: [docker, cp, "{{ cdc_backend_container }}:{{ item }}", "{{ cdc_backup_root }}/"]
+  loop: "{{ backup_recent_files.stdout_lines }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  changed_when: true
+
+- name: Restringir permissoes dos backups no host
+  ansible.builtin.file:
+    path: "{{ cdc_backup_root }}/{{ item | basename }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ backup_recent_files.stdout_lines }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+- name: Validar compressao do backup do banco
+  ansible.builtin.command:
+    argv: [gzip, --test, "{{ cdc_backup_root }}/{{ item | basename }}"]
+  loop: "{{ backup_recent_files.stdout_lines | select('search', '\\.sql\\.gz$') | list }}"
+  changed_when: false
+
+- name: Validar arquivos compactados do site
+  ansible.builtin.command:
+    argv: [tar, --tzf, "{{ cdc_backup_root }}/{{ item | basename }}"]
+  loop: "{{ backup_recent_files.stdout_lines | select('search', '\\.tgz$') | list }}"
+  changed_when: false
+
+- name: Validar JSON de configuracao copiado
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - import json,sys; json.load(open(sys.argv[1]))
+      - "{{ cdc_backup_root }}/{{ item | basename }}"
+  loop: "{{ backup_recent_files.stdout_lines | select('search', '\\.json$') | list }}"
+  changed_when: false
+  no_log: true
+
+- name: Calcular checksums dos arquivos protegidos
+  ansible.builtin.command:
+    argv: [sha256sum, "{{ cdc_backup_root }}/{{ item | basename }}"]
+  loop: "{{ backup_recent_files.stdout_lines }}"
+  register: backup_checksums
+  changed_when: false
+  no_log: true
+
+- name: Registrar manifesto do backup
+  ansible.builtin.copy:
+    content: |-
+      {{ {
+        'created_at': ansible_date_time.iso8601,
+        'site': cdc_site,
+        'files': backup_recent_files.stdout_lines | map('basename') | list,
+        'sha256': backup_checksums.results | map(attribute='stdout') | list,
+        'stock_invariants': preflight_stock_invariants_before.stdout_lines | default([])
+      } | to_nice_json }}
+    dest: "{{ cdc_backup_root }}/manifest-{{ ansible_date_time.epoch }}.json"
+    owner: root
+    group: root
+    mode: "0600"

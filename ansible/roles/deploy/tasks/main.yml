@@ -1,0 +1,62 @@
+---
+- name: Ler a revisao anterior
+  ansible.builtin.command:
+    argv: [git, rev-parse, HEAD]
+    chdir: "{{ cdc_project_path }}"
+  register: deploy_previous_revision
+  changed_when: false
+
+- name: Confirmar que a revisao solicitada ja esta disponivel na VPS
+  ansible.builtin.command:
+    argv: [git, cat-file, -e, "{{ release_commit }}^{commit}"]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: false
+
+- name: Avancar apenas por fast-forward para a revisao solicitada
+  ansible.builtin.command:
+    argv: [git, merge, --ff-only, "{{ release_commit }}"]
+    chdir: "{{ cdc_project_path }}"
+  register: deploy_git_result
+  changed_when: "'Already up to date' not in deploy_git_result.stdout"
+
+- name: Executar migracoes do site
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", migrate]
+    chdir: "{{ cdc_project_path }}"
+  register: deploy_migrate_result
+  changed_when: true
+
+- name: Compilar assets apenas do aplicativo CDC
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, build, --app, "{{ cdc_app }}"]
+    chdir: "{{ cdc_project_path }}"
+  register: deploy_build_result
+  changed_when: true
+
+- name: Limpar cache do site
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", clear-cache]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: true
+  notify: Reiniciar servicos CDC
+
+- name: Limpar cache de paginas web
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", clear-website-cache]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: true
+  notify: Reiniciar servicos CDC
+
+- name: Gravar manifesto da implantacao
+  ansible.builtin.copy:
+    content: |-
+      {{ {
+        'deployed_at': ansible_date_time.iso8601,
+        'previous_revision': deploy_previous_revision.stdout,
+        'release_revision': release_commit,
+        'site': cdc_site
+      } | to_nice_json }}
+    dest: "{{ cdc_backup_root }}/deploy-{{ ansible_date_time.epoch }}.json"
+    owner: root
+    group: root
+    mode: "0600"

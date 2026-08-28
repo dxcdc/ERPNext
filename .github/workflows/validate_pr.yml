@@ -57,5 +57,16 @@ jobs:
       - name: Executar testes unitários
         run: python -m unittest discover -s tests -v
 
+      - name: Validar estrutura Ansible
+        env:
+          ANSIBLE_HOME: .home
+          XDG_CACHE_HOME: .home/cache
+        run: |
+          python -m pip install -r ansible/requirements.txt
+          cd ansible
+          ansible-playbook playbooks/audit.yml --syntax-check
+          ansible-playbook playbooks/deploy.yml --syntax-check -e release_commit=0000000000000000000000000000000000000000
+          ansible-lint
+
       - name: Validar integridade do diff
         run: git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

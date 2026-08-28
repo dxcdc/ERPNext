@@ -1,0 +1,6 @@
+---
+- name: Reiniciar servicos CDC
+  ansible.builtin.command:
+    argv: [docker, restart, "{{ item }}"]
+  loop: "{{ cdc_restart_containers }}"
+  changed_when: true

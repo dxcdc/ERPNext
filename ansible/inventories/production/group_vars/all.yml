@@ -1,0 +1,36 @@
+---
+cdc_project_path: /opt/nexterp/code
+cdc_bench_path: /home/frappe/frappe-bench
+cdc_site: frontend
+cdc_app: cdc_theme
+cdc_public_url: https://stok.cdc.org.br
+cdc_backup_root: /opt/nexterp/backups/ansible
+cdc_minimum_free_kb: 2097152
+cdc_backend_container: nexterp-backend-1
+cdc_compose_services:
+  - backend
+  - frontend
+  - websocket
+  - queue-short
+  - queue-long
+  - scheduler
+cdc_restart_containers:
+  - nexterp-backend-1
+  - nexterp-frontend-1
+  - nexterp-websocket-1
+  - nexterp-queue-short-1
+  - nexterp-queue-long-1
+  - nexterp-scheduler-1
+cdc_containers:
+  - nexterp-backend-1
+  - nexterp-frontend-1
+  - nexterp-websocket-1
+  - nexterp-queue-short-1
+  - nexterp-queue-long-1
+  - nexterp-scheduler-1
+  - nexterp-db-1
+  - nexterp-redis-cache-1
+  - nexterp-redis-queue-1
+cdc_observed_systemd_units:
+  - cdc-ongsys-discovery.timer
+cdc_deploy_lock: /var/lock/cdc-nexterp-deploy.lock

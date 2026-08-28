@@ -1,0 +1,9 @@
+---
+- name: Criar backup verificavel antes de uma mudanca
+  hosts: cdc_production
+  gather_facts: true
+  become: false
+  serial: 1
+  roles:
+    - role: preflight
+    - role: backup

@@ -1,0 +1,97 @@
+---
+- name: Confirmar diretorios obrigatorios
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ cdc_project_path }}"
+    - "{{ cdc_project_path }}/apps/{{ cdc_app }}"
+  register: preflight_paths
+
+- name: Recusar contrato de caminhos divergente
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: "Diretorio obrigatorio ausente: {{ item.item }}"
+  loop: "{{ preflight_paths.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Verificar worktree da VPS
+  ansible.builtin.command:
+    argv: [git, status, --porcelain]
+    chdir: "{{ cdc_project_path }}"
+  register: preflight_git_status
+  changed_when: false
+
+- name: Impedir sobrescrita de alteracoes na VPS
+  ansible.builtin.assert:
+    that: preflight_git_status.stdout | length == 0
+    fail_msg: A VPS possui alteracoes locais; o procedimento foi interrompido.
+
+- name: Ler espaco disponivel em KB
+  ansible.builtin.shell: |
+    set -o pipefail
+    df -Pk {{ cdc_project_path | quote }} | awk 'NR==2 {print $4}'
+  args:
+    executable: /bin/bash
+  register: preflight_free_kb
+  changed_when: false
+
+- name: Exigir espaco livre minimo
+  ansible.builtin.assert:
+    that: preflight_free_kb.stdout | int >= cdc_minimum_free_kb | int
+    fail_msg: Espaco insuficiente para backup e implantacao segura.
+
+- name: Validar a configuracao Docker Compose
+  ansible.builtin.command:
+    argv: [docker, compose, config, --no-interpolate, --quiet]
+    chdir: "{{ cdc_project_path }}"
+  changed_when: false
+
+- name: Confirmar conteineres essenciais ativos
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, "{{ '{{.State.Status}}' }}", "{{ item }}"]
+  loop: "{{ cdc_containers }}"
+  register: preflight_container_states
+  changed_when: false
+
+- name: Recusar conteiner essencial parado
+  ansible.builtin.assert:
+    that: item.stdout == 'running'
+    fail_msg: "Conteiner essencial indisponivel: {{ item.item }}"
+  loop: "{{ preflight_container_states.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Confirmar aplicativo instalado
+  ansible.builtin.command:
+    argv: [docker, exec, "{{ cdc_backend_container }}", bench, --site, "{{ cdc_site }}", list-apps]
+  register: preflight_apps
+  changed_when: false
+
+- name: Recusar site sem o cdc_theme
+  ansible.builtin.assert:
+    that: cdc_app in preflight_apps.stdout
+    fail_msg: O aplicativo cdc_theme nao esta instalado no site esperado.
+
+- name: Capturar invariantes de estoque antes da operacao
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ cdc_backend_container }}"
+      - bench
+      - --site
+      - "{{ cdc_site }}"
+      - mariadb
+      - --skip-column-names
+      - -e
+      - >-
+        SELECT COUNT(*) FROM `tabStock Entry`;
+        SELECT COUNT(*) FROM `tabStock Entry Detail`;
+        SELECT COUNT(*) FROM `tabStock Ledger Entry`;
+    chdir: "{{ cdc_project_path }}"
+  register: preflight_stock_invariants_before
+  changed_when: false
+  no_log: true

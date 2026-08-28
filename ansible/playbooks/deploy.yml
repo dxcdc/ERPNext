@@ -1,0 +1,21 @@
+---
+- name: Publicar uma revisao exata do CDC NextERP
+  hosts: cdc_production
+  gather_facts: true
+  become: false
+  serial: 1
+  vars:
+    cdc_deploy_requested: true
+  pre_tasks:
+    - name: Exigir a revisao que sera publicada
+      ansible.builtin.assert:
+        that:
+          - release_commit is defined
+          - release_commit is match('^[0-9a-f]{40}$')
+        fail_msg: Use -e release_commit=<SHA completo de 40 caracteres>.
+      tags: [always]
+  roles:
+    - role: preflight
+    - role: backup
+    - role: deploy
+    - role: validate

@@ -1,0 +1,22 @@
+---
+- name: Retornar somente o codigo para uma revisao anterior
+  hosts: cdc_production
+  gather_facts: true
+  become: false
+  serial: 1
+  vars:
+    cdc_rollback_requested: true
+  pre_tasks:
+    - name: Exigir confirmacao e SHA de rollback
+      ansible.builtin.assert:
+        that:
+          - rollback_commit is defined
+          - rollback_commit is match('^[0-9a-f]{40}$')
+          - confirm_rollback | default('') == 'ROLLBACK-CODIGO'
+        fail_msg: Use o SHA completo e -e confirm_rollback=ROLLBACK-CODIGO.
+      tags: [always]
+  roles:
+    - role: preflight
+    - role: backup
+    - role: rollback
+    - role: validate
