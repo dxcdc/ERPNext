@@ -28,6 +28,16 @@
         return el.innerHTML;
     }
 
+    function confirmOperation(options, callback) {
+        var dialog = new frappe.ui.Dialog({
+            title: options.title || 'Confirmar operação',
+            fields: [{fieldtype: 'HTML', fieldname: 'summary', options: `<div class="cdc-confirm-card"><span class="cdc-confirm-icon">${escapeHTML(options.icon || '✓')}</span><div><strong>${escapeHTML(options.heading)}</strong><p>${escapeHTML(options.message)}</p><small>${escapeHTML(options.note || 'Nenhuma movimentação de estoque será criada.')}</small></div></div>`}],
+            primary_action_label: options.action || 'Confirmar',
+            primary_action: function() { dialog.hide(); callback(); }
+        });
+        dialog.show();
+    }
+
     function remove() {
         if (ongsysPollTimer) window.clearTimeout(ongsysPollTimer);
         ongsysPollTimer = null;
@@ -114,7 +124,7 @@
     }
 
     function mappingActions(row) {
-        var actions = [`<button class="btn btn-xs btn-default" data-cdc-map-log="${escapeHTML(row.name)}" title="Abrir análise">+</button>`];
+        var actions = [`<button class="btn btn-xs btn-default cdc-map-detail-button" data-cdc-map-log="${escapeHTML(row.name)}" title="Abrir análise" aria-label="Abrir análise de ${escapeHTML(row.cost_center_code)}"><span>＋</span></button>`];
         if (['Ativo', 'Ativo automático', 'Ativo manual', 'Bloqueado'].indexOf(row.status) === -1) {
             actions.push(`<button class="btn btn-xs btn-default" data-cdc-map-validate="${escapeHTML(row.name)}">Validar</button>`);
         }
@@ -227,7 +237,7 @@
     }
 
     function mappingAction(method, name, enabled) {
-        frappe.confirm('Confirma esta operação no mapeamento? Nenhuma movimentação de estoque será criada.', function() {
+        confirmOperation({title:'Confirmar mapeamento',heading:'Operação controlada',message:'O vínculo selecionado será atualizado conforme a ação solicitada.',note:'Nenhuma movimentação de estoque será criada.',action:'Confirmar',icon:'↗'}, function() {
             var args = {name: name};
             if (enabled !== undefined) args.enabled = enabled;
             frappe.call({method: method, type: 'POST', args: args, freeze: true, callback: function(r) {
@@ -240,7 +250,7 @@
     function requestAutomaticDiscovery(names) {
         names = Array.isArray(names) ? names : [];
         var scope = names.length ? names.length + ' mapeamento(s) selecionado(s)' : 'todos os mapeamentos pendentes';
-        frappe.confirm('Deseja consultar o ONGSYS para ' + scope + '? Nenhum estoque será criado e nenhum vínculo será ativado.', function() {
+        confirmOperation({title:'Analisar integração ONGSYS',heading:'Analisar ' + scope,message:'O assistente consultará evidências e classificará cada vínculo automaticamente.',note:'Casos com correspondência forte poderão ser ativados. Nenhum estoque será criado.',action:'Iniciar análise',icon:'⌕'}, function() {
             frappe.call({method: 'cdc_theme.api.request_ongsys_mapping_discovery', type: 'POST', args: {names: JSON.stringify(names)}, freeze: true, callback: function(r) {
                 if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 7);
                 loadOngsysDashboard();
