@@ -124,17 +124,17 @@
     }
 
     function mappingActions(row) {
-        var actions = [`<button class="btn btn-xs btn-default cdc-map-detail-button" data-cdc-map-log="${escapeHTML(row.name)}" title="Abrir análise" aria-label="Abrir análise de ${escapeHTML(row.cost_center_code)}"><span>＋</span></button>`];
+        var actions = [`<button class="btn btn-xs cdc-map-icon-button is-detail" data-cdc-map-log="${escapeHTML(row.name)}" title="Abrir análise" aria-label="Abrir análise de ${escapeHTML(row.cost_center_code)}"><span aria-hidden="true">+</span></button>`];
         if (['Ativo', 'Ativo automático', 'Ativo manual', 'Bloqueado'].indexOf(row.status) === -1) {
-            actions.push(`<button class="btn btn-xs btn-default" data-cdc-map-validate="${escapeHTML(row.name)}">Validar</button>`);
+            actions.push(`<button class="btn btn-xs cdc-map-icon-button is-validate" data-cdc-map-validate="${escapeHTML(row.name)}" title="Validar" aria-label="Validar ${escapeHTML(row.cost_center_code)}"><span aria-hidden="true">✓</span></button>`);
         }
         if (row.status === 'Validado') {
-            actions.push(`<button class="btn btn-xs btn-primary" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="1">Ativar</button>`);
+            actions.push(`<button class="btn btn-xs cdc-map-icon-button is-activate" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="1" title="Ativar" aria-label="Ativar ${escapeHTML(row.cost_center_code)}"><span aria-hidden="true">▶</span></button>`);
         }
         if (row.status !== 'Bloqueado') {
-            actions.push(`<button class="btn btn-xs btn-danger" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="0">Desativar</button>`);
+            actions.push(`<button class="btn btn-xs cdc-map-icon-button is-disable" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="0" title="Desativar" aria-label="Desativar ${escapeHTML(row.cost_center_code)}"><span aria-hidden="true">×</span></button>`);
         }
-        if (['Ativo', 'Ativo automático', 'Ativo manual', 'Bloqueado'].indexOf(row.status) === -1) actions.push(`<button class="btn btn-xs btn-default" data-cdc-map-manual="${escapeHTML(row.name)}">Ativar manual</button>`);
+        if (['Ativo', 'Ativo automático', 'Ativo manual', 'Bloqueado'].indexOf(row.status) === -1) actions.push(`<button class="btn btn-xs cdc-map-icon-button is-manual" data-cdc-map-manual="${escapeHTML(row.name)}" title="Ativar manualmente" aria-label="Ativar manualmente ${escapeHTML(row.cost_center_code)}"><span aria-hidden="true">M</span></button>`);
         return actions.join('');
     }
 
