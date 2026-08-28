@@ -355,7 +355,7 @@ def request_ongsys_mapping_discovery(names=None):
     requested_codes = []
     for name in names:
         doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, str(name))
-        if doc.status not in ("Descoberto", "Pendente", "Validado", "Sem evidência", "API indisponível", "Falha", "Revisão necessária"):
+        if doc.status not in ("Descoberto", "Pendente", "Validado", "Sem evidência", "API indisponível", "Armazém desativado", "Falha", "Revisão necessária"):
             continue
         doc.status = "Na fila"
         doc.analysis_log = f"[{frappe.utils.now()}] Análise solicitada; nenhuma movimentação de estoque será criada."
@@ -393,7 +393,7 @@ def get_ongsys_mapping_discovery_context():
     requested_codes = set(frappe.parse_json(state.discovery_requested_codes) or []) if state.discovery_requested_codes else set()
     mappings = frappe.get_all(
         ONGSYS_MAPPING_DOCTYPE,
-        filters={"status": ["in", ["Descoberto", "Pendente", "Na fila", "Analisando", "Validado", "Sem evidência", "API indisponível", "Falha", "Revisão necessária"]]},
+        filters={"status": ["in", ["Descoberto", "Pendente", "Na fila", "Analisando", "Validado", "Sem evidência", "API indisponível", "Armazém desativado", "Falha", "Revisão necessária"]]},
         fields=["cost_center_code", "warehouse"], limit_page_length=1000,
     )
     if requested_codes:
@@ -505,7 +505,12 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
         )
         doc.last_analyzed_at = frappe.utils.now_datetime()
         doc.analysis_log = (doc.analysis_log or "") + f"\n[{frappe.utils.now()}] Pedido {order_id} localizado; confiança {doc.confidence}%."
-        if exact and doc.status in ("Descoberto", "Pendente", "Na fila", "Analisando", "Validado"):
+        if warehouse and warehouse.disabled:
+            doc.status = "Armazém desativado"
+            doc.enabled = 0
+            doc.validation_detail = "O centro foi localizado, mas o armazém NextERP está desativado. Selecione um substituto operacional."
+            exceptions += 1
+        elif exact and doc.status in ("Descoberto", "Pendente", "Na fila", "Analisando", "Validado"):
             doc.status = "Ativo automático"
             doc.enabled = 1
             doc.activation_mode = "Automática"
@@ -513,20 +518,24 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
             doc.verified_at = frappe.utils.now_datetime()
             validated += 1
         else:
+            doc.status = "Revisão necessária"
+            doc.enabled = 0
             exceptions += 1
         doc.save()
         matched += 1
     found_codes = {str(row.get("cost_center_code") or "").strip() for row in findings}
-    for missing_code in requested_codes - found_codes:
+    attempted_codes = set(str(code).strip() for code in (stats.get("attempted_codes") or requested_codes) if str(code).strip())
+    for missing_code in attempted_codes - found_codes:
         missing_name = frappe.db.exists(ONGSYS_MAPPING_DOCTYPE, {"cost_center_code": missing_code})
         if not missing_name:
             continue
         missing_doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, missing_name)
-        if missing_doc.status in ("Descoberto", "Pendente", "Validado", "Na fila", "Analisando"):
+        if missing_doc.status in ("Descoberto", "Pendente", "Validado", "Na fila", "Analisando", "Sem evidência", "API indisponível", "Armazém desativado", "Revisão necessária"):
             missing_doc.confidence = 0
+            warehouse = frappe.db.get_value("Warehouse", missing_doc.warehouse, ["is_group", "disabled"], as_dict=True) if missing_doc.warehouse else None
             unavailable = not stats.get("pages") and bool(page_errors)
-            missing_doc.status = "API indisponível" if unavailable else "Sem evidência"
-            missing_doc.validation_detail = "A paginação falhou; fontes alternativas não confirmaram o vínculo." if unavailable else "As fontes responderam, mas nenhuma evidência elegível foi encontrada."
+            missing_doc.status = "Armazém desativado" if warehouse and warehouse.disabled else ("API indisponível" if unavailable else "Sem evidência")
+            missing_doc.validation_detail = "O armazém NextERP está desativado; selecione um substituto operacional." if warehouse and warehouse.disabled else ("A paginação falhou; fontes alternativas não confirmaram o vínculo." if unavailable else "As fontes responderam, mas nenhuma evidência elegível foi encontrada.")
             missing_doc.last_analyzed_at = frappe.utils.now_datetime()
             missing_doc.analysis_log = (missing_doc.analysis_log or "") + f"\n[{frappe.utils.now()}] {missing_doc.validation_detail}"
             missing_doc.save()
@@ -648,6 +657,19 @@ def manually_activate_ongsys_warehouse_mapping(name, reason):
     doc.analysis_log = (doc.analysis_log or "") + f"\n[{frappe.utils.now()}] Ativação manual por {frappe.session.user}: {reason[:300]}"
     doc.save()
     return {"ok": True, "message": f"Mapeamento {doc.cost_center_code} ativado manualmente e auditado."}
+
+
+@frappe.whitelist(methods=["POST"])
+def manually_activate_ongsys_warehouse_mappings(names=None, reason=None):
+    _require_system_manager()
+    names = frappe.parse_json(names) if isinstance(names, str) else (names or [])
+    if not isinstance(names, list) or not names or len(names) > 100:
+        frappe.throw("Seleção inválida.", frappe.ValidationError)
+    activated = []
+    for name in names:
+        result = manually_activate_ongsys_warehouse_mapping(str(name), reason)
+        activated.append(result["message"])
+    return {"ok": True, "activated": len(activated), "message": f"{len(activated)} mapeamento(s) ativado(s) manualmente e auditados."}
 @frappe.whitelist()
 def get_cdc_admin_diagnostics():
     """Diagnosticos leves, sem shell e sem alterar dados."""

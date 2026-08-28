@@ -154,6 +154,7 @@ def main(force: bool = False, max_pages: int = MAX_PAGES):
         findings = list(combined.values())
         stats.update(direct_stats)
         stats["strategy"] = "direct-and-pagination" if remaining else "direct"
+        stats["attempted_codes"] = sorted(code for code in targets if code)
         result = erp_method(api, "record_ongsys_mapping_discovery", {
             "findings": json.dumps(findings, ensure_ascii=False),
             "stats": json.dumps(stats),
