@@ -45,6 +45,7 @@ extractor/arquivo.txt
 extractor/log_criador_lancamentos_final.txt
 extractor/*.csv
 extractor/.git/
+extractor/.mapping_discovery.lock
 
 # Vendor Theme References
 temas/
@@ -52,4 +53,3 @@ temas/
 # Backups GCP
 bkp gcp/
 bkp_gcp/
-
