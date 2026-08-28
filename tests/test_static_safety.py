@@ -450,6 +450,9 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("Nenhum curso ou resultado de capacitação está sendo simulado", training_block)
         self.assertNotIn("frappe.call", training_block)
         self.assertIn(".cdc-custom-training-active > :not(#cdc-training-dashboard)", css_source)
+        self.assertIn(".cdc-training-status {", css_source)
+        self.assertIn("color: #fdba74; background: rgba(249,115,22,.18);", css_source)
+        self.assertIn("background: #fb923c; box-shadow: 0 0 0 5px rgba(251,146,60,.16);", css_source)
 
     def test_spa_dashboards_claim_only_the_active_page_container(self):
         theme_source = THEME_JS.read_text()
