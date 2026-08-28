@@ -299,12 +299,16 @@ def get_cdc_admin_ongsys_dashboard():
         limit_page_length=1000,
     )
     last_success = frappe.db.get_single_value("CDC ONGSYS Sync State", "last_success_at")
+    if last_success and frappe.utils.get_datetime(last_success).year <= 1:
+        last_success = None
     last_page = frappe.db.get_single_value("CDC ONGSYS Sync State", "last_page") or 0
     last_mode = (
         frappe.db.get_single_value("CDC ONGSYS Sync State", "last_import_mode")
         or frappe.db.get_single_value("CDC ONGSYS Sync State", "last_mode")
         or "Sem execução"
     )
+    if not last_success:
+        last_mode = "Sem execução"
     imported_orders = frappe.db.sql("""
         SELECT COUNT(*) FROM `tabStock Entry`
         WHERE docstatus=1 AND COALESCE(idpedido_ongsys, '') <> ''

@@ -24,8 +24,7 @@ LEGACY_MAPPINGS = (
 
 def execute():
     doctype = "CDC ONGSYS Warehouse Mapping"
-    if not frappe.db.exists("DocType", doctype):
-        return
+    frappe.reload_doc("cdc_theme", "doctype", "cdc_ongsys_warehouse_mapping", force=True)
     for code, warehouse_name in LEGACY_MAPPINGS:
         if frappe.db.exists(doctype, code):
             continue
@@ -43,4 +42,3 @@ def execute():
             "notes": "Migrado do de-para operacional; requer revisão administrativa antes da ativação.",
         })
         doc.insert(ignore_permissions=True)
-
