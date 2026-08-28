@@ -19,6 +19,43 @@
   --cdc-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
+/* CDC Treinamento — página de apresentação ------------------------------ */
+.cdc-custom-training-active > :not(#cdc-training-dashboard) { display: none !important; }
+#cdc-training-dashboard { color: var(--text-color); animation: cdcFadeIn .25s ease-out; }
+.cdc-training-shell { padding: 8px 4px 36px; }
+.cdc-training-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(240px, .65fr); gap: 36px; align-items: center; min-height: 330px; padding: 44px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border-color)); border-radius: 20px; color: #f8fafc; background: radial-gradient(circle at 86% 18%, rgba(56,189,248,.24), transparent 28%), linear-gradient(135deg, #0f172a 0%, #172554 54%, #1e3a8a 100%); box-shadow: 0 18px 44px rgba(15,23,42,.18); }
+.cdc-training-hero::after { content: ''; position: absolute; right: -90px; bottom: -130px; width: 320px; height: 320px; border: 1px solid rgba(255,255,255,.13); border-radius: 50%; box-shadow: 0 0 0 54px rgba(255,255,255,.04), 0 0 0 108px rgba(255,255,255,.025); }
+.cdc-training-hero-copy { position: relative; z-index: 1; max-width: 760px; }
+.cdc-training-status { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; margin-bottom: 25px; border: 1px solid rgba(125,211,252,.36); border-radius: 999px; color: #bae6fd; background: rgba(14,165,233,.14); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cdc-training-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 0 5px rgba(56,189,248,.13); }
+.cdc-training-eyebrow { margin: 0 0 9px; color: #93c5fd; font-size: 12px; font-weight: 800; letter-spacing: .075em; text-transform: uppercase; }
+.cdc-training-hero h1 { max-width: 780px; margin: 0 0 17px; color: #fff; font-size: clamp(30px, 4vw, 48px); font-weight: 800; line-height: 1.07; letter-spacing: -.035em; }
+.cdc-training-lead { max-width: 720px; margin: 0; color: #cbd5e1; font-size: 15px; line-height: 1.72; }
+.cdc-training-hero-icon { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; min-height: 190px; padding: 27px; border: 1px solid rgba(255,255,255,.17); border-radius: 18px; background: rgba(15,23,42,.36); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter: blur(10px); }
+.cdc-training-hero-icon span { color: #7dd3fc; font-size: 11px; font-weight: 850; letter-spacing: .14em; }
+.cdc-training-hero-icon strong { margin: 8px 0 26px; color: #fff; font-size: 26px; }
+.cdc-training-hero-icon small { padding-top: 15px; border-top: 1px solid rgba(255,255,255,.13); color: #94a3b8; font-size: 11px; }
+.cdc-training-preview { display: grid; grid-template-columns: minmax(220px, .65fr) minmax(0, 1.55fr); gap: 30px; margin-top: 18px; padding: 28px; border: 1px solid var(--border-color); border-radius: 17px; background: var(--fg-color); }
+.cdc-training-section-heading span { color: var(--primary); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cdc-training-section-heading h2 { margin: 7px 0 9px; font-size: 23px; letter-spacing: -.02em; }
+.cdc-training-section-heading p, .cdc-training-journey p, .cdc-training-coming p { margin: 0; color: var(--text-muted); line-height: 1.55; }
+.cdc-training-journey { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.cdc-training-journey article { min-height: 164px; padding: 17px; border: 1px solid var(--border-color); border-radius: 13px; background: var(--subtle-fg); }
+.cdc-training-journey i { display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: 20px; border-radius: 9px; color: #fff; background: var(--primary); font-style: normal; font-size: 12px; font-weight: 800; }
+.cdc-training-journey strong { display: block; margin-bottom: 6px; font-size: 14px; }
+.cdc-training-journey p { font-size: 12px; }
+.cdc-training-coming { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; margin-top: 11px; }
+.cdc-training-coming > div { display: grid; grid-template-columns: 36px 1fr; gap: 11px; align-items: start; min-height: 104px; padding: 17px; border: 1px solid var(--border-color); border-radius: 13px; background: var(--fg-color); }
+.cdc-training-coming-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); font-size: 17px; font-weight: 800; }
+.cdc-training-coming strong { display: block; margin: 1px 0 5px; font-size: 13px; }
+.cdc-training-coming p { font-size: 11px; }
+.cdc-training-footnote { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin-top: 13px; color: var(--text-muted); font-size: 11px; }
+.cdc-training-footnote span { width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; }
+.cdc-training-failure { display: grid; gap: 7px; padding: 38px; border: 1px solid var(--border-color); border-radius: 16px; background: var(--fg-color); text-align: center; }
+.cdc-training-failure span { color: var(--text-muted); }
+@media (max-width: 950px) { .cdc-training-hero { grid-template-columns: 1fr; padding: 32px; }.cdc-training-hero-icon { min-height: 150px; }.cdc-training-preview { grid-template-columns: 1fr; }.cdc-training-coming { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .cdc-training-shell { padding-right: 0; padding-left: 0; }.cdc-training-hero { min-height: 0; padding: 25px 20px; border-radius: 15px; }.cdc-training-hero h1 { font-size: 31px; }.cdc-training-preview { padding: 19px; }.cdc-training-journey { grid-template-columns: 1fr; }.cdc-training-journey article { min-height: 0; }.cdc-training-footnote { align-items: flex-start; text-align: right; } }
+
 /* Identidade visual com dimensões previsíveis no login e no Desk. */
 .for-login .app-logo,
 .for-email-login .app-logo,

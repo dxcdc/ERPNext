@@ -66,11 +66,11 @@ def main():
         required = {
             "CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens",
             "CDC Armazém", "CDC Integrações", "CDC Pendências",
-            "CDC Monitoramento", "CDC Testes", "CDC Admin",
+            "CDC Monitoramento", "CDC Testes", "CDC Admin", "CDC Treinamento",
         }
         missing = required - visible
         assert not missing, f"Workspaces ausentes: {sorted(missing)}"
-        return "Dez workspaces CDC públicas e visíveis"
+        return "Onze workspaces CDC públicas e visíveis"
 
     def containers():
         running = set(command("docker", "ps", "--format", "{{.Names}}").splitlines())
@@ -139,6 +139,7 @@ def main():
             "/app/cdc-testes", "/app/cdc-grupos", "/app/cdc-itens",
             "/app/cdc-armazem",
             "/app/cdc-admin",
+            "/app/cdc-treinamento",
             "/app/stock-entry/view/report/Lancamento%20no%20Estoque%20-%20CDC",
         ):
             assert route in source, f"Rota ausente: {route}"

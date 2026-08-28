@@ -88,7 +88,8 @@
             {label: 'Pendências', href: '/app/cdc-pendências'},
             {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
             {label: 'Testes', href: '/app/cdc-testes'},
-            {label: 'Admin', href: '/app/cdc-admin'}
+            {label: 'Admin', href: '/app/cdc-admin'},
+            {label: 'Treinamento', href: '/app/cdc-treinamento'}
         ];
         var current = sections.find(function(item) { return item.label === section; });
         var quickLinks = sections.map(function(item) {
@@ -320,6 +321,21 @@
         }
         var path = decodeURIComponent(window.location.pathname || '').toLowerCase();
         return path.indexOf('/app/cdc-integracoes') !== -1 || path.indexOf('/app/integrations') !== -1;
+    }
+
+    function isTrainingPage() {
+        var route = (frappe.get_route && frappe.get_route()) ? frappe.get_route() : [];
+        var normalize = function(value) {
+            return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+        };
+        var mainRoute = normalize(route[0]);
+        var subRoute = normalize(route[1]);
+        if (mainRoute === 'cdc-treinamento' || mainRoute === 'treinamento') return true;
+        if (mainRoute === 'workspace' || mainRoute === 'workspaces') {
+            return subRoute === 'cdc-treinamento' || subRoute === 'treinamento';
+        }
+        return normalize(window.location.pathname).indexOf('/app/cdc-treinamento') !== -1;
     }
 
     function isUsersWorkspacePage() {
@@ -879,6 +895,65 @@
         });
     }
 
+
+    function removeTrainingPreview() {
+        document.querySelectorAll('#cdc-training-dashboard').forEach(function(dashboard) {
+            dashboard.remove();
+        });
+        document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(body) {
+            body.classList.remove('cdc-custom-training-active');
+        });
+    }
+
+    function renderTrainingPreview() {
+        if (!isTrainingPage()) {
+            removeTrainingPreview();
+            return;
+        }
+        var claim = claimCDCActiveDashboard('cdc-training-dashboard', 'section');
+        if (!claim) return;
+        var body = claim.body;
+        var dashboard = claim.dashboard;
+        body.classList.add('cdc-custom-training-active');
+        if (dashboard.dataset.loaded === '1') return;
+        dashboard.dataset.loaded = '1';
+        dashboard.innerHTML = (window._cdc_get_breadcrumb_html
+            ? window._cdc_get_breadcrumb_html('Treinamento', 'Em breve') : '') + `
+            <div class="cdc-training-shell">
+                <header class="cdc-training-hero">
+                    <div class="cdc-training-hero-copy">
+                        <span class="cdc-training-status">Em breve</span>
+                        <p class="cdc-training-eyebrow">Cenário A · Onboarding &amp; Capacitação Interna</p>
+                        <h1>Aprender os processos CDC de forma simples, guiada e segura.</h1>
+                        <p class="cdc-training-lead">O CDC Treinamento será o ponto de entrada para novos colaboradores e para a atualização das equipes. Cada conteúdo será organizado conforme o processo real, com explicação, prática orientada e confirmação do aprendizado.</p>
+                    </div>
+                    <div class="cdc-training-hero-icon" aria-hidden="true">
+                        <span>CDC</span><strong>Treinamento</strong><small>Conhecer · praticar · aplicar</small>
+                    </div>
+                </header>
+
+                <section class="cdc-training-preview" aria-label="Prévia do treinamento">
+                    <div class="cdc-training-section-heading">
+                        <span>Uma pequena prévia</span>
+                        <h2>Como será uma trilha de processo</h2>
+                        <p>Conteúdo direto, dividido em etapas curtas e compreensíveis.</p>
+                    </div>
+                    <div class="cdc-training-journey">
+                        <article><i>1</i><div><strong>Conhecer</strong><p>Entender o objetivo, os responsáveis e o resultado esperado do processo.</p></div></article>
+                        <article><i>2</i><div><strong>Praticar</strong><p>Seguir uma orientação passo a passo em um ambiente seguro.</p></div></article>
+                        <article><i>3</i><div><strong>Aplicar</strong><p>Confirmar o aprendizado e saber onde consultar o procedimento depois.</p></div></article>
+                    </div>
+                </section>
+
+                <section class="cdc-training-coming">
+                    <div><span class="cdc-training-coming-icon" aria-hidden="true">✓</span><div><strong>Onboarding por função</strong><p>Trilhas adequadas ao papel e às atividades de cada pessoa.</p></div></div>
+                    <div><span class="cdc-training-coming-icon" aria-hidden="true">≡</span><div><strong>Processos documentados</strong><p>Orientações claras, exemplos e materiais de consulta no mesmo lugar.</p></div></div>
+                    <div><span class="cdc-training-coming-icon" aria-hidden="true">◎</span><div><strong>Acompanhamento real</strong><p>Progresso e conclusão somente quando os treinamentos estiverem disponíveis.</p></div></div>
+                </section>
+
+                <footer class="cdc-training-footnote"><span></span>Esta página é uma apresentação. Nenhum curso ou resultado de capacitação está sendo simulado.</footer>
+            </div>`;
+    }
 
     // --- SUÍTE DE INQUÉRITO E DIAGNÓSTICO PROFUNDO CDC ---
     window._cdc_run_diagnostics = function() {
@@ -2050,7 +2125,7 @@
 
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: mantém somente as áreas CDC aprovadas
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin'];
+        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -2060,7 +2135,7 @@
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
-                /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|integracoes|pendencias|monitoramento|testes|admin)(\/|$)/.test(href);
+                /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|integracoes|pendencias|monitoramento|testes|admin|treinamento)(\/|$)/.test(href);
             var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
                 /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
             if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
@@ -2107,6 +2182,16 @@
         } else {
             var integrationsBanner = document.getElementById('cdc-integracoes-banner');
             if (integrationsBanner) integrationsBanner.remove();
+        }
+        try {
+            renderTrainingPreview();
+        } catch (error) {
+            console.error('[CDC Theme] Falha ao montar CDC Treinamento:', error);
+            var trainingClaim = claimCDCActiveDashboard('cdc-training-dashboard', 'section');
+            if (trainingClaim && isTrainingPage()) {
+                trainingClaim.body.classList.add('cdc-custom-training-active');
+                trainingClaim.dashboard.innerHTML = '<div class="cdc-training-failure"><strong>Não foi possível montar a prévia do treinamento.</strong><span>A página continua em preparação. Tente novamente após atualizar.</span></div>';
+            }
         }
         try {
             renderUsersDashboard();
@@ -2210,7 +2295,8 @@
             'cdc armazem',
             'cdc integracoes',
             'cdc pendencias',
-            'cdc monitoramento'
+            'cdc monitoramento',
+            'cdc treinamento'
         ];
 
         if (window.frappe && Array.isArray(frappe.user_roles) && frappe.user_roles.indexOf('System Manager') !== -1) {

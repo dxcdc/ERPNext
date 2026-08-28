@@ -407,7 +407,7 @@ class StaticSafetyTest(unittest.TestCase):
         api_source = API_PY.read_text()
         theme_source = THEME_JS.read_text()
         terraform_source = TERRAFORM_MAIN.read_text()
-        for workspace in ("CDC Testes", "CDC Grupos", "CDC Itens", "CDC Armazém"):
+        for workspace in ("CDC Testes", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Treinamento"):
             with self.subTest(workspace=workspace):
                 self.assertIn(workspace, api_source)
                 self.assertIn(workspace, terraform_source)
@@ -415,6 +415,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("'cdc grupos'", theme_source)
         self.assertIn("'cdc itens'", theme_source)
         self.assertIn("'cdc armazem'", theme_source)
+        self.assertIn("'cdc treinamento'", theme_source)
 
     def test_sidebar_orders_groups_items_and_warehouse_after_users(self):
         api_source = API_PY.read_text()
@@ -426,6 +427,29 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn('_ensure_cdc_workspace(CDC_WAREHOUSE_WORKSPACE, "home", 5.0)', api_source)
         self.assertIn("'CDC Armazém', 'CDC Armazém', 5.0, 'Core', 'organization'", terraform_source)
         self.assertNotIn("SET icon = 'home' WHERE name = 'CDC Armazém'", terraform_source)
+
+    def test_training_preview_is_last_has_icon_and_does_not_simulate_courses(self):
+        api_source = API_PY.read_text()
+        theme_source = THEME_JS.read_text()
+        css_source = THEME_CSS.read_text()
+        terraform_source = TERRAFORM_MAIN.read_text()
+        self.assertIn('CDC_TRAINING_WORKSPACE = "CDC Treinamento"', api_source)
+        self.assertIn('_ensure_cdc_workspace(CDC_TRAINING_WORKSPACE, "education", 11.0)', api_source)
+        self.assertIn('(CDC_TRAINING_WORKSPACE, 11.0, "education")', api_source)
+        self.assertIn("'CDC Treinamento', 'CDC Treinamento', 11.0, 'Core', 'education'", terraform_source)
+        self.assertIn("SET icon = 'education' WHERE name = 'CDC Treinamento'", terraform_source)
+        self.assertIn("{label: 'Treinamento', href: '/app/cdc-treinamento'}", theme_source)
+        self.assertIn("function isTrainingPage()", theme_source)
+        training_block = theme_source[
+            theme_source.index("function removeTrainingPreview()"):
+            theme_source.index("// --- SUÍTE DE INQUÉRITO", theme_source.index("function removeTrainingPreview()"))
+        ]
+        self.assertIn("claimCDCActiveDashboard('cdc-training-dashboard'", training_block)
+        self.assertIn("Cenário A · Onboarding &amp; Capacitação Interna", training_block)
+        self.assertIn("Em breve", training_block)
+        self.assertIn("Nenhum curso ou resultado de capacitação está sendo simulado", training_block)
+        self.assertNotIn("frappe.call", training_block)
+        self.assertIn(".cdc-custom-training-active > :not(#cdc-training-dashboard)", css_source)
 
     def test_spa_dashboards_claim_only_the_active_page_container(self):
         theme_source = THEME_JS.read_text()

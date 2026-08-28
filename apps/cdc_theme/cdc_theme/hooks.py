@@ -7,21 +7,21 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_analytics_provider_v49"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_training_preview_v50"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_pending.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_tests.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_management.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_groups.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_items.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_warehouse.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260828_analytics_provider_v49",
-    "/assets/cdc_theme/js/cdc_admin.js?v=20260828_analytics_provider_v49",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_pending.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_tests.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_management.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_groups.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_items.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_warehouse.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260828_training_preview_v50",
+    "/assets/cdc_theme/js/cdc_admin.js?v=20260828_training_preview_v50",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_analytics_provider_v49"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260828_analytics_provider_v49"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_training_preview_v50"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260828_training_preview_v50"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"

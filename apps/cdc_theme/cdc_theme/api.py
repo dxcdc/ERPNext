@@ -64,6 +64,7 @@ def custom_get_desktop_page(page):
         "cdc-armazemo": "CDC Armazém",
         "cdc-armazémo": "CDC Armazém",
         "cdc-admin": "CDC Admin",
+        "cdc-treinamento": "CDC Treinamento",
         "stock": "CDC Estoque",
         "users": "CDC Usuários",
         "integrations": "CDC Integrações",
@@ -82,6 +83,7 @@ def custom_get_desktop_page(page):
         "armazemo": "CDC Armazém",
         "armazémo": "CDC Armazém",
         "admin": "CDC Admin",
+        "treinamento": "CDC Treinamento",
     }
 
     lower_name = str(name).lower().strip()
@@ -148,7 +150,7 @@ def run_stage_6_diagnostics():
     # 6.3: Desktop Pages Loader das workspaces CDC
     try:
         from frappe.desk.desktop import get_desktop_page
-        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]:
+        for page_name in ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin", "CDC Treinamento"]:
             page_json = json.dumps({"name": page_name})
             res = custom_get_desktop_page(page_json)
             diag["sub_stage_6_3_desktop_pages"][page_name] = {"status": "OK", "page_name": res.get("name") if isinstance(res, dict) else str(res)}
@@ -181,7 +183,7 @@ def run_stage_6_diagnostics():
 
     # 6.6: Child Tables Integrity (Shortcuts, Links, Charts, Number Cards)
     try:
-        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin"]
+        cdc_workspaces = ["CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens", "CDC Armazém", "CDC Integrações", "CDC Pendências", "CDC Monitoramento", "CDC Testes", "CDC Admin", "CDC Treinamento"]
         sc_count = frappe.db.count("Workspace Shortcut", filters={"parent": ["in", cdc_workspaces]})
         link_count = frappe.db.count("Workspace Link", filters={"parent": ["in", cdc_workspaces]})
         diag["sub_stage_6_6_child_tables"] = {
@@ -201,6 +203,7 @@ CDC_TESTS_WORKSPACE = "CDC Testes"
 CDC_GROUPS_WORKSPACE = "CDC Grupos"
 CDC_ITEMS_WORKSPACE = "CDC Itens"
 CDC_WAREHOUSE_WORKSPACE = "CDC Armazém"
+CDC_TRAINING_WORKSPACE = "CDC Treinamento"
 
 
 def _ensure_cdc_workspace(name, icon, sequence_id, content="[]"):
@@ -237,6 +240,7 @@ def _repair_cdc_support_workspaces():
         _ensure_cdc_workspace("CDC Monitoramento", "dashboard", 8.0, monitoring_content),
         _ensure_cdc_workspace(CDC_TESTS_WORKSPACE, "check", 9.0),
         _ensure_cdc_workspace(CDC_ADMIN_WORKSPACE, "tool", 10.0),
+        _ensure_cdc_workspace(CDC_TRAINING_WORKSPACE, "education", 11.0),
     ]
 
 
@@ -309,6 +313,7 @@ def get_cdc_admin_diagnostics():
             CDC_ITEMS_WORKSPACE, CDC_WAREHOUSE_WORKSPACE,
             "CDC Integrações", "CDC Pendências",
             "CDC Monitoramento", CDC_TESTS_WORKSPACE, CDC_ADMIN_WORKSPACE,
+            CDC_TRAINING_WORKSPACE,
         )
         missing = [name for name in required if not frappe.db.exists("Workspace", name)]
         hidden = frappe.get_all("Workspace", filters={"name": ["in", required], "is_hidden": 1}, pluck="name")
@@ -365,7 +370,7 @@ def run_cdc_admin_action(action):
         _repair_cdc_support_workspaces()
         frappe.db.commit()
         _clear_cdc_theme_caches()
-        message = "As 10 workspaces CDC foram reconciliadas e os caches foram limpos."
+        message = "As 11 workspaces CDC foram reconciliadas e os caches foram limpos."
     elif action == "repair_theme":
         names = _repair_cdc_support_workspaces()
         frappe.db.commit()
@@ -2257,7 +2262,7 @@ QUALITY_GATE_COPY = {
         "stages": ("Preparação", "Permissões", "Workspaces e ícones", "SPA e duplicidades", "Resultado"),
         "summary": "Procura páginas duplicadas, ordem incorreta, ícones ausentes e montagem na página SPA errada.",
         "details": (
-            "O teste compara as dez workspaces CDC esperadas e valida nome, ordem, visibilidade e ícone.",
+            "O teste compara as onze workspaces CDC esperadas e valida nome, ordem, visibilidade e ícone.",
             "Também confirma que cada painel é montado apenas no contêiner ativo, reduzindo páginas brancas após navegar sem F5.",
         ),
     },
@@ -2583,6 +2588,7 @@ def _workspace_navigation_health(sources):
         ("CDC Monitoramento", 8.0, "dashboard"),
         (CDC_TESTS_WORKSPACE, 9.0, "check"),
         (CDC_ADMIN_WORKSPACE, 10.0, "tool"),
+        (CDC_TRAINING_WORKSPACE, 11.0, "education"),
     ]
     rows = frappe.get_all(
         "Workspace",
@@ -2636,7 +2642,7 @@ def _workspace_navigation_health(sources):
     if not active_mount_safe:
         details.append("montagem SPA ainda usa contêiner global ou obsoleto")
     return healthy, (
-        "10 workspaces únicas, ordenadas, com ícones válidos e montagem limitada à página SPA ativa."
+        "11 workspaces únicas, ordenadas, com ícones válidos e montagem limitada à página SPA ativa."
         if healthy else "; ".join(details)
     )
 

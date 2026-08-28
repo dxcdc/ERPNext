@@ -73,7 +73,7 @@
                     <div class="cdc-admin-section-title"><div><h2>Correções rápidas</h2><p>Ações limitadas, com confirmação e sem comandos livres.</p></div></div>
                     <div class="cdc-admin-action-grid">
                         <article class="cdc-admin-action"><span class="cdc-admin-action-icon">↻</span><h3>Limpar caches</h3><p>Atualiza cache do Frappe e páginas web após mudanças no tema.</p><button class="btn btn-default" data-cdc-admin-action="clear_cache">Executar</button></article>
-                        <article class="cdc-admin-action"><span class="cdc-admin-action-icon">▦</span><h3>Reparar workspaces</h3><p>Restaura Monitoramento, Testes, Grupos e Admin quando estiverem ausentes ou ocultas.</p><button class="btn btn-default" data-cdc-admin-action="repair_workspace">Executar</button></article>
+                        <article class="cdc-admin-action"><span class="cdc-admin-action-icon">▦</span><h3>Reparar workspaces</h3><p>Restaura Monitoramento, Testes, Grupos, Treinamento e Admin quando estiverem ausentes ou ocultas.</p><button class="btn btn-default" data-cdc-admin-action="repair_workspace">Executar</button></article>
                         <article class="cdc-admin-action"><span class="cdc-admin-action-icon">☀</span><h3>Reaplicar tema claro</h3><p>Corrige a preferência visual apenas do usuário conectado.</p><button class="btn btn-default" data-cdc-admin-action="apply_light_theme">Executar</button></article>
                     </div>
                 </section>
