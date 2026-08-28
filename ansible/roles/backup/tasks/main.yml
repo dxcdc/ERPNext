@@ -64,7 +64,7 @@
 
 - name: Validar arquivos compactados do site
   ansible.builtin.command:
-    argv: [tar, --tzf, "{{ cdc_backup_root }}/{{ item | basename }}"]
+    argv: [tar, -tzf, "{{ cdc_backup_root }}/{{ item | basename }}"]
   loop: "{{ backup_recent_files.stdout_lines | select('search', '\\.tgz$') | list }}"
   changed_when: false
 
