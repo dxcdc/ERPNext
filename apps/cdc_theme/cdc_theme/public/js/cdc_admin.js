@@ -170,10 +170,10 @@
                 <label><span>Armazém</span><select data-cdc-map-warehouse>${warehouses.map(function(warehouse) { return `<option value="${escapeHTML(warehouse)}"${warehouse === ongsysFilters.warehouse ? ' selected' : ''}>${escapeHTML(warehouse)}</option>`; }).join('')}</select></label>
                 <button class="btn btn-sm btn-default" data-cdc-map-clear>Limpar filtros</button>
             </div>
-            <div class="cdc-admin-map-bulk"><p class="cdc-admin-map-results" data-cdc-map-results>Exibindo ${visibleMappings.length} de ${mappings.length} mapeamentos.</p><button class="btn btn-sm btn-primary" data-cdc-map-activate-selected>Ativar selecionados</button></div>
+            <div class="cdc-admin-map-bulk"><p class="cdc-admin-map-results" data-cdc-map-results>Exibindo ${visibleMappings.length} de ${mappings.length} mapeamentos.</p><div><button class="btn btn-sm btn-default" data-cdc-map-validate-selected>Validar selecionados</button> <button class="btn btn-sm btn-primary" data-cdc-map-activate-selected>Ativar validados</button></div></div>
             <div class="cdc-admin-map-table-wrap"><table class="cdc-admin-map-table"><thead><tr><th class="cdc-admin-map-select"><input type="checkbox" data-cdc-map-select-all aria-label="Selecionar todos os validados"></th><th>Centro ONGSYS</th><th>Armazém</th><th>Situação</th><th>Evidência</th><th>Confiança</th><th>Ações</th></tr></thead><tbody>
-                ${mappings.length ? mappings.map(function(row) { var visible = mappingMatchesFilters(row); var selectable = row.status === 'Validado' && Number(row.confidence || 0) >= 100; return `<tr data-cdc-map-row data-search="${escapeHTML([row.cost_center_code, row.description, row.warehouse, row.evidence_order_id].join(' ').toLowerCase())}" data-status="${escapeHTML(row.status)}" data-warehouse="${escapeHTML(row.warehouse || '')}"${visible ? '' : ' hidden'}>
-                    <td class="cdc-admin-map-select">${selectable ? `<input type="checkbox" data-cdc-map-select="${escapeHTML(row.name)}"${selectedMappings[row.name] ? ' checked' : ''} aria-label="Selecionar ${escapeHTML(row.cost_center_code)}">` : ''}</td>
+                ${mappings.length ? mappings.map(function(row) { var visible = mappingMatchesFilters(row); var selectable = ['Descoberto', 'Pendente', 'Validado'].indexOf(row.status) !== -1; return `<tr data-cdc-map-row data-name="${escapeHTML(row.name)}" data-search="${escapeHTML([row.cost_center_code, row.description, row.warehouse, row.evidence_order_id].join(' ').toLowerCase())}" data-status="${escapeHTML(row.status)}" data-warehouse="${escapeHTML(row.warehouse || '')}"${visible ? '' : ' hidden'}>
+                    <td class="cdc-admin-map-select"><input type="checkbox" data-cdc-map-select="${escapeHTML(row.name)}"${selectedMappings[row.name] ? ' checked' : ''}${selectable ? '' : ' disabled'} aria-label="Selecionar ${escapeHTML(row.cost_center_code)}"></td>
                     <td><strong>${escapeHTML(row.cost_center_code)}</strong><small>${escapeHTML(row.description || '')}</small></td>
                     <td>${escapeHTML(row.warehouse || 'Não selecionado')}</td><td>${mappingBadge(row.status)}</td>
                     <td>${escapeHTML(row.evidence_order_id || 'Pendente')}<small>${escapeHTML(row.evidence_order_title || '')}</small></td>
@@ -235,18 +235,34 @@
         });
     }
 
-    function requestAutomaticDiscovery() {
-        frappe.confirm('Deseja consultar o ONGSYS e validar automaticamente as correspondências exatas? Nenhum estoque será criado e nenhum vínculo será ativado.', function() {
-            frappe.call({method: 'cdc_theme.api.request_ongsys_mapping_discovery', type: 'POST', freeze: true, callback: function(r) {
+    function requestAutomaticDiscovery(names) {
+        names = Array.isArray(names) ? names : [];
+        var scope = names.length ? names.length + ' mapeamento(s) selecionado(s)' : 'todos os mapeamentos pendentes';
+        frappe.confirm('Deseja consultar o ONGSYS para ' + scope + '? Nenhum estoque será criado e nenhum vínculo será ativado.', function() {
+            frappe.call({method: 'cdc_theme.api.request_ongsys_mapping_discovery', type: 'POST', args: {names: JSON.stringify(names)}, freeze: true, callback: function(r) {
                 if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 7);
                 loadOngsysDashboard();
             }});
         });
     }
 
+    function validateSelectedMappings() {
+        var names = Object.keys(selectedMappings).filter(function(name) {
+            if (!selectedMappings[name] || !ongsysData) return false;
+            var row = (ongsysData.mappings || []).find(function(item) { return item.name === name; });
+            return row && ['Descoberto', 'Pendente', 'Validado'].indexOf(row.status) !== -1;
+        });
+        if (!names.length) { frappe.msgprint('Selecione ao menos um mapeamento pendente ou validado.'); return; }
+        requestAutomaticDiscovery(names);
+    }
+
     function activateSelectedMappings() {
-        var names = Object.keys(selectedMappings).filter(function(name) { return selectedMappings[name]; });
-        if (!names.length) { frappe.msgprint('Selecione ao menos um mapeamento validado automaticamente.'); return; }
+        var names = Object.keys(selectedMappings).filter(function(name) {
+            if (!selectedMappings[name] || !ongsysData) return false;
+            var row = (ongsysData.mappings || []).find(function(item) { return item.name === name; });
+            return row && row.status === 'Validado' && Number(row.confidence || 0) >= 100;
+        });
+        if (!names.length) { frappe.msgprint('Entre os itens selecionados, nenhum está validado com 100% de confiança.'); return; }
         frappe.confirm('Ativar ' + names.length + ' mapeamento(s) validado(s)? Esta ação não cria estoque.', function() {
             frappe.call({method: 'cdc_theme.api.activate_ongsys_warehouse_mappings', type: 'POST', args: {names: JSON.stringify(names)}, freeze: true, callback: function(r) {
                 selectedMappings = {};
@@ -318,10 +334,11 @@
     $(document).on('click', '[data-cdc-admin-refresh]', function(event) { event.preventDefault(); this.disabled = true; this.textContent = 'Atualizando...'; var dashboard = document.getElementById('cdc-admin-dashboard'); if (dashboard) dashboard.dataset.loaded = '0'; load(true); });
     $(document).on('click', '[data-cdc-ongsys-refresh]', function(event) { event.preventDefault(); loadOngsysDashboard(); });
     $(document).on('click', '[data-cdc-ongsys-new]', newMapping);
-    $(document).on('click', '[data-cdc-ongsys-discover]', requestAutomaticDiscovery);
+    $(document).on('click', '[data-cdc-ongsys-discover]', function() { requestAutomaticDiscovery([]); });
     $(document).on('change', '[data-cdc-map-select]', function() { selectedMappings[this.dataset.cdcMapSelect] = this.checked; });
-    $(document).on('change', '[data-cdc-map-select-all]', function() { var checked = this.checked; document.querySelectorAll('[data-cdc-map-row]:not([hidden]) [data-cdc-map-select]').forEach(function(input) { input.checked = checked; selectedMappings[input.dataset.cdcMapSelect] = checked; }); });
+    $(document).on('change', '[data-cdc-map-select-all]', function() { var checked = this.checked; document.querySelectorAll('[data-cdc-map-row]:not([hidden]) [data-cdc-map-select]:not(:disabled)').forEach(function(input) { input.checked = checked; selectedMappings[input.dataset.cdcMapSelect] = checked; }); });
     $(document).on('click', '[data-cdc-map-activate-selected]', activateSelectedMappings);
+    $(document).on('click', '[data-cdc-map-validate-selected]', validateSelectedMappings);
     $(document).on('input', '[data-cdc-map-search]', function() { ongsysFilters.search = this.value; applyMappingFilters(); });
     $(document).on('change', '[data-cdc-map-status]', function() { ongsysFilters.status = this.value; applyMappingFilters(); });
     $(document).on('change', '[data-cdc-map-warehouse]', function() { ongsysFilters.warehouse = this.value; applyMappingFilters(); });

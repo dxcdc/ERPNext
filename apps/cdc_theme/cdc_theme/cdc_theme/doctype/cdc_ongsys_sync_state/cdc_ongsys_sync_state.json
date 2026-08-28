@@ -15,6 +15,7 @@
   "last_import_mode",
   "last_import_pages",
   "discovery_requested_at",
+  "discovery_requested_codes",
   "discovery_started_at",
   "discovery_completed_at",
   "discovery_status",
@@ -80,6 +81,11 @@
    "fieldname": "discovery_requested_at",
    "fieldtype": "Datetime",
    "label": "Descoberta solicitada em"
+  },
+  {
+   "fieldname": "discovery_requested_codes",
+   "fieldtype": "Long Text",
+   "label": "Centros solicitados para descoberta"
   },
   {
    "fieldname": "discovery_started_at",

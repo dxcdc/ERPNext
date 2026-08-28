@@ -340,18 +340,31 @@ def get_cdc_admin_ongsys_dashboard():
 
 
 @frappe.whitelist(methods=["POST"])
-def request_ongsys_mapping_discovery():
+def request_ongsys_mapping_discovery(names=None):
     """Solicita ao executor isolado uma varredura somente leitura do ONGSYS."""
     _require_system_manager()
     _require_ongsys_mapping_doctype()
     state = frappe.get_single("CDC ONGSYS Sync State")
     if state.discovery_status == "Executando":
         return {"ok": True, "message": "A validação automática já está em execução."}
+    names = frappe.parse_json(names) if isinstance(names, str) else (names or [])
+    if not isinstance(names, list) or len(names) > 200:
+        frappe.throw("Seleção de mapeamentos inválida.", frappe.ValidationError)
+    requested_codes = []
+    for name in names:
+        doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, str(name))
+        if doc.status not in ("Descoberto", "Pendente", "Validado"):
+            continue
+        requested_codes.append(doc.cost_center_code)
+    if names and not requested_codes:
+        frappe.throw("Nenhum dos itens selecionados está pendente de validação.", frappe.ValidationError)
     state.discovery_requested_at = frappe.utils.now_datetime()
+    state.discovery_requested_codes = json.dumps(requested_codes, ensure_ascii=False) if names else None
     state.discovery_status = "Aguardando"
     state.discovery_error = None
     state.save()
-    return {"ok": True, "message": "Validação automática solicitada; o executor seguro iniciará em até 2 minutos."}
+    scope = f" para {len(requested_codes)} selecionado(s)" if names else " para todos os pendentes"
+    return {"ok": True, "requested": len(requested_codes), "message": f"Validação automática solicitada{scope}; o executor seguro iniciará em até 2 minutos."}
 
 
 @frappe.whitelist()
@@ -363,6 +376,7 @@ def get_ongsys_mapping_discovery_request():
         "requested": state.discovery_status == "Aguardando",
         "status": state.discovery_status or "Nunca executada",
         "requested_at": state.discovery_requested_at,
+        "requested_codes": frappe.parse_json(state.discovery_requested_codes) if state.discovery_requested_codes else [],
     }
 
 
@@ -394,11 +408,13 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
     if not isinstance(findings, list) or len(findings) > 2000:
         frappe.throw("Lote de evidências inválido.", frappe.ValidationError)
     state = frappe.get_single("CDC ONGSYS Sync State")
+    requested_codes = set(frappe.parse_json(state.discovery_requested_codes) or []) if state.discovery_requested_codes else set()
     state.discovery_started_at = state.discovery_started_at or frappe.utils.now_datetime()
     if error:
         state.discovery_status = "Falhou"
         state.discovery_error = str(error)[:1000]
         state.discovery_completed_at = frappe.utils.now_datetime()
+        state.discovery_requested_codes = None
         state.save()
         return {"ok": False, "message": "Falha de descoberta registrada."}
     page_errors = stats.get("page_errors") or []
@@ -409,6 +425,8 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
         order_id = str(finding.get("order_id") or "").strip()
         if not re.fullmatch(r"[0-9A-Za-z._-]{2,40}", code) or not re.fullmatch(r"[0-9]{1,30}", order_id):
             exceptions += 1
+            continue
+        if requested_codes and code not in requested_codes:
             continue
         name = frappe.db.exists(ONGSYS_MAPPING_DOCTYPE, {"cost_center_code": code})
         if not name:
@@ -452,6 +470,7 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
     state.discovery_orders = frappe.utils.cint(stats.get("orders"))
     state.discovery_matches = matched
     state.discovery_error = " | ".join(str(item) for item in page_errors)[:1000] or None
+    state.discovery_requested_codes = None
     state.save()
     return {"ok": True, "matched": matched, "validated": validated, "exceptions": exceptions}
 

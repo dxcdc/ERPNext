@@ -43,7 +43,8 @@ def finding(order: Dict[str, Any], code: str) -> Dict[str, Any]:
     }
 
 
-def discover(api: Common, max_pages: int = MAX_PAGES):
+def discover(api: Common, max_pages: int = MAX_PAGES, requested_codes=None):
+    requested_codes = set(requested_codes or [])
     findings: Dict[str, Dict[str, Any]] = {}
     orders_seen = pages_seen = 0
     page_errors = []
@@ -67,8 +68,10 @@ def discover(api: Common, max_pages: int = MAX_PAGES):
                 continue
             for item in order.get("itensPedido") or []:
                 code = str(item.get("centroCusto") or "").strip()
-                if code:
+                if code and (not requested_codes or code in requested_codes):
                     findings[code] = finding(order, code)
+        if requested_codes and requested_codes.issubset(findings):
+            break
     if not pages_seen:
         raise RuntimeError("ONGSYS não retornou nenhuma página utilizável")
     return list(findings.values()), {
@@ -95,7 +98,7 @@ def main(force: bool = False, max_pages: int = MAX_PAGES):
         print(json.dumps({"mode": "read-only", "status": "idle", "message": started.get("message")}, ensure_ascii=False))
         return
     try:
-        findings, stats = discover(api, max_pages=max_pages)
+        findings, stats = discover(api, max_pages=max_pages, requested_codes=request.get("requested_codes"))
         result = erp_method(api, "record_ongsys_mapping_discovery", {
             "findings": json.dumps(findings, ensure_ascii=False),
             "stats": json.dumps(stats),
