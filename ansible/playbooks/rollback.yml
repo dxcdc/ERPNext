@@ -15,8 +15,38 @@
           - confirm_rollback | default('') == 'ROLLBACK-CODIGO'
         fail_msg: Use o SHA completo e -e confirm_rollback=ROLLBACK-CODIGO.
       tags: [always]
-  roles:
-    - role: preflight
-    - role: backup
-    - role: rollback
-    - role: validate
+  tasks:
+    - name: Adquirir bloqueio exclusivo de operacao
+      ansible.builtin.command:
+        argv: [mkdir, "{{ cdc_deploy_lock }}"]
+      register: rollback_lock_result
+      changed_when: rollback_lock_result.rc == 0
+      failed_when: false
+
+    - name: Recusar outra operacao mutavel em andamento
+      ansible.builtin.assert:
+        that: rollback_lock_result.rc == 0
+        fail_msg: Outra operacao de backup, deploy ou rollback ja esta em andamento.
+
+    - name: Executar rollback protegido pelo bloqueio
+      block:
+        - name: Executar verificacoes anteriores
+          ansible.builtin.include_role:
+            name: preflight
+
+        - name: Criar backup anterior ao rollback
+          ansible.builtin.include_role:
+            name: backup
+
+        - name: Retornar para a revisao autorizada
+          ansible.builtin.include_role:
+            name: rollback
+
+        - name: Validar o rollback
+          ansible.builtin.include_role:
+            name: validate
+      always:
+        - name: Liberar bloqueio exclusivo de operacao
+          ansible.builtin.file:
+            path: "{{ cdc_deploy_lock }}"
+            state: absent

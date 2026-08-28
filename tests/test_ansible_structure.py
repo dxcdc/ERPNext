@@ -25,7 +25,15 @@ class AnsibleStructureTests(unittest.TestCase):
     def test_deploy_requires_exact_revision_and_backup(self):
         deploy = (ANSIBLE / "playbooks/deploy.yml").read_text()
         self.assertIn("^[0-9a-f]{40}$", deploy)
-        self.assertLess(deploy.index("role: backup"), deploy.index("role: deploy"))
+        self.assertLess(deploy.index("name: backup"), deploy.index("name: deploy"))
+
+    def test_mutating_playbooks_share_an_exclusive_lock(self):
+        for name in ("backup", "deploy", "rollback"):
+            playbook = (ANSIBLE / "playbooks" / f"{name}.yml").read_text()
+            self.assertIn("cdc_deploy_lock", playbook, name)
+            self.assertIn("argv: [mkdir", playbook, name)
+            self.assertIn("state: absent", playbook, name)
+            self.assertIn("always:", playbook, name)
 
 
 if __name__ == "__main__":

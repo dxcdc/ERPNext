@@ -4,6 +4,30 @@
   gather_facts: true
   become: false
   serial: 1
-  roles:
-    - role: preflight
-    - role: backup
+  tasks:
+    - name: Adquirir bloqueio exclusivo de operacao
+      ansible.builtin.command:
+        argv: [mkdir, "{{ cdc_deploy_lock }}"]
+      register: backup_lock_result
+      changed_when: backup_lock_result.rc == 0
+      failed_when: false
+
+    - name: Recusar outra operacao mutavel em andamento
+      ansible.builtin.assert:
+        that: backup_lock_result.rc == 0
+        fail_msg: Outra operacao de backup, deploy ou rollback ja esta em andamento.
+
+    - name: Executar backup protegido pelo bloqueio
+      block:
+        - name: Executar verificacoes anteriores
+          ansible.builtin.include_role:
+            name: preflight
+
+        - name: Criar backup verificavel
+          ansible.builtin.include_role:
+            name: backup
+      always:
+        - name: Liberar bloqueio exclusivo de operacao
+          ansible.builtin.file:
+            path: "{{ cdc_deploy_lock }}"
+            state: absent

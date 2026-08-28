@@ -3,6 +3,10 @@
 Esta automacao gerencia a VPS Docker Compose em `/opt/nexterp/code`. O Terraform existente
 continua responsavel pelo laboratorio Docker local.
 
+Para integracao com o Ansible Semaphore, siga o contrato em
+[`SEMAPHORE.md`](SEMAPHORE.md). Deploy e rollback nao devem ser liberados no
+painel antes da homologacao do transporte verificavel da revisao.
+
 ## Principios de seguranca
 
 - O primeiro contato deve usar apenas `audit.yml`.
