@@ -65,3 +65,6 @@ segredos.
 
 Essa mesma separacao entre repositorio, inventario, credenciais e templates deve
 ser repetida no Core, sem compartilhar chaves entre as duas aplicacoes.
+
+As pendencias de implantacao sao sincronizadas como GitHub Issues a partir de
+`docs/issues_ansible_semaphore.json`, sem armazenar tokens pessoais.

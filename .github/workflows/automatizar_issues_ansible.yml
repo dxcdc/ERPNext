@@ -1,0 +1,59 @@
+name: Sincronizar Issues Ansible e Semaphore
+
+on:
+  push:
+    branches:
+      - lab/estabilizacao-tema-cdc
+      - main
+    paths:
+      - docs/issues_ansible_semaphore.json
+      - .github/workflows/automatizar_issues_ansible.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: next-erp-ansible-issue-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    name: Criar pendências Ansible sem duplicação
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Validar manifesto de Issues
+        run: jq -e 'type == "array" and length > 0 and all(.[]; .title and .body and .labels)' docs/issues_ansible_semaphore.json
+
+      - name: Criar labels e Issues ausentes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          jq -c '.[]' docs/issues_ansible_semaphore.json | while IFS= read -r issue; do
+            title=$(jq -r '.title' <<< "$issue")
+            body=$(jq -r '.body' <<< "$issue")
+            labels=$(jq -r '.labels' <<< "$issue")
+
+            existing=$(gh issue list --state all --limit 500 --json title \
+              | jq -r --arg title "$title" '.[] | select(.title == $title) | .title' \
+              | head -n 1)
+
+            if [[ -n "$existing" ]]; then
+              echo "Issue já existe: $title"
+              continue
+            fi
+
+            IFS=',' read -ra label_list <<< "$labels"
+            for label in "${label_list[@]}"; do
+              gh label create "$label" --force --color "0E8A16" \
+                --description "Label corporativa CDC" >/dev/null
+            done
+
+            gh issue create --title "$title" --body "$body" --label "$labels"
+          done
