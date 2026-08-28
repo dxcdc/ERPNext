@@ -27,7 +27,7 @@ def erp_method(api: Common, method: str, payload: Optional[Dict[str, Any]] = Non
 
 
 def fetch_page(api: Common, page: int) -> Optional[List[Dict[str, Any]]]:
-    response = api.ongsys_request("GET", "pedidos", page_number=page, timeout=25)
+    response = api.ongsys_request("GET", "pedidos", page_number=page, timeout=15)
     if response.status_code == 422:
         return None
     require(response, f"Consulta ONGSYS página {page}")
@@ -47,14 +47,19 @@ def discover(api: Common, max_pages: int = MAX_PAGES):
     findings: Dict[str, Dict[str, Any]] = {}
     orders_seen = pages_seen = 0
     page_errors = []
+    consecutive_errors = 0
     for page in range(1, max_pages + 1):
         try:
             orders = fetch_page(api, page)
         except Exception as exc:
             page_errors.append(f"página {page}: {exc}")
+            consecutive_errors += 1
+            if consecutive_errors >= 3:
+                break
             continue
         if orders is None:
             break
+        consecutive_errors = 0
         pages_seen += 1
         orders_seen += len(orders)
         for order in orders:
@@ -75,7 +80,7 @@ def discover(api: Common, max_pages: int = MAX_PAGES):
 def main(force: bool = False, max_pages: int = MAX_PAGES):
     api = Common()
     discovery_retry = Retry(
-        total=1, connect=1, read=1, status=1, backoff_factor=1,
+        total=0, connect=0, read=0, status=0, backoff_factor=0,
         status_forcelist=(429, 500, 502, 503, 504, 520, 522, 524),
         allowed_methods=frozenset({"GET"}), raise_on_status=False,
     )
