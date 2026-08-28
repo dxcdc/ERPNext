@@ -293,7 +293,8 @@ def get_cdc_admin_ongsys_dashboard():
         ONGSYS_MAPPING_DOCTYPE,
         fields=[
             "name", "cost_center_code", "description", "warehouse", "status", "enabled",
-            "evidence_order_id", "source", "verified_by", "verified_at", "last_used_at", "modified",
+            "evidence_order_id", "evidence_order_title", "confidence", "validation_detail",
+            "evidence_found_at", "source", "verified_by", "verified_at", "last_used_at", "modified",
         ],
         order_by="cost_center_code asc",
         limit_page_length=1000,
@@ -309,6 +310,11 @@ def get_cdc_admin_ongsys_dashboard():
     )
     if not last_success:
         last_mode = "Sem execução"
+    discovery = frappe.db.get_value(
+        "CDC ONGSYS Sync State", "CDC ONGSYS Sync State",
+        ["discovery_requested_at", "discovery_started_at", "discovery_completed_at", "discovery_status",
+         "discovery_pages", "discovery_orders", "discovery_matches", "discovery_error"], as_dict=True,
+    ) or {}
     imported_orders = frappe.db.sql("""
         SELECT COUNT(*) FROM `tabStock Entry`
         WHERE docstatus=1 AND COALESCE(idpedido_ongsys, '') <> ''
@@ -327,9 +333,144 @@ def get_cdc_admin_ongsys_dashboard():
             "last_page": int(last_page), "last_mode": last_mode,
             "executor": "Não confirmado", "automatic_schedule": False,
         },
+        "discovery": discovery,
         "mappings": mappings,
         "checked_at": frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy HH:mm:ss"),
     }
+
+
+@frappe.whitelist(methods=["POST"])
+def request_ongsys_mapping_discovery():
+    """Solicita ao executor isolado uma varredura somente leitura do ONGSYS."""
+    _require_system_manager()
+    _require_ongsys_mapping_doctype()
+    state = frappe.get_single("CDC ONGSYS Sync State")
+    if state.discovery_status == "Executando":
+        return {"ok": True, "message": "A validação automática já está em execução."}
+    state.discovery_requested_at = frappe.utils.now_datetime()
+    state.discovery_status = "Aguardando"
+    state.discovery_error = None
+    state.save()
+    return {"ok": True, "message": "Validação automática solicitada; o executor seguro iniciará em até 2 minutos."}
+
+
+@frappe.whitelist()
+def get_ongsys_mapping_discovery_request():
+    """Contrato mínimo consumido pelo executor; não retorna segredos."""
+    _require_stock_dashboard_access()
+    state = frappe.get_single("CDC ONGSYS Sync State")
+    return {
+        "requested": state.discovery_status == "Aguardando",
+        "status": state.discovery_status or "Nunca executada",
+        "requested_at": state.discovery_requested_at,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def start_ongsys_mapping_discovery():
+    _require_stock_dashboard_access()
+    state = frappe.get_single("CDC ONGSYS Sync State")
+    if state.discovery_status != "Aguardando":
+        return {"ok": False, "message": "Não há solicitação aguardando execução."}
+    state.discovery_status = "Executando"
+    state.discovery_started_at = frappe.utils.now_datetime()
+    state.discovery_error = None
+    state.save()
+    return {"ok": True, "message": "Descoberta iniciada."}
+
+
+def _normalized_mapping_label(value):
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    return " ".join(normalized.encode("ascii", "ignore").decode().upper().replace(" - C", "").split())
+
+
+@frappe.whitelist(methods=["POST"])
+def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
+    """Persiste evidências reais coletadas pelo executor, sem estoque e sem ativação."""
+    _require_stock_dashboard_access()
+    _require_ongsys_mapping_doctype()
+    findings = frappe.parse_json(findings) if isinstance(findings, str) else (findings or [])
+    stats = frappe.parse_json(stats) if isinstance(stats, str) else (stats or {})
+    if not isinstance(findings, list) or len(findings) > 2000:
+        frappe.throw("Lote de evidências inválido.", frappe.ValidationError)
+    state = frappe.get_single("CDC ONGSYS Sync State")
+    state.discovery_started_at = state.discovery_started_at or frappe.utils.now_datetime()
+    if error:
+        state.discovery_status = "Falhou"
+        state.discovery_error = str(error)[:1000]
+        state.discovery_completed_at = frappe.utils.now_datetime()
+        state.save()
+        return {"ok": False, "message": "Falha de descoberta registrada."}
+    matched = validated = exceptions = 0
+    for finding in findings:
+        code = str(finding.get("cost_center_code") or "").strip()
+        order_id = str(finding.get("order_id") or "").strip()
+        if not re.fullmatch(r"[0-9A-Za-z._-]{2,40}", code) or not re.fullmatch(r"[0-9]{1,30}", order_id):
+            exceptions += 1
+            continue
+        name = frappe.db.exists(ONGSYS_MAPPING_DOCTYPE, {"cost_center_code": code})
+        if not name:
+            doc = frappe.new_doc(ONGSYS_MAPPING_DOCTYPE)
+            doc.cost_center_code = code
+            doc.description = str(finding.get("description") or "")[:140]
+            doc.status = "Descoberto"
+            doc.enabled = 0
+            doc.source = "ONGSYS"
+        else:
+            doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, name)
+        if doc.status == "Bloqueado":
+            continue
+        doc.evidence_order_id = order_id
+        doc.evidence_order_title = str(finding.get("title") or "")[:140]
+        doc.evidence_found_at = frappe.utils.now_datetime()
+        warehouse = frappe.db.get_value("Warehouse", doc.warehouse, ["is_group", "disabled"], as_dict=True) if doc.warehouse else None
+        description = _normalized_mapping_label(doc.description)
+        warehouse_label = _normalized_mapping_label(doc.warehouse)
+        exact = bool(warehouse and not warehouse.is_group and not warehouse.disabled and description and (
+            description == warehouse_label or description in warehouse_label or warehouse_label in description
+        ))
+        doc.confidence = 100 if exact else (60 if warehouse else 0)
+        doc.validation_detail = (
+            "Código encontrado em pedido ONGSYS finalizado; descrição e armazém correspondem."
+            if exact else "Código encontrado no ONGSYS, mas o armazém exige revisão administrativa."
+        )
+        if exact and doc.status in ("Descoberto", "Pendente", "Validado"):
+            doc.status = "Validado"
+            doc.enabled = 0
+            doc.verified_by = frappe.session.user
+            doc.verified_at = frappe.utils.now_datetime()
+            validated += 1
+        else:
+            exceptions += 1
+        doc.save()
+        matched += 1
+    state.discovery_completed_at = frappe.utils.now_datetime()
+    state.discovery_status = "Concluída com exceções" if exceptions else "Concluída"
+    state.discovery_pages = frappe.utils.cint(stats.get("pages"))
+    state.discovery_orders = frappe.utils.cint(stats.get("orders"))
+    state.discovery_matches = matched
+    state.discovery_error = None
+    state.save()
+    return {"ok": True, "matched": matched, "validated": validated, "exceptions": exceptions}
+
+
+@frappe.whitelist(methods=["POST"])
+def activate_ongsys_warehouse_mappings(names=None):
+    """Ativação humana em lote, limitada a vínculos previamente validados."""
+    _require_system_manager()
+    names = frappe.parse_json(names) if isinstance(names, str) else (names or [])
+    if not isinstance(names, list) or not names or len(names) > 200:
+        frappe.throw("Seleção de mapeamentos inválida.", frappe.ValidationError)
+    activated = []
+    for name in names:
+        doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, str(name))
+        if doc.status != "Validado" or not doc.evidence_order_id or float(doc.confidence or 0) < 100:
+            frappe.throw(f"O mapeamento {doc.cost_center_code} ainda não possui validação automática completa.", frappe.ValidationError)
+        doc.status = "Ativo"
+        doc.enabled = 1
+        doc.save()
+        activated.append(doc.cost_center_code)
+    return {"ok": True, "activated": len(activated), "message": f"{len(activated)} mapeamento(s) ativado(s)."}
 
 
 @frappe.whitelist()

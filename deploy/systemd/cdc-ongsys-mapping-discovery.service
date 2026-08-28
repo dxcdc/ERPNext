@@ -1,0 +1,17 @@
+[Unit]
+Description=CDC ONGSYS mapping evidence discovery (read-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/nexterp/code/extractor
+ExecStart=/opt/nexterp/code/extractor/run_mapping_discovery.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+UMask=0077
+

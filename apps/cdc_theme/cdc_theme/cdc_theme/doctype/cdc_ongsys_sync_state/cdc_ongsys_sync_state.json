@@ -13,7 +13,15 @@
   "last_import_fast_at",
   "last_import_full_at",
   "last_import_mode",
-  "last_import_pages"
+  "last_import_pages",
+  "discovery_requested_at",
+  "discovery_started_at",
+  "discovery_completed_at",
+  "discovery_status",
+  "discovery_pages",
+  "discovery_orders",
+  "discovery_matches",
+  "discovery_error"
  ],
  "fields": [
   {
@@ -67,6 +75,48 @@
    "fieldname": "last_import_pages",
    "fieldtype": "Int",
    "label": "Páginas consultadas na importação"
+  },
+  {
+   "fieldname": "discovery_requested_at",
+   "fieldtype": "Datetime",
+   "label": "Descoberta solicitada em"
+  },
+  {
+   "fieldname": "discovery_started_at",
+   "fieldtype": "Datetime",
+   "label": "Descoberta iniciada em"
+  },
+  {
+   "fieldname": "discovery_completed_at",
+   "fieldtype": "Datetime",
+   "label": "Descoberta concluída em"
+  },
+  {
+   "fieldname": "discovery_status",
+   "fieldtype": "Select",
+   "label": "Situação da descoberta",
+   "options": "Nunca executada\nAguardando\nExecutando\nConcluída\nConcluída com exceções\nFalhou",
+   "default": "Nunca executada"
+  },
+  {
+   "fieldname": "discovery_pages",
+   "fieldtype": "Int",
+   "label": "Páginas analisadas na descoberta"
+  },
+  {
+   "fieldname": "discovery_orders",
+   "fieldtype": "Int",
+   "label": "Pedidos analisados na descoberta"
+  },
+  {
+   "fieldname": "discovery_matches",
+   "fieldtype": "Int",
+   "label": "Evidências encontradas"
+  },
+  {
+   "fieldname": "discovery_error",
+   "fieldtype": "Small Text",
+   "label": "Último erro da descoberta"
   }
  ],
  "issingle": 1,

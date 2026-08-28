@@ -7,7 +7,7 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_ongsys_admin_v53"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_ongsys_auto_v54"
 app_include_js = [
     "/assets/cdc_theme/js/cdc_theme.js?v=20260828_ongsys_admin_v52",
     "/assets/cdc_theme/js/cdc_pending.js?v=20260828_ongsys_admin_v52",
@@ -17,10 +17,10 @@ app_include_js = [
     "/assets/cdc_theme/js/cdc_items.js?v=20260828_ongsys_admin_v52",
     "/assets/cdc_theme/js/cdc_warehouse.js?v=20260828_ongsys_admin_v52",
     "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260828_ongsys_admin_v52",
-    "/assets/cdc_theme/js/cdc_admin.js?v=20260828_ongsys_admin_v53",
+    "/assets/cdc_theme/js/cdc_admin.js?v=20260828_ongsys_auto_v54",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_ongsys_admin_v53"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260828_ongsys_auto_v54"
 web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260828_ongsys_admin_v52"
 
 favicon = "/assets/cdc_theme/images/favicon.png"

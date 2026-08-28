@@ -6,6 +6,8 @@
     var ongsysLoading = false;
     var ongsysData = null;
     var ongsysFilters = {search: '', status: 'Todos', warehouse: 'Todos'};
+    var selectedMappings = {};
+    var ongsysPollTimer = null;
 
     function normalizedRoute() {
         return decodeURIComponent(window.location.pathname || '')
@@ -27,6 +29,8 @@
     }
 
     function remove() {
+        if (ongsysPollTimer) window.clearTimeout(ongsysPollTimer);
+        ongsysPollTimer = null;
         document.querySelectorAll('#cdc-admin-dashboard').forEach(function(dashboard) { dashboard.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(el) {
             el.classList.remove('cdc-custom-admin-active');
@@ -144,12 +148,13 @@
         if (!host) return;
         var summary = data.summary || {};
         var sync = data.sync || {};
+        var discovery = data.discovery || {};
         var mappings = data.mappings || [];
         var visibleMappings = mappings.filter(mappingMatchesFilters);
         var statuses = ['Todos'].concat(Array.from(new Set(mappings.map(function(row) { return row.status; }).filter(Boolean))));
         var warehouses = ['Todos'].concat(Array.from(new Set(mappings.map(function(row) { return row.warehouse; }).filter(Boolean))).sort());
         host.innerHTML = `
-            <div class="cdc-admin-section-title"><div><h2>Integração ONGSYS</h2><p>Leitura persistida em ${escapeHTML(data.checked_at)} · executor ${escapeHTML(sync.executor)}</p></div><div><button class="btn btn-sm btn-default" data-cdc-ongsys-refresh>Atualizar</button> <button class="btn btn-sm btn-primary" data-cdc-ongsys-new>Novo mapeamento</button></div></div>
+            <div class="cdc-admin-section-title"><div><h2>Integração ONGSYS</h2><p>Leitura persistida em ${escapeHTML(data.checked_at)} · importador de estoque ${escapeHTML(sync.executor)}</p></div><div class="cdc-admin-ongsys-title-actions"><button class="btn btn-sm btn-default" data-cdc-ongsys-refresh>Atualizar</button> <button class="btn btn-sm btn-primary" data-cdc-ongsys-discover${['Aguardando', 'Executando'].indexOf(discovery.discovery_status) !== -1 ? ' disabled' : ''}>Validar pendentes automaticamente</button> <button class="btn btn-sm btn-default" data-cdc-ongsys-new>Novo mapeamento</button></div></div>
             <div class="cdc-admin-ongsys-summary">
                 <article><span>Mapeamentos</span><strong>${summary.mappings || 0}</strong></article>
                 <article><span>Ativos</span><strong>${summary.active || 0}</strong></article>
@@ -157,6 +162,7 @@
                 <article><span>Pedidos importados</span><strong>${summary.imported_orders || 0}</strong></article>
             </div>
             <div class="cdc-admin-sync-note"><strong>Último checkpoint:</strong> ${escapeHTML(sync.last_success_at)} · ${escapeHTML(sync.last_mode)} · página ${escapeHTML(sync.last_page)}. <strong>Agendamento automático:</strong> ${sync.automatic_schedule ? 'ativo' : 'bloqueado até confirmação do executor único'}.</div>
+            <div class="cdc-admin-discovery-note"><strong>Assistente automático:</strong> ${escapeHTML(discovery.discovery_status || 'Nunca executada')} · última conclusão ${escapeHTML(discovery.discovery_completed_at || '—')} · ${escapeHTML(discovery.discovery_pages || 0)} página(s), ${escapeHTML(discovery.discovery_orders || 0)} pedido(s) e ${escapeHTML(discovery.discovery_matches || 0)} evidência(s). ${discovery.discovery_error ? `<small>${escapeHTML(discovery.discovery_error)}</small>` : ''}</div>
             <div class="cdc-admin-pending-note"><strong>O que significa Pendente?</strong> O vínculo veio do cadastro legado, mas ainda precisa de armazém, pedido de evidência e validação. Enquanto estiver pendente, o CSV restrito permanece como contingência. Ao desativar, o vínculo fica Bloqueado e deixa de ser usado também pela contingência.</div>
             <div class="cdc-admin-map-filters">
                 <label><span>Pesquisar na tabela</span><input type="search" data-cdc-map-search value="${escapeHTML(ongsysFilters.search)}" placeholder="Código, descrição, armazém ou pedido"></label>
@@ -164,16 +170,22 @@
                 <label><span>Armazém</span><select data-cdc-map-warehouse>${warehouses.map(function(warehouse) { return `<option value="${escapeHTML(warehouse)}"${warehouse === ongsysFilters.warehouse ? ' selected' : ''}>${escapeHTML(warehouse)}</option>`; }).join('')}</select></label>
                 <button class="btn btn-sm btn-default" data-cdc-map-clear>Limpar filtros</button>
             </div>
-            <p class="cdc-admin-map-results" data-cdc-map-results>Exibindo ${visibleMappings.length} de ${mappings.length} mapeamentos.</p>
-            <div class="cdc-admin-map-table-wrap"><table class="cdc-admin-map-table"><thead><tr><th>Centro ONGSYS</th><th>Armazém</th><th>Situação</th><th>Evidência</th><th>Ações</th></tr></thead><tbody>
-                ${mappings.length ? mappings.map(function(row) { var visible = mappingMatchesFilters(row); return `<tr data-cdc-map-row data-search="${escapeHTML([row.cost_center_code, row.description, row.warehouse, row.evidence_order_id].join(' ').toLowerCase())}" data-status="${escapeHTML(row.status)}" data-warehouse="${escapeHTML(row.warehouse || '')}"${visible ? '' : ' hidden'}>
+            <div class="cdc-admin-map-bulk"><p class="cdc-admin-map-results" data-cdc-map-results>Exibindo ${visibleMappings.length} de ${mappings.length} mapeamentos.</p><button class="btn btn-sm btn-primary" data-cdc-map-activate-selected>Ativar selecionados</button></div>
+            <div class="cdc-admin-map-table-wrap"><table class="cdc-admin-map-table"><thead><tr><th class="cdc-admin-map-select"><input type="checkbox" data-cdc-map-select-all aria-label="Selecionar todos os validados"></th><th>Centro ONGSYS</th><th>Armazém</th><th>Situação</th><th>Evidência</th><th>Confiança</th><th>Ações</th></tr></thead><tbody>
+                ${mappings.length ? mappings.map(function(row) { var visible = mappingMatchesFilters(row); var selectable = row.status === 'Validado' && Number(row.confidence || 0) >= 100; return `<tr data-cdc-map-row data-search="${escapeHTML([row.cost_center_code, row.description, row.warehouse, row.evidence_order_id].join(' ').toLowerCase())}" data-status="${escapeHTML(row.status)}" data-warehouse="${escapeHTML(row.warehouse || '')}"${visible ? '' : ' hidden'}>
+                    <td class="cdc-admin-map-select">${selectable ? `<input type="checkbox" data-cdc-map-select="${escapeHTML(row.name)}"${selectedMappings[row.name] ? ' checked' : ''} aria-label="Selecionar ${escapeHTML(row.cost_center_code)}">` : ''}</td>
                     <td><strong>${escapeHTML(row.cost_center_code)}</strong><small>${escapeHTML(row.description || '')}</small></td>
                     <td>${escapeHTML(row.warehouse || 'Não selecionado')}</td><td>${mappingBadge(row.status)}</td>
-                    <td>${escapeHTML(row.evidence_order_id || 'Pendente')}</td>
+                    <td>${escapeHTML(row.evidence_order_id || 'Pendente')}<small>${escapeHTML(row.evidence_order_title || '')}</small></td>
+                    <td>${row.confidence !== null && row.confidence !== undefined ? escapeHTML(row.confidence) + '%' : '—'}<small>${escapeHTML(row.validation_detail || '')}</small></td>
                     <td><div class="cdc-admin-map-actions">${mappingActions(row)}</div></td>
-                </tr>`; }).join('') : '<tr><td colspan="5" class="cdc-admin-map-empty">Nenhum mapeamento migrado.</td></tr>'}
-                ${mappings.length ? `<tr data-cdc-map-filter-empty${visibleMappings.length ? ' hidden' : ''}><td colspan="5" class="cdc-admin-map-empty">Nenhum mapeamento corresponde aos filtros.</td></tr>` : ''}
+                </tr>`; }).join('') : '<tr><td colspan="7" class="cdc-admin-map-empty">Nenhum mapeamento migrado.</td></tr>'}
+                ${mappings.length ? `<tr data-cdc-map-filter-empty${visibleMappings.length ? ' hidden' : ''}><td colspan="7" class="cdc-admin-map-empty">Nenhum mapeamento corresponde aos filtros.</td></tr>` : ''}
             </tbody></table></div>`;
+        if (ongsysPollTimer) window.clearTimeout(ongsysPollTimer);
+        if (['Aguardando', 'Executando'].indexOf(discovery.discovery_status) !== -1) {
+            ongsysPollTimer = window.setTimeout(loadOngsysDashboard, 10000);
+        }
     }
 
     function loadOngsysDashboard() {
@@ -218,6 +230,27 @@
             if (enabled !== undefined) args.enabled = enabled;
             frappe.call({method: method, type: 'POST', args: args, freeze: true, callback: function(r) {
                 if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 6);
+                loadOngsysDashboard();
+            }});
+        });
+    }
+
+    function requestAutomaticDiscovery() {
+        frappe.confirm('Deseja consultar o ONGSYS e validar automaticamente as correspondências exatas? Nenhum estoque será criado e nenhum vínculo será ativado.', function() {
+            frappe.call({method: 'cdc_theme.api.request_ongsys_mapping_discovery', type: 'POST', freeze: true, callback: function(r) {
+                if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 7);
+                loadOngsysDashboard();
+            }});
+        });
+    }
+
+    function activateSelectedMappings() {
+        var names = Object.keys(selectedMappings).filter(function(name) { return selectedMappings[name]; });
+        if (!names.length) { frappe.msgprint('Selecione ao menos um mapeamento validado automaticamente.'); return; }
+        frappe.confirm('Ativar ' + names.length + ' mapeamento(s) validado(s)? Esta ação não cria estoque.', function() {
+            frappe.call({method: 'cdc_theme.api.activate_ongsys_warehouse_mappings', type: 'POST', args: {names: JSON.stringify(names)}, freeze: true, callback: function(r) {
+                selectedMappings = {};
+                if (r.message) frappe.show_alert({message: r.message.message, indicator: 'green'}, 7);
                 loadOngsysDashboard();
             }});
         });
@@ -285,6 +318,10 @@
     $(document).on('click', '[data-cdc-admin-refresh]', function(event) { event.preventDefault(); this.disabled = true; this.textContent = 'Atualizando...'; var dashboard = document.getElementById('cdc-admin-dashboard'); if (dashboard) dashboard.dataset.loaded = '0'; load(true); });
     $(document).on('click', '[data-cdc-ongsys-refresh]', function(event) { event.preventDefault(); loadOngsysDashboard(); });
     $(document).on('click', '[data-cdc-ongsys-new]', newMapping);
+    $(document).on('click', '[data-cdc-ongsys-discover]', requestAutomaticDiscovery);
+    $(document).on('change', '[data-cdc-map-select]', function() { selectedMappings[this.dataset.cdcMapSelect] = this.checked; });
+    $(document).on('change', '[data-cdc-map-select-all]', function() { var checked = this.checked; document.querySelectorAll('[data-cdc-map-row]:not([hidden]) [data-cdc-map-select]').forEach(function(input) { input.checked = checked; selectedMappings[input.dataset.cdcMapSelect] = checked; }); });
+    $(document).on('click', '[data-cdc-map-activate-selected]', activateSelectedMappings);
     $(document).on('input', '[data-cdc-map-search]', function() { ongsysFilters.search = this.value; applyMappingFilters(); });
     $(document).on('change', '[data-cdc-map-status]', function() { ongsysFilters.status = this.value; applyMappingFilters(); });
     $(document).on('change', '[data-cdc-map-warehouse]', function() { ongsysFilters.warehouse = this.value; applyMappingFilters(); });

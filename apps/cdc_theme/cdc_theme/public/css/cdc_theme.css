@@ -1994,12 +1994,16 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-admin-ongsys-summary article { padding: 13px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--subtle-fg); }
 .cdc-admin-ongsys-summary span, .cdc-admin-map-table small { display: block; color: var(--text-muted); font-size: 11px; }.cdc-admin-ongsys-summary strong { display: block; margin-top: 4px; font-size: 22px; }
 .cdc-admin-sync-note { padding: 11px 13px; margin-bottom: 12px; border-left: 3px solid #d99000; border-radius: 7px; color: var(--text-muted); background: color-mix(in srgb, #d99000 8%, var(--fg-color)); font-size: 12px; }
+.cdc-admin-discovery-note { padding: 11px 13px; margin-bottom: 12px; border-left: 3px solid #22a06b; border-radius: 7px; color: var(--text-muted); background: color-mix(in srgb, #22a06b 8%, var(--fg-color)); font-size: 12px; }.cdc-admin-discovery-note small { display: block; margin-top: 4px; color: #b42318; }
+.cdc-admin-ongsys-title-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .cdc-admin-pending-note { padding: 11px 13px; margin-bottom: 12px; border-left: 3px solid var(--primary); border-radius: 7px; color: var(--text-muted); background: color-mix(in srgb, var(--primary) 7%, var(--fg-color)); font-size: 12px; line-height: 1.5; }
 .cdc-admin-map-filters { display: grid; grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(190px, 1fr) auto; align-items: end; gap: 10px; margin-bottom: 8px; }
 .cdc-admin-map-filters label { display: grid; gap: 5px; margin: 0; }.cdc-admin-map-filters label span { color: var(--text-muted); font-size: 10px; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
 .cdc-admin-map-filters input, .cdc-admin-map-filters select { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); background: var(--control-bg, var(--fg-color)); outline: none; }
 .cdc-admin-map-filters input:focus, .cdc-admin-map-filters select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent); }
 .cdc-admin-map-results { margin: 0 0 8px; color: var(--text-muted); font-size: 11px; }
+.cdc-admin-map-bulk { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }.cdc-admin-map-bulk .cdc-admin-map-results { margin: 0; }
+.cdc-admin-map-select { width: 36px; text-align: center !important; }.cdc-admin-map-select input { margin: 0; }
 .cdc-admin-map-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 10px; }.cdc-admin-map-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cdc-admin-map-table th, .cdc-admin-map-table td { padding: 11px 12px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: middle; }.cdc-admin-map-table tr:last-child td { border-bottom: 0; }
 .cdc-admin-map-status { display: inline-flex; padding: 4px 8px; border-radius: 999px; color: #7c2d12; background: #ffedd5; font-size: 10px; font-weight: 800; text-transform: uppercase; }.cdc-admin-map-status.is-ativo { color: #065f46; background: #d1fae5; }.cdc-admin-map-status.is-bloqueado { color: #991b1b; background: #fee2e2; }

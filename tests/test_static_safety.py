@@ -28,12 +28,16 @@ class StaticSafetyTest(unittest.TestCase):
         admin_source = (ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js").read_text()
         common_source = (ROOT / "extractor/common.py").read_text()
         importer_source = (ROOT / "extractor/5_extrator_requisicoes_v2.py").read_text()
+        discovery_source = (ROOT / "extractor/6_discover_ongsys_mappings.py").read_text()
+        discovery_service = (ROOT / "deploy/systemd/cdc-ongsys-mapping-discovery.service").read_text()
         mapping_json = (ROOT / "apps/cdc_theme/cdc_theme/cdc_theme/doctype/cdc_ongsys_warehouse_mapping/cdc_ongsys_warehouse_mapping.json").read_text()
         self.assertIn('ONGSYS_MAPPING_DOCTYPE = "CDC ONGSYS Warehouse Mapping"', api_source)
         for endpoint in (
             "get_cdc_admin_ongsys_dashboard", "save_ongsys_warehouse_mapping",
             "validate_ongsys_warehouse_mapping", "activate_ongsys_warehouse_mapping",
             "get_ongsys_warehouse_mappings_for_extractor",
+            "request_ongsys_mapping_discovery", "record_ongsys_mapping_discovery",
+            "activate_ongsys_warehouse_mappings",
         ):
             self.assertIn(f"def {endpoint}", api_source)
         self.assertIn("_require_system_manager()", api_source)
@@ -47,6 +51,9 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("data-cdc-map-toggle", admin_source)
         self.assertIn("Ao desativar, o vínculo fica Bloqueado", admin_source)
         self.assertIn("Integração ONGSYS atualizada", admin_source)
+        self.assertIn("Validar pendentes automaticamente", admin_source)
+        self.assertIn("data-cdc-map-activate-selected", admin_source)
+        self.assertIn("Nenhum estoque será criado", admin_source)
         self.assertIn("Retry(", common_source)
         self.assertIn("status_forcelist=(429, 500, 502, 503, 504, 520, 522, 524)", common_source)
         self.assertIn('parser.add_argument("--dry-run"', importer_source)
@@ -54,6 +61,14 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("def preflight_orders", importer_source)
         self.assertIn("api/method/cdc_theme.api.get_ongsys_warehouse_mappings_for_extractor", importer_source)
         self.assertIn('row.get("status") == "Bloqueado"', importer_source)
+        self.assertIn('FINAL_STATUS = "Ordem finalizada"', discovery_source)
+        self.assertIn("is_product_order", discovery_source)
+        self.assertNotIn("Stock Entry", discovery_source)
+        self.assertIn('"read-only"', discovery_source)
+        self.assertIn("NoNewPrivileges=true", discovery_service)
+        self.assertNotIn("5_extrator_requisicoes_v2.py", discovery_service)
+        self.assertIn('doc.status = "Validado"', api_source)
+        self.assertIn('doc.enabled = 0', api_source)
 
     def test_item_group_route_does_not_match_query_parameters(self):
         source = THEME_JS.read_text()

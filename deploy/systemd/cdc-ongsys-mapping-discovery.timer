@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll CDC Admin for ONGSYS mapping discovery requests
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=true
+Unit=cdc-ongsys-mapping-discovery.service
+
+[Install]
+WantedBy=timers.target
