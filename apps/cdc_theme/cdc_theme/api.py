@@ -401,7 +401,9 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
         state.discovery_completed_at = frappe.utils.now_datetime()
         state.save()
         return {"ok": False, "message": "Falha de descoberta registrada."}
-    matched = validated = exceptions = 0
+    page_errors = stats.get("page_errors") or []
+    matched = validated = 0
+    exceptions = len(page_errors)
     for finding in findings:
         code = str(finding.get("cost_center_code") or "").strip()
         order_id = str(finding.get("order_id") or "").strip()
@@ -449,7 +451,7 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
     state.discovery_pages = frappe.utils.cint(stats.get("pages"))
     state.discovery_orders = frappe.utils.cint(stats.get("orders"))
     state.discovery_matches = matched
-    state.discovery_error = None
+    state.discovery_error = " | ".join(str(item) for item in page_errors)[:1000] or None
     state.save()
     return {"ok": True, "matched": matched, "validated": validated, "exceptions": exceptions}
 

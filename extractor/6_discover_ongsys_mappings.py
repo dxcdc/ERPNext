@@ -5,6 +5,9 @@ import argparse
 import json
 from typing import Any, Dict, List, Optional
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from common import Common, is_product_order
 
 
@@ -24,26 +27,11 @@ def erp_method(api: Common, method: str, payload: Optional[Dict[str, Any]] = Non
 
 
 def fetch_page(api: Common, page: int) -> Optional[List[Dict[str, Any]]]:
-    response = api.ongsys_request("GET", "pedidos", page_number=page, timeout=90)
+    response = api.ongsys_request("GET", "pedidos", page_number=page, timeout=25)
     if response.status_code == 422:
         return None
     require(response, f"Consulta ONGSYS página {page}")
     return response.json().get("data") or None
-
-
-def discover_last_page(api: Common) -> int:
-    low, high = 1, 2
-    if fetch_page(api, 1) is None:
-        return 0
-    while fetch_page(api, high) is not None and high < 4096:
-        low, high = high, high * 2
-    while low + 1 < high:
-        middle = (low + high) // 2
-        if fetch_page(api, middle) is None:
-            high = middle
-        else:
-            low = middle
-    return low
 
 
 def finding(order: Dict[str, Any], code: str) -> Dict[str, Any]:
@@ -56,15 +44,17 @@ def finding(order: Dict[str, Any], code: str) -> Dict[str, Any]:
 
 
 def discover(api: Common, max_pages: int = MAX_PAGES):
-    last_page = discover_last_page(api)
-    if not last_page:
-        raise RuntimeError("ONGSYS não retornou páginas de pedidos")
     findings: Dict[str, Dict[str, Any]] = {}
     orders_seen = pages_seen = 0
-    for page in range(last_page, max(0, last_page - max_pages), -1):
-        orders = fetch_page(api, page)
-        if orders is None:
+    page_errors = []
+    for page in range(1, max_pages + 1):
+        try:
+            orders = fetch_page(api, page)
+        except Exception as exc:
+            page_errors.append(f"página {page}: {exc}")
             continue
+        if orders is None:
+            break
         pages_seen += 1
         orders_seen += len(orders)
         for order in orders:
@@ -72,13 +62,25 @@ def discover(api: Common, max_pages: int = MAX_PAGES):
                 continue
             for item in order.get("itensPedido") or []:
                 code = str(item.get("centroCusto") or "").strip()
-                if code and code not in findings:
+                if code:
                     findings[code] = finding(order, code)
-    return list(findings.values()), {"pages": pages_seen, "orders": orders_seen, "last_page": last_page}
+    if not pages_seen:
+        raise RuntimeError("ONGSYS não retornou nenhuma página utilizável")
+    return list(findings.values()), {
+        "pages": pages_seen, "orders": orders_seen,
+        "page_errors": page_errors, "last_page_attempted": page,
+    }
 
 
 def main(force: bool = False, max_pages: int = MAX_PAGES):
     api = Common()
+    discovery_retry = Retry(
+        total=1, connect=1, read=1, status=1, backoff_factor=1,
+        status_forcelist=(429, 500, 502, 503, 504, 520, 522, 524),
+        allowed_methods=frozenset({"GET"}), raise_on_status=False,
+    )
+    api._ongsys_session.mount("https://", HTTPAdapter(max_retries=discovery_retry))
+    api._ongsys_session.mount("http://", HTTPAdapter(max_retries=discovery_retry))
     request = erp_method(api, "get_ongsys_mapping_discovery_request")
     if not force and not request.get("requested"):
         print(json.dumps({"mode": "read-only", "status": "idle", "message": "Nenhuma descoberta solicitada."}, ensure_ascii=False))
