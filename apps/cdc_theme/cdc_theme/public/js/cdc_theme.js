@@ -544,7 +544,141 @@
 
     window._cdc_render_users_dashboard = renderUsersDashboard;
 
+    function formatIntegrationCount(value) {
+        return Number(value || 0).toLocaleString('pt-BR');
+    }
 
+    function analyticsDatasetMarkup(dataset) {
+        var fields = (dataset.fields || []).map(function(field) {
+            return '<code>' + escapeCDC(field) + '</code>';
+        }).join(' ');
+        var filters = (dataset.filters || []).map(function(filter) {
+            return '<span>' + escapeCDC(filter) + '</span>';
+        }).join('');
+        return '<article class="cdc-analytics-dataset" data-cdc-analytics-dataset="' + escapeCDC(dataset.id) + '" data-search="'
+            + escapeCDC((dataset.label + ' ' + dataset.description + ' ' + dataset.scope).toLowerCase()) + '">'
+            + '<div class="cdc-analytics-dataset-main">'
+            + '<div><div class="cdc-analytics-dataset-title"><strong>' + escapeCDC(dataset.label) + '</strong>'
+            + '<span class="cdc-analytics-status is-ready">Pronto</span></div>'
+            + '<p>' + escapeCDC(dataset.description) + '</p>'
+            + '<small>Escopo: ' + escapeCDC(dataset.scope) + '</small></div>'
+            + '<div class="cdc-analytics-dataset-count"><strong>' + formatIntegrationCount(dataset.records) + '</strong><span>registros acessíveis</span></div>'
+            + '</div>'
+            + '<details class="cdc-analytics-contract">'
+            + '<summary>Ver contrato de dados</summary>'
+            + '<div class="cdc-analytics-contract-body">'
+            + '<div><b>Método</b><code>/api/method/' + escapeCDC(dataset.method) + '</code></div>'
+            + '<div><b>Campos publicados</b><p class="cdc-analytics-field-list">' + fields + '</p></div>'
+            + '<div><b>Filtros aceitos</b><p class="cdc-analytics-filter-list">' + filters + '</p></div>'
+            + '<div class="cdc-analytics-contract-actions"><span>Somente leitura · máximo de 200 registros por página</span>'
+            + '<button type="button" class="btn btn-xs btn-default" data-cdc-analytics-test="' + escapeCDC(dataset.id) + '" data-label="' + escapeCDC(dataset.label) + '">Validar amostra</button></div>'
+            + '<pre class="cdc-analytics-terminal" data-cdc-analytics-terminal="' + escapeCDC(dataset.id) + '" hidden></pre>'
+            + '</div></details></article>';
+    }
+
+    function bindAnalyticsProviderControls(provider) {
+        if (!provider || provider.dataset.bound === '1') return;
+        provider.dataset.bound = '1';
+        provider.addEventListener('input', function(event) {
+            if (event.target.id !== 'cdc-analytics-search') return;
+            var query = String(event.target.value || '').trim().toLowerCase();
+            provider.querySelectorAll('[data-cdc-analytics-dataset]').forEach(function(card) {
+                card.hidden = query && String(card.dataset.search || '').indexOf(query) === -1;
+            });
+        });
+        provider.addEventListener('click', function(event) {
+            var refresh = event.target.closest('[data-cdc-analytics-refresh]');
+            if (refresh) {
+                loadAnalyticsProvider(true);
+                return;
+            }
+            var button = event.target.closest('[data-cdc-analytics-test]');
+            if (!button) return;
+            var dataset = button.dataset.cdcAnalyticsTest;
+            var terminal = provider.querySelector('[data-cdc-analytics-terminal="' + dataset + '"]');
+            if (!terminal) return;
+            terminal.hidden = false;
+            terminal.textContent = '> Preparando consulta autenticada\n> Aplicando papéis e User Permission de Warehouse\n> Solicitando 1 registro de ' + (button.dataset.label || dataset) + '...';
+            button.disabled = true;
+            button.textContent = 'Validando...';
+            frappe.call({
+                method: 'cdc_theme.api.get_cdc_analytics_dataset',
+                args: {dataset: dataset, limit: 1},
+                callback: function(response) {
+                    button.disabled = false;
+                    button.textContent = 'Validar novamente';
+                    var data = response && response.message;
+                    if (!data) {
+                        terminal.textContent += '\n✕ O servidor não retornou o contrato esperado.';
+                        return;
+                    }
+                    terminal.textContent = '> Autenticação: OK\n> RBAC por armazém: aplicado\n> Contrato: ' + data.contract_version
+                        + '\n> Checkpoint: ' + data.checkpoint
+                        + '\n> Registros retornados: ' + data.returned
+                        + '\n> Próxima página: ' + (data.has_more ? 'disponível por cursor' : 'não necessária')
+                        + '\n✓ Leitura real concluída sem operação de escrita.';
+                },
+                error: function(error) {
+                    button.disabled = false;
+                    button.textContent = 'Tentar novamente';
+                    terminal.textContent += '\n✕ Consulta bloqueada ou indisponível.\n' + String((error && error.message) || 'Consulte o Error Log do Frappe.');
+                }
+            });
+        });
+    }
+
+    function renderAnalyticsProvider(data) {
+        var provider = document.getElementById('cdc-analytics-provider');
+        if (!provider || !data) return;
+        var summary = data.summary || {};
+        var security = data.security || {};
+        var datasets = (data.datasets || []).map(analyticsDatasetMarkup).join('');
+        provider.innerHTML = '<div class="cdc-analytics-header">'
+            + '<div><div class="cdc-analytics-kicker">CAMADA ANALÍTICA CDC</div><h2>NextERP pronto para fornecer dados</h2>'
+            + '<p>Organizamos contratos reais e somente de leitura para o CDC Core. O Metabase foi definido como ferramenta de BI, mas continuará desconectado até o Core e o banco analítico estarem preparados.</p></div>'
+            + '<div class="cdc-analytics-bi"><span>BI escolhido</span><strong>Metabase</strong><small>Conexão ainda não realizada</small></div></div>'
+            + '<div class="cdc-analytics-flow" aria-label="Etapas da integração">'
+            + '<div class="is-ready"><i>1</i><b>NextERP</b><span>Contratos disponíveis</span></div>'
+            + '<div class="is-pending"><i>2</i><b>CDC Core</b><span>Cliente M2M pendente</span></div>'
+            + '<div class="is-pending"><i>3</i><b>Banco analítico</b><span>Estrutura pendente</span></div>'
+            + '<div class="is-pending"><i>4</i><b>Metabase</b><span>Conexão pendente</span></div></div>'
+            + '<div class="cdc-analytics-summary">'
+            + '<div><span>Conjuntos prontos</span><strong>' + formatIntegrationCount(summary.ready) + ' de ' + formatIntegrationCount(summary.datasets) + '</strong><small>Contratos ' + escapeCDC(data.contract_version || '—') + '</small></div>'
+            + '<div><span>Armazéns acessíveis</span><strong>' + formatIntegrationCount(summary.warehouses) + '</strong><small>Conforme o usuário autenticado</small></div>'
+            + '<div><span>Autorização</span><strong>RBAC aplicado</strong><small>Papéis e User Permission de Warehouse</small></div>'
+            + '<div><span>Operações de escrita</span><strong>' + (security.write_operations ? 'Habilitadas' : 'Bloqueadas') + '</strong><small>Provedor exclusivamente de leitura</small></div></div>'
+            + '<div class="cdc-analytics-notice"><strong>Limite desta etapa</strong><span>O NextERP já fornece os contratos. Credencial exclusiva do Core, agendamento, banco analítico e conexão do Metabase serão tratados nas próximas etapas.</span></div>'
+            + '<div class="cdc-analytics-toolbar"><div><h3>Catálogo de dados</h3><p>Somente informações reais e dentro do escopo permitido.</p></div>'
+            + '<div><input id="cdc-analytics-search" type="search" placeholder="Pesquisar conjunto..." aria-label="Pesquisar conjunto de dados">'
+            + '<button type="button" class="btn btn-sm btn-default" data-cdc-analytics-refresh>Atualizar diagnóstico</button></div></div>'
+            + '<div class="cdc-analytics-datasets">' + datasets + '</div>'
+            + '<div class="cdc-analytics-footer"><span>Gerado em ' + escapeCDC(data.generated_at || '—') + '</span><span>Autenticação atual: ' + escapeCDC(security.authentication || '—') + '</span></div>';
+        bindAnalyticsProviderControls(provider);
+    }
+
+    function loadAnalyticsProvider(force) {
+        var provider = document.getElementById('cdc-analytics-provider');
+        if (!provider || (provider.dataset.loading === '1' && !force)) return;
+        provider.dataset.loading = '1';
+        provider.innerHTML = '<div class="cdc-analytics-loading"><span class="cdc-analytics-spinner"></span><strong>Mapeando os dados disponíveis...</strong><small>Validando contratos, permissões e escopo por armazém.</small></div>';
+        frappe.call({
+            method: 'cdc_theme.api.get_cdc_analytics_catalog',
+            callback: function(response) {
+                provider.dataset.loading = '0';
+                if (!response || !response.message) {
+                    provider.innerHTML = '<div class="cdc-analytics-error"><strong>Não foi possível montar o catálogo.</strong><button type="button" class="btn btn-sm btn-default" data-cdc-analytics-refresh>Tentar novamente</button></div>';
+                    bindAnalyticsProviderControls(provider);
+                    return;
+                }
+                renderAnalyticsProvider(response.message);
+            },
+            error: function() {
+                provider.dataset.loading = '0';
+                provider.innerHTML = '<div class="cdc-analytics-error"><strong>Acesso negado ou serviço indisponível.</strong><span>É necessário possuir papel de gestor e permissão de leitura dos dados de estoque.</span><button type="button" class="btn btn-sm btn-default" data-cdc-analytics-refresh>Tentar novamente</button></div>';
+                bindAnalyticsProviderControls(provider);
+            }
+        });
+    }
 
 
     // --- BANNER COMPLETO DA WORKSPACE INTEGRAÇÕES ---
@@ -562,21 +696,9 @@
         banner.dataset.loaded = '1';
         banner.style.cssText = 'margin:18px 24px 0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;gap:16px;';
 
-        // ── 1. BUSINESS INTELLIGENCE (primeiro, conforme solicitado) ──────────
+        // ── 1. PROVEDOR ANALÍTICO PARA CORE / METABASE ───────────────────────
         var S = getCDCBreadcrumbHTML('Integrações');
-        S += '<div style="background:linear-gradient(135deg,#0f172a,#172038);border-radius:14px;padding:24px 28px;color:#f1f5f9;">';
-        S += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
-        S += '<span style="font-size:24px;">📊</span>';
-        S += '<span style="font-size:17px;font-weight:800;color:#fff;">Business Intelligence</span>';
-        S += '<span style="background:#7c3aed;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-left:4px;">Em breve</span>';
-        S += '</div>';
-        S += '<p style="font-size:13px;color:#cbd5e1;line-height:1.8;margin:0 0 18px;">Este espaço será dedicado à conexão do <strong style="color:#fff;">CDC NextERP</strong> com ferramentas de análise e visualização de dados. Poderemos integrar indicadores de estoque, movimentações e desempenho operacional diretamente em painéis interativos — acessíveis por gestores e diretoria em tempo real, sem exportações manuais.</p>';
-        S += '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
-        S += '<div style="background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#fde68a;">🟡 Power BI</div>';
-        S += '<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#93c5fd;">🔵 Google Data Studio</div>';
-        S += '<div style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#fdba74;">🟠 Microsoft Fabric</div>';
-        S += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#fca5a5;">🔴 Databricks</div>';
-        S += '</div></div>';
+        S += '<section id="cdc-analytics-provider"><div class="cdc-analytics-loading"><span class="cdc-analytics-spinner"></span><strong>Mapeando os dados disponíveis...</strong><small>Validando contratos, permissões e escopo por armazém.</small></div></section>';
 
         // ── 2. MATTERMOST — WEBHOOKS POR ARMAZÉM (segundo) ───────────────────
         S += '<div style="background:linear-gradient(135deg,#0f172a,#0c2240);border-radius:14px;padding:24px 28px;color:#f1f5f9;">';
@@ -594,6 +716,7 @@
 
         banner.innerHTML = S;
         target.insertBefore(banner, target.firstChild);
+        loadAnalyticsProvider();
 
         // ── Carrega lista de configs agrupadas por armazém ────────────────────
         function loadMattermostConfigs() {

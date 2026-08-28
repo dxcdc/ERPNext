@@ -1,10 +1,12 @@
+import base64
 import calendar
+import json
 import os
 import re
 import unicodedata
 
 import frappe
-from frappe.utils import add_days, add_months, get_first_day, getdate, now_datetime, today
+from frappe.utils import add_days, add_months, get_datetime, get_first_day, getdate, now_datetime, today
 
 
 def _require_system_manager():
@@ -395,6 +397,58 @@ CDC_PROJECTS = (
     "Projeto Bem Viver", "Projeto Cais", "Projeto ATM",
 )
 
+CDC_ANALYTICS_CONTRACT_VERSION = "v1"
+CDC_ANALYTICS_DATASETS = {
+    "warehouses": {
+        "label": "Armazéns",
+        "doctype": "Warehouse",
+        "description": "Estrutura dos armazéns operacionais visíveis ao cliente.",
+        "scope": "RBAC por armazém",
+        "fields": (
+            "name", "warehouse_name", "company", "parent_warehouse",
+            "disabled", "is_group", "modified",
+        ),
+    },
+    "item-groups": {
+        "label": "Grupos de itens",
+        "doctype": "Item Group",
+        "description": "Classificação dos itens presentes nos armazéns permitidos.",
+        "scope": "Derivado dos itens permitidos",
+        "fields": ("name", "parent_item_group", "is_group", "modified"),
+    },
+    "items": {
+        "label": "Itens",
+        "doctype": "Item",
+        "description": "Catálogo dos itens vinculados aos armazéns permitidos.",
+        "scope": "Derivado dos saldos permitidos",
+        "fields": (
+            "name", "item_name", "item_group", "stock_uom", "disabled",
+            "is_stock_item", "modified",
+        ),
+    },
+    "stock-balances": {
+        "label": "Saldos de estoque",
+        "doctype": "Bin",
+        "description": "Posição atual por item e armazém, sem operação de escrita.",
+        "scope": "RBAC por armazém",
+        "fields": (
+            "name", "item_code", "warehouse", "actual_qty", "projected_qty",
+            "reserved_qty", "ordered_qty", "stock_value", "modified",
+        ),
+    },
+    "stock-movements": {
+        "label": "Movimentações de estoque",
+        "doctype": "Stock Ledger Entry",
+        "description": "Histórico contábil das entradas, saídas e transferências permitidas.",
+        "scope": "RBAC por armazém",
+        "fields": (
+            "name", "item_code", "warehouse", "posting_date", "posting_time",
+            "actual_qty", "qty_after_transaction", "voucher_type", "voucher_no",
+            "stock_value_difference", "modified",
+        ),
+    },
+}
+
 
 def _warehouse_project(warehouse):
     value = (warehouse or "").upper()
@@ -469,6 +523,259 @@ def _catalog_filter_context(selected_project=None, selected_warehouse=None):
         scoped_warehouses,
         requested_project != "All" or requested_warehouse != "All",
     )
+
+
+def _analytics_require_access(contract):
+    """Mantém o provedor analítico restrito e sob as permissões nativas do ERP."""
+    _require_stock_dashboard_access()
+    required = {"Warehouse", "Bin", contract["doctype"]}
+    if contract["doctype"] == "Item Group":
+        required.add("Item")
+    for doctype in sorted(required):
+        _require_read_permission(doctype)
+
+
+def _analytics_page_limit(value):
+    try:
+        limit = int(value or 100)
+    except (TypeError, ValueError):
+        limit = 0
+    if limit < 1 or limit > 200:
+        frappe.throw("O limite deve estar entre 1 e 200 registros.", frappe.ValidationError)
+    return limit
+
+
+def _analytics_encode_cursor(dataset, after_name, checkpoint):
+    payload = {
+        "v": CDC_ANALYTICS_CONTRACT_VERSION,
+        "dataset": dataset,
+        "after": after_name,
+        "checkpoint": str(checkpoint),
+    }
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    return encoded.rstrip("=")
+
+
+def _analytics_decode_cursor(dataset, cursor):
+    if not cursor:
+        return "", now_datetime()
+    try:
+        padding = "=" * (-len(cursor) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(cursor + padding).decode("utf-8"))
+        if payload.get("v") != CDC_ANALYTICS_CONTRACT_VERSION:
+            raise ValueError("versão incompatível")
+        if payload.get("dataset") != dataset:
+            raise ValueError("conjunto incompatível")
+        after_name = str(payload.get("after") or "")
+        checkpoint = get_datetime(payload.get("checkpoint"))
+        if checkpoint > now_datetime():
+            raise ValueError("checkpoint futuro")
+        return after_name, checkpoint
+    except Exception:
+        frappe.throw("Cursor analítico inválido ou expirado.", frappe.ValidationError)
+
+
+def _analytics_modified_since(value, checkpoint):
+    if not value:
+        return None
+    try:
+        modified_since = get_datetime(value)
+    except Exception:
+        frappe.throw("Data modified_since inválida.", frappe.ValidationError)
+    if modified_since > checkpoint:
+        frappe.throw(
+            "modified_since não pode ser posterior ao checkpoint da consulta.",
+            frappe.ValidationError,
+        )
+    return modified_since
+
+
+def _analytics_scoped_item_codes(scoped_warehouses):
+    if not scoped_warehouses:
+        return set()
+    rows = frappe.get_list(
+        "Bin",
+        filters={"warehouse": ["in", scoped_warehouses]},
+        fields=["item_code"],
+        limit_page_length=0,
+    )
+    return {row.item_code for row in rows if row.item_code}
+
+
+def _analytics_scoped_item_groups(item_codes):
+    if not item_codes:
+        return set()
+    item_rows = frappe.get_list(
+        "Item",
+        filters={"name": ["in", sorted(item_codes)]},
+        fields=["item_group"],
+        limit_page_length=0,
+    )
+    direct_groups = {row.item_group for row in item_rows if row.item_group}
+    if not direct_groups:
+        return set()
+    group_rows = frappe.get_list(
+        "Item Group",
+        fields=["name", "parent_item_group"],
+        limit_page_length=0,
+    )
+    parents = {row.name: row.parent_item_group for row in group_rows}
+    scoped_groups = set(direct_groups)
+    pending = list(direct_groups)
+    while pending:
+        parent = parents.get(pending.pop())
+        if parent and parent not in scoped_groups:
+            scoped_groups.add(parent)
+            pending.append(parent)
+    return scoped_groups
+
+
+def _analytics_contract_payload(dataset, contract, records):
+    return {
+        "id": dataset,
+        "label": contract["label"],
+        "description": contract["description"],
+        "scope": contract["scope"],
+        "status": "ready",
+        "records": records,
+        "fields": list(contract["fields"]),
+        "filters": ["modified_since", "project", "warehouse", "cursor", "limit"],
+        "method": "cdc_theme.api.get_cdc_analytics_dataset",
+        "read_only": True,
+    }
+
+
+@frappe.whitelist()
+def get_cdc_analytics_catalog():
+    """Diagnóstico real dos dados que o NextERP já pode fornecer ao CDC Core."""
+    for contract in CDC_ANALYTICS_DATASETS.values():
+        _analytics_require_access(contract)
+
+    _, _, project_options, scoped_warehouses, _ = _catalog_filter_context("All", "All")
+    item_codes = _analytics_scoped_item_codes(scoped_warehouses)
+    item_groups = _analytics_scoped_item_groups(item_codes)
+    scoped_filter = {"warehouse": ["in", scoped_warehouses]}
+    counts = {
+        "warehouses": len(scoped_warehouses),
+        "item-groups": len(item_groups),
+        "items": len(item_codes),
+        "stock-balances": frappe.db.count("Bin", filters=scoped_filter) if scoped_warehouses else 0,
+        "stock-movements": frappe.db.count("Stock Ledger Entry", filters=scoped_filter) if scoped_warehouses else 0,
+    }
+    datasets = [
+        _analytics_contract_payload(dataset, contract, counts[dataset])
+        for dataset, contract in CDC_ANALYTICS_DATASETS.items()
+    ]
+    return {
+        "contract_version": CDC_ANALYTICS_CONTRACT_VERSION,
+        "provider": "CDC NextERP",
+        "consumer": "CDC Core",
+        "bi_tool": "Metabase",
+        "generated_at": str(now_datetime()),
+        "summary": {
+            "datasets": len(datasets),
+            "ready": sum(1 for item in datasets if item["status"] == "ready"),
+            "warehouses": len(scoped_warehouses),
+            "projects": len(project_options),
+        },
+        "security": {
+            "authentication": "Sessão ou token Frappe autenticado",
+            "authorization": "Papéis nativos e User Permission de Warehouse",
+            "write_operations": False,
+            "core_client": "pending",
+        },
+        "sync": {
+            "pagination": "Cursor opaco por conjunto",
+            "incremental": "modified_since e checkpoint inclusivo",
+            "maximum_page_size": 200,
+            "idempotency_key": "dataset + name + modified",
+        },
+        "datasets": datasets,
+    }
+
+
+@frappe.whitelist()
+def get_cdc_analytics_dataset(
+    dataset,
+    modified_since=None,
+    selected_project="All",
+    selected_warehouse="All",
+    cursor=None,
+    limit=100,
+):
+    """Exporta uma página somente de leitura, incremental e limitada pelo RBAC."""
+    dataset = (dataset or "").strip().lower()
+    contract = CDC_ANALYTICS_DATASETS.get(dataset)
+    if not contract:
+        frappe.throw("Conjunto analítico desconhecido.", frappe.ValidationError)
+    _analytics_require_access(contract)
+
+    page_limit = _analytics_page_limit(limit)
+    after_name, checkpoint = _analytics_decode_cursor(dataset, cursor)
+    since = _analytics_modified_since(modified_since, checkpoint)
+    project, warehouse, _, scoped_warehouses, _ = _catalog_filter_context(
+        selected_project, selected_warehouse,
+    )
+    item_codes = _analytics_scoped_item_codes(scoped_warehouses)
+    item_groups = _analytics_scoped_item_groups(item_codes)
+
+    filters = {"modified": ["<=", checkpoint]}
+    if since:
+        filters["modified"] = ["between", [since, checkpoint]]
+    if after_name:
+        filters["name"] = [">", after_name]
+
+    doctype = contract["doctype"]
+    empty_scope = not scoped_warehouses
+    if doctype == "Warehouse":
+        filters.update({"is_group": 0, "name": ["in", scoped_warehouses]})
+        if after_name:
+            filters["name"] = ["in", [name for name in scoped_warehouses if name > after_name]]
+    elif doctype == "Item Group":
+        filters["name"] = ["in", sorted(item_groups)]
+        if after_name:
+            filters["name"] = ["in", [name for name in item_groups if name > after_name]]
+        empty_scope = empty_scope or not item_groups
+    elif doctype == "Item":
+        filters["name"] = ["in", sorted(item_codes)]
+        if after_name:
+            filters["name"] = ["in", [name for name in item_codes if name > after_name]]
+        empty_scope = empty_scope or not item_codes
+    else:
+        filters["warehouse"] = ["in", scoped_warehouses]
+        empty_scope = empty_scope or not scoped_warehouses
+
+    rows = [] if empty_scope else frappe.get_list(
+        doctype,
+        filters=filters,
+        fields=list(contract["fields"]),
+        order_by="name asc",
+        limit_page_length=page_limit + 1,
+    )
+    has_more = len(rows) > page_limit
+    data = rows[:page_limit]
+    next_cursor = (
+        _analytics_encode_cursor(dataset, data[-1].name, checkpoint)
+        if has_more and data else None
+    )
+    return {
+        "contract_version": CDC_ANALYTICS_CONTRACT_VERSION,
+        "dataset": dataset,
+        "read_only": True,
+        "scope": {
+            "project": project,
+            "warehouse": warehouse,
+            "warehouses": len(scoped_warehouses),
+        },
+        "checkpoint": str(checkpoint),
+        "modified_since": str(since) if since else None,
+        "returned": len(data),
+        "has_more": has_more,
+        "next_cursor": next_cursor,
+        "data": data,
+    }
 
 
 def _catalog_positive_item_codes(scoped_warehouses, scope_active):
@@ -2494,6 +2801,15 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
     )
     source_has_role_guard = "_require_stock_dashboard_access()" in sources["api"]
     source_has_warehouse_scope = callable(globals().get("_warehouse_permission_sql"))
+    analytics_provider_ready = all((
+        "def get_cdc_analytics_catalog" in sources["api"],
+        "def get_cdc_analytics_dataset" in sources["api"],
+        "_analytics_require_access(contract)" in sources["api"],
+        "CDC_ANALYTICS_CONTRACT_VERSION" in sources["api"],
+        "cdc_theme.api.get_cdc_analytics_catalog" in theme_source,
+        "cdc_theme.api.get_cdc_analytics_dataset" in theme_source,
+        "Metabase" in theme_source,
+    ))
 
     ongsys_status = "passed" if unique_index and not duplicates and not sync_stale else "warning"
     ongsys_evidence = (
@@ -2549,8 +2865,14 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
             "O ERP não acessa o host e o repositório completos. Confirmação obrigatória pela CI e auditoria do servidor.",
         ),
         _monitoring_quality_gate(
-            "automated-tests", "7. Rotas, APIs, permissões e integrações", "warning",
-            "O botão individual consulta as APIs reais do Estoque e Usuários; a suíte completa ainda exige confirmação pela CI.",
+            "automated-tests", "7. Rotas, APIs, permissões e integrações",
+            "warning" if analytics_provider_ready else "blocked",
+            (
+                "Provedor analítico v1, catálogo e amostras autenticadas estão ligados à rota CDC Integrações; "
+                "a suíte completa ainda exige confirmação pela CI."
+                if analytics_provider_ready else
+                "O catálogo analítico, o endpoint paginado ou a interface real do CDC Integrações está incompleta."
+            ),
         ),
         _monitoring_quality_gate(
             "workspace-navigation", "8. Navegação SPA, duplicidades e ícones",

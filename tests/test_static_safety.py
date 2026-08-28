@@ -437,6 +437,54 @@ class StaticSafetyTest(unittest.TestCase):
             with self.subTest(delegated_asset=asset.name):
                 self.assertIn("window._cdc_render_management_dashboard", asset.read_text())
 
+    def test_integrations_exposes_real_read_only_analytics_provider(self):
+        api_source = API_PY.read_text()
+        theme_source = THEME_JS.read_text()
+        css_source = THEME_CSS.read_text()
+        tree = ast.parse(api_source)
+        functions = {
+            node.name: ast.get_source_segment(api_source, node)
+            for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        catalog = functions["get_cdc_analytics_catalog"]
+        dataset = functions["get_cdc_analytics_dataset"]
+        access = functions["_analytics_require_access"]
+        cursor = functions["_analytics_decode_cursor"]
+
+        for dataset_id in (
+            "warehouses", "item-groups", "items", "stock-balances", "stock-movements",
+        ):
+            self.assertIn(f'"{dataset_id}"', api_source)
+        self.assertIn("_require_stock_dashboard_access()", access)
+        self.assertIn("_require_read_permission(doctype)", access)
+        self.assertIn("_catalog_filter_context", catalog)
+        self.assertIn("_catalog_filter_context", dataset)
+        self.assertIn("frappe.get_list(", dataset)
+        self.assertNotIn("frappe.get_all(", dataset)
+        self.assertNotIn(".save(", dataset)
+        self.assertNotIn(".insert(", dataset)
+        self.assertNotIn("frappe.db.commit", dataset)
+        self.assertIn("limit < 1 or limit > 200", functions["_analytics_page_limit"])
+        self.assertIn("checkpoint > now_datetime()", cursor)
+        self.assertIn('"write_operations": False', catalog)
+        self.assertIn('"core_client": "pending"', catalog)
+
+        integrations = theme_source[
+            theme_source.index("function analyticsDatasetMarkup"):
+            theme_source.index("// --- SUÍTE DE INQUÉRITO", theme_source.index("function analyticsDatasetMarkup"))
+        ]
+        self.assertIn("cdc_theme.api.get_cdc_analytics_catalog", integrations)
+        self.assertIn("cdc_theme.api.get_cdc_analytics_dataset", integrations)
+        self.assertIn("Metabase", integrations)
+        self.assertIn("Cliente M2M pendente", integrations)
+        self.assertIn("Leitura real concluída", integrations)
+        self.assertNotIn("Power BI", integrations)
+        self.assertNotIn("Google Data Studio", integrations)
+        self.assertNotIn("Microsoft Fabric", integrations)
+        self.assertNotIn("Databricks", integrations)
+        self.assertIn("#cdc-analytics-provider", css_source)
+        self.assertIn(".cdc-analytics-terminal", css_source)
+
 
 if __name__ == "__main__":
     unittest.main()

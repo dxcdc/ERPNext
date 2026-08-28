@@ -2461,10 +2461,416 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     vertical-align: middle;
 }
 
+/* CDC Integrações — provedor analítico NextERP -> Core -> Metabase */
+#cdc-analytics-provider {
+    overflow: hidden;
+    border: 1px solid var(--border-color, #dbe3ee);
+    border-radius: 16px;
+    background: var(--card-bg, #fff);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .08);
+    color: var(--text-color, #0f172a);
+}
+
+.cdc-analytics-loading,
+.cdc-analytics-error {
+    display: flex;
+    min-height: 210px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    padding: 30px;
+    text-align: center;
+}
+
+.cdc-analytics-loading small,
+.cdc-analytics-error span {
+    color: var(--text-muted, #64748b);
+}
+
+.cdc-analytics-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #dbeafe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: cdcAnalyticsSpin .8s linear infinite;
+}
+
+@keyframes cdcAnalyticsSpin {
+    to { transform: rotate(360deg); }
+}
+
+.cdc-analytics-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 26px 28px;
+    background: linear-gradient(135deg, #0f172a, #172554 65%, #1e3a8a);
+    color: #f8fafc;
+}
+
+.cdc-analytics-header h2 {
+    margin: 3px 0 8px;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 850;
+}
+
+.cdc-analytics-header p {
+    max-width: 760px;
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.cdc-analytics-kicker {
+    color: #93c5fd;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .13em;
+}
+
+.cdc-analytics-bi {
+    display: flex;
+    min-width: 185px;
+    flex-direction: column;
+    padding: 13px 16px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cdc-analytics-bi span,
+.cdc-analytics-bi small {
+    color: #94a3b8;
+    font-size: 10px;
+}
+
+.cdc-analytics-bi strong {
+    color: #fff;
+    font-size: 17px;
+}
+
+.cdc-analytics-flow {
+    display: grid;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: var(--subtle-fg, #f8fafc);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cdc-analytics-flow > div {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    padding-right: 18px;
+    grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.cdc-analytics-flow > div:not(:last-child)::after {
+    position: absolute;
+    top: 14px;
+    right: 7px;
+    left: 39px;
+    height: 2px;
+    background: #cbd5e1;
+    content: "";
+}
+
+.cdc-analytics-flow i {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    border: 2px solid #cbd5e1;
+    border-radius: 50%;
+    background: var(--card-bg, #fff);
+    color: #64748b;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 800;
+    place-items: center;
+}
+
+.cdc-analytics-flow b,
+.cdc-analytics-flow span {
+    grid-column: 2;
+}
+
+.cdc-analytics-flow b {
+    overflow: hidden;
+    margin-top: 1px;
+    color: var(--text-color, #0f172a);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cdc-analytics-flow span {
+    color: var(--text-muted, #64748b);
+    font-size: 10px;
+}
+
+.cdc-analytics-flow .is-ready i {
+    border-color: #10b981;
+    background: #10b981;
+    color: #fff;
+}
+
+.cdc-analytics-flow .is-ready:not(:last-child)::after {
+    background: linear-gradient(90deg, #10b981, #cbd5e1);
+}
+
+.cdc-analytics-summary {
+    display: grid;
+    gap: 12px;
+    padding: 20px 28px 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cdc-analytics-summary > div {
+    display: flex;
+    min-height: 96px;
+    flex-direction: column;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    background: var(--subtle-fg, #f8fafc);
+}
+
+.cdc-analytics-summary span,
+.cdc-analytics-summary small {
+    color: var(--text-muted, #64748b);
+    font-size: 10px;
+}
+
+.cdc-analytics-summary strong {
+    margin: 5px 0 2px;
+    color: var(--text-color, #0f172a);
+    font-size: 18px;
+}
+
+.cdc-analytics-notice {
+    display: flex;
+    gap: 10px;
+    margin: 12px 28px 22px;
+    padding: 11px 14px;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 11px;
+}
+
+.cdc-analytics-notice strong {
+    white-space: nowrap;
+}
+
+.cdc-analytics-toolbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 28px 12px;
+}
+
+.cdc-analytics-toolbar h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.cdc-analytics-toolbar p {
+    margin: 3px 0 0;
+    color: var(--text-muted, #64748b);
+    font-size: 11px;
+}
+
+.cdc-analytics-toolbar > div:last-child {
+    display: flex;
+    gap: 8px;
+}
+
+.cdc-analytics-toolbar input {
+    width: 230px;
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color, #dbe3ee);
+    border-radius: 7px;
+    background: var(--card-bg, #fff);
+    color: var(--text-color, #0f172a);
+    font-size: 12px;
+}
+
+.cdc-analytics-datasets {
+    display: grid;
+    gap: 10px;
+    padding: 0 28px 24px;
+}
+
+.cdc-analytics-dataset {
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    background: var(--card-bg, #fff);
+}
+
+.cdc-analytics-dataset-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 15px 16px;
+}
+
+.cdc-analytics-dataset-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cdc-analytics-dataset-title strong {
+    font-size: 13px;
+}
+
+.cdc-analytics-dataset-main p {
+    margin: 4px 0 2px;
+    color: var(--text-muted, #64748b);
+    font-size: 11px;
+}
+
+.cdc-analytics-dataset-main small {
+    color: #64748b;
+    font-size: 10px;
+}
+
+.cdc-analytics-status {
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.cdc-analytics-status.is-ready {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.cdc-analytics-dataset-count {
+    display: flex;
+    min-width: 135px;
+    flex-direction: column;
+    text-align: right;
+}
+
+.cdc-analytics-dataset-count strong {
+    font-size: 17px;
+}
+
+.cdc-analytics-dataset-count span {
+    color: var(--text-muted, #64748b);
+    font-size: 9px;
+}
+
+.cdc-analytics-contract {
+    border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.cdc-analytics-contract summary {
+    padding: 9px 16px;
+    color: #2563eb;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 750;
+}
+
+.cdc-analytics-contract-body {
+    display: grid;
+    gap: 10px;
+    padding: 4px 16px 16px;
+}
+
+.cdc-analytics-contract-body b {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text-muted, #64748b);
+    font-size: 9px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.cdc-analytics-contract-body > div > code {
+    display: block;
+    overflow-x: auto;
+    padding: 7px 9px;
+    border-radius: 6px;
+    background: #0f172a;
+    color: #bfdbfe;
+    font-size: 10px;
+}
+
+.cdc-analytics-field-list,
+.cdc-analytics-filter-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+}
+
+.cdc-analytics-field-list code,
+.cdc-analytics-filter-list span {
+    padding: 3px 6px;
+    border-radius: 5px;
+    background: var(--subtle-fg, #f1f5f9);
+    color: var(--text-color, #334155);
+    font-size: 9px;
+}
+
+.cdc-analytics-contract-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--text-muted, #64748b);
+    font-size: 10px;
+}
+
+.cdc-analytics-terminal {
+    max-height: 220px;
+    margin: 0;
+    overflow: auto;
+    padding: 12px;
+    border-radius: 8px;
+    background: #050b14;
+    color: #bbf7d0;
+    font-size: 10px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+}
+
+.cdc-analytics-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 28px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    background: var(--subtle-fg, #f8fafc);
+    color: var(--text-muted, #64748b);
+    font-size: 9px;
+}
+
 @media (max-width: 1100px) {
     #cdc-item-group-dashboard .cdc-monitoring-cards-grid,
     #cdc-item-list-dashboard .cdc-monitoring-cards-grid,
     #cdc-warehouse-dashboard .cdc-monitoring-cards-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cdc-analytics-summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -2479,5 +2885,53 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     .cdc-catalog-scope-status {
         flex-basis: auto;
         padding: 4px 0;
+    }
+
+    .cdc-analytics-header,
+    .cdc-analytics-toolbar,
+    .cdc-analytics-dataset-main,
+    .cdc-analytics-contract-actions,
+    .cdc-analytics-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cdc-analytics-bi {
+        min-width: 0;
+    }
+
+    .cdc-analytics-flow {
+        gap: 12px;
+        grid-template-columns: 1fr;
+    }
+
+    .cdc-analytics-flow > div:not(:last-child)::after {
+        top: 28px;
+        bottom: -13px;
+        left: 13px;
+        width: 2px;
+        height: auto;
+    }
+
+    .cdc-analytics-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .cdc-analytics-toolbar > div:last-child,
+    .cdc-analytics-toolbar input {
+        width: 100%;
+    }
+
+    .cdc-analytics-toolbar > div:last-child {
+        flex-direction: column;
+    }
+
+    .cdc-analytics-dataset-count {
+        min-width: 0;
+        text-align: left;
+    }
+
+    .cdc-analytics-notice {
+        flex-direction: column;
     }
 }
