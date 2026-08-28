@@ -114,8 +114,8 @@
     }
 
     function mappingActions(row) {
-        var actions = [];
-        if (row.status !== 'Ativo' && row.status !== 'Bloqueado') {
+        var actions = [`<button class="btn btn-xs btn-default" data-cdc-map-log="${escapeHTML(row.name)}" title="Abrir análise">+</button>`];
+        if (['Ativo', 'Ativo automático', 'Ativo manual', 'Bloqueado'].indexOf(row.status) === -1) {
             actions.push(`<button class="btn btn-xs btn-default" data-cdc-map-validate="${escapeHTML(row.name)}">Validar</button>`);
         }
         if (row.status === 'Validado') {
@@ -124,6 +124,7 @@
         if (row.status !== 'Bloqueado') {
             actions.push(`<button class="btn btn-xs btn-danger" data-cdc-map-toggle="${escapeHTML(row.name)}" data-enabled="0">Desativar</button>`);
         }
+        if (['Ativo', 'Ativo automático', 'Ativo manual', 'Bloqueado'].indexOf(row.status) === -1) actions.push(`<button class="btn btn-xs btn-default" data-cdc-map-manual="${escapeHTML(row.name)}">Ativar manual</button>`);
         return actions.join('');
     }
 
@@ -154,7 +155,8 @@
         var statuses = ['Todos'].concat(Array.from(new Set(mappings.map(function(row) { return row.status; }).filter(Boolean))));
         var warehouses = ['Todos'].concat(Array.from(new Set(mappings.map(function(row) { return row.warehouse; }).filter(Boolean))).sort());
         host.innerHTML = `
-            <div class="cdc-admin-section-title"><div><h2>Integração ONGSYS</h2><p>Leitura persistida em ${escapeHTML(data.checked_at)} · importador de estoque ${escapeHTML(sync.executor)}</p></div><div class="cdc-admin-ongsys-title-actions"><button class="btn btn-sm btn-default" data-cdc-ongsys-refresh>Atualizar</button> <button class="btn btn-sm btn-primary" data-cdc-ongsys-discover${['Aguardando', 'Executando'].indexOf(discovery.discovery_status) !== -1 ? ' disabled' : ''}>Validar pendentes automaticamente</button> <button class="btn btn-sm btn-default" data-cdc-ongsys-new>Novo mapeamento</button></div></div>
+            <div class="cdc-admin-section-title"><div><h2>Integração ONGSYS</h2><p>Leitura persistida em ${escapeHTML(data.checked_at)} · importador de estoque ${escapeHTML(sync.executor)}</p></div><div class="cdc-admin-ongsys-title-actions"><button class="btn btn-sm btn-default" data-cdc-analysis-toggle>Análise</button> <button class="btn btn-sm btn-default" data-cdc-ongsys-refresh>Atualizar</button> <button class="btn btn-sm btn-primary" data-cdc-ongsys-discover${['Aguardando', 'Executando'].indexOf(discovery.discovery_status) !== -1 ? ' disabled' : ''}>Validar pendentes automaticamente</button> <button class="btn btn-sm btn-default" data-cdc-ongsys-new>Novo mapeamento</button></div></div>
+            <div class="cdc-admin-analysis-console" data-cdc-analysis-console hidden><pre>STATUS: ${escapeHTML(discovery.discovery_status || 'Nunca executada')}\nESTRATÉGIA: ${escapeHTML(discovery.discovery_strategy || '—')}\nCONSULTAS DIRETAS: ${escapeHTML(discovery.discovery_direct_orders || 0)}\nPÁGINAS: ${escapeHTML(discovery.discovery_pages || 0)}\nEVIDÊNCIAS: ${escapeHTML(discovery.discovery_matches || 0)}\nERROS: ${escapeHTML(discovery.discovery_error || 'Nenhum erro registrado')}</pre></div>
             <div class="cdc-admin-ongsys-summary">
                 <article><span>Mapeamentos</span><strong>${summary.mappings || 0}</strong></article>
                 <article><span>Ativos</span><strong>${summary.active || 0}</strong></article>
@@ -179,7 +181,7 @@
                     <td>${escapeHTML(row.evidence_order_id || 'Pendente')}<small>${escapeHTML(row.evidence_order_title || '')}</small></td>
                     <td>${row.confidence !== null && row.confidence !== undefined ? escapeHTML(row.confidence) + '%' : '—'}<small>${escapeHTML(row.validation_detail || '')}</small></td>
                     <td><div class="cdc-admin-map-actions">${mappingActions(row)}</div></td>
-                </tr>`; }).join('') : '<tr><td colspan="7" class="cdc-admin-map-empty">Nenhum mapeamento migrado.</td></tr>'}
+                </tr><tr class="cdc-admin-map-log-row" data-cdc-map-log-row="${escapeHTML(row.name)}" hidden><td colspan="7"><pre>${escapeHTML(row.analysis_log || 'Nenhuma análise registrada para este armazém.')}</pre></td></tr>`; }).join('') : '<tr><td colspan="7" class="cdc-admin-map-empty">Nenhum mapeamento migrado.</td></tr>'}
                 ${mappings.length ? `<tr data-cdc-map-filter-empty${visibleMappings.length ? ' hidden' : ''}><td colspan="7" class="cdc-admin-map-empty">Nenhum mapeamento corresponde aos filtros.</td></tr>` : ''}
             </tbody></table></div>`;
         if (ongsysPollTimer) window.clearTimeout(ongsysPollTimer);
@@ -345,6 +347,9 @@
     $(document).on('click', '[data-cdc-map-clear]', function() { ongsysFilters = {search: '', status: 'Todos', warehouse: 'Todos'}; if (ongsysData) renderOngsysDashboard(ongsysData); });
     $(document).on('click', '[data-cdc-map-validate]', function() { mappingAction('cdc_theme.api.validate_ongsys_warehouse_mapping', this.dataset.cdcMapValidate); });
     $(document).on('click', '[data-cdc-map-toggle]', function() { mappingAction('cdc_theme.api.activate_ongsys_warehouse_mapping', this.dataset.cdcMapToggle, this.dataset.enabled); });
+    $(document).on('click', '[data-cdc-map-log]', function() { var row = document.querySelector('[data-cdc-map-log-row="' + CSS.escape(this.dataset.cdcMapLog) + '"]'); if (row) row.hidden = !row.hidden; });
+    $(document).on('click', '[data-cdc-map-manual]', function() { var name = this.dataset.cdcMapManual; frappe.prompt([{fieldname:'reason',fieldtype:'Small Text',label:'Justificativa obrigatória',reqd:1}], function(v) { frappe.call({method:'cdc_theme.api.manually_activate_ongsys_warehouse_mapping',type:'POST',args:{name:name,reason:v.reason},freeze:true,callback:loadOngsysDashboard}); }, 'Ativação manual auditada', 'Ativar'); });
+    $(document).on('click', '[data-cdc-analysis-toggle]', function() { var panel = document.querySelector('[data-cdc-analysis-console]'); if (panel) panel.hidden = !panel.hidden; });
     $(document).on('click', '[data-cdc-admin-action]', function() { runAction(this.dataset.cdcAdminAction); });
     $(document).on('click', '[data-cdc-copy-command]', function() {
         navigator.clipboard.writeText('./scripts/reparar_tema.sh').then(function() {

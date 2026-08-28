@@ -63,7 +63,7 @@ def discover(api: Common, max_pages: int = MAX_PAGES, requested_codes=None):
         except Exception as exc:
             page_errors.append(f"página {page}: {exc}")
             consecutive_errors += 1
-            if consecutive_errors >= 3:
+            if pages_seen == 0 or consecutive_errors >= 3:
                 break
             continue
         if orders is None:

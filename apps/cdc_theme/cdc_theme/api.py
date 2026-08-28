@@ -294,6 +294,7 @@ def get_cdc_admin_ongsys_dashboard():
         fields=[
             "name", "cost_center_code", "description", "warehouse", "status", "enabled",
             "evidence_order_id", "evidence_order_title", "confidence", "validation_detail",
+            "analysis_log", "last_analyzed_at", "activation_mode", "manual_reason",
             "evidence_found_at", "source", "verified_by", "verified_at", "last_used_at", "modified",
         ],
         order_by="cost_center_code asc",
@@ -320,12 +321,12 @@ def get_cdc_admin_ongsys_dashboard():
         SELECT COUNT(*) FROM `tabStock Entry`
         WHERE docstatus=1 AND COALESCE(idpedido_ongsys, '') <> ''
     """)[0][0] or 0
-    counts = {status: 0 for status in ("Descoberto", "Pendente", "Validado", "Ativo", "Bloqueado")}
+    counts = {status: 0 for status in ("Descoberto", "Pendente", "Validado", "Ativo", "Ativo automático", "Ativo manual", "Bloqueado")}
     for row in mappings:
         counts[row.status] = counts.get(row.status, 0) + 1
     return {
         "summary": {
-            "mappings": len(mappings), "active": counts.get("Ativo", 0),
+            "mappings": len(mappings), "active": counts.get("Ativo", 0) + counts.get("Ativo automático", 0) + counts.get("Ativo manual", 0),
             "pending": counts.get("Pendente", 0) + counts.get("Descoberto", 0),
             "blocked": counts.get("Bloqueado", 0), "imported_orders": imported_orders,
         },
@@ -354,8 +355,11 @@ def request_ongsys_mapping_discovery(names=None):
     requested_codes = []
     for name in names:
         doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, str(name))
-        if doc.status not in ("Descoberto", "Pendente", "Validado"):
+        if doc.status not in ("Descoberto", "Pendente", "Validado", "Sem evidência", "API indisponível", "Falha", "Revisão necessária"):
             continue
+        doc.status = "Na fila"
+        doc.analysis_log = f"[{frappe.utils.now()}] Análise solicitada; nenhuma movimentação de estoque será criada."
+        doc.save()
         requested_codes.append(doc.cost_center_code)
     if names and not requested_codes:
         frappe.throw("Nenhum dos itens selecionados está pendente de validação.", frappe.ValidationError)
@@ -389,7 +393,7 @@ def get_ongsys_mapping_discovery_context():
     requested_codes = set(frappe.parse_json(state.discovery_requested_codes) or []) if state.discovery_requested_codes else set()
     mappings = frappe.get_all(
         ONGSYS_MAPPING_DOCTYPE,
-        filters={"status": ["in", ["Descoberto", "Pendente", "Validado"]]},
+        filters={"status": ["in", ["Descoberto", "Pendente", "Na fila", "Analisando", "Validado", "Sem evidência", "API indisponível", "Falha", "Revisão necessária"]]},
         fields=["cost_center_code", "warehouse"], limit_page_length=1000,
     )
     if requested_codes:
@@ -499,9 +503,12 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
             "Código encontrado em pedido ONGSYS finalizado; descrição e armazém correspondem."
             if exact else "Código encontrado no ONGSYS, mas o armazém exige revisão administrativa."
         )
-        if exact and doc.status in ("Descoberto", "Pendente", "Validado"):
-            doc.status = "Validado"
-            doc.enabled = 0
+        doc.last_analyzed_at = frappe.utils.now_datetime()
+        doc.analysis_log = (doc.analysis_log or "") + f"\n[{frappe.utils.now()}] Pedido {order_id} localizado; confiança {doc.confidence}%."
+        if exact and doc.status in ("Descoberto", "Pendente", "Na fila", "Analisando", "Validado"):
+            doc.status = "Ativo automático"
+            doc.enabled = 1
+            doc.activation_mode = "Automática"
             doc.verified_by = frappe.session.user
             doc.verified_at = frappe.utils.now_datetime()
             validated += 1
@@ -515,9 +522,13 @@ def record_ongsys_mapping_discovery(findings=None, stats=None, error=None):
         if not missing_name:
             continue
         missing_doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, missing_name)
-        if missing_doc.status in ("Descoberto", "Pendente", "Validado"):
+        if missing_doc.status in ("Descoberto", "Pendente", "Validado", "Na fila", "Analisando"):
             missing_doc.confidence = 0
-            missing_doc.validation_detail = "Nenhum pedido ONGSYS elegível foi encontrado nas fontes consultadas; vínculo permanece pendente."
+            unavailable = not stats.get("pages") and bool(page_errors)
+            missing_doc.status = "API indisponível" if unavailable else "Sem evidência"
+            missing_doc.validation_detail = "A paginação falhou; fontes alternativas não confirmaram o vínculo." if unavailable else "As fontes responderam, mas nenhuma evidência elegível foi encontrada."
+            missing_doc.last_analyzed_at = frappe.utils.now_datetime()
+            missing_doc.analysis_log = (missing_doc.analysis_log or "") + f"\n[{frappe.utils.now()}] {missing_doc.validation_detail}"
             missing_doc.save()
             exceptions += 1
     state.discovery_completed_at = frappe.utils.now_datetime()
@@ -613,12 +624,30 @@ def activate_ongsys_warehouse_mapping(name, enabled=1):
     _require_ongsys_mapping_doctype()
     doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, name)
     activate = frappe.utils.cint(enabled) == 1
-    if activate and doc.status not in ("Validado", "Ativo"):
+    if activate and doc.status not in ("Validado", "Ativo", "Ativo automático", "Ativo manual"):
         frappe.throw("Somente mapeamentos validados podem ser ativados.", frappe.ValidationError)
     doc.status = "Ativo" if activate else "Bloqueado"
     doc.enabled = 1 if activate else 0
     doc.save()
     return {"ok": True, "message": f"Mapeamento {doc.cost_center_code} {'ativado' if activate else 'desativado'}."}
+
+
+@frappe.whitelist(methods=["POST"])
+def manually_activate_ongsys_warehouse_mapping(name, reason):
+    _require_system_manager()
+    doc = frappe.get_doc(ONGSYS_MAPPING_DOCTYPE, name)
+    reason = (reason or "").strip()
+    if len(reason) < 10:
+        frappe.throw("Informe uma justificativa com pelo menos 10 caracteres.", frappe.ValidationError)
+    warehouse = frappe.db.get_value("Warehouse", doc.warehouse, ["is_group", "disabled"], as_dict=True) if doc.warehouse else None
+    if not warehouse or warehouse.is_group or warehouse.disabled:
+        frappe.throw("Selecione um armazém operacional e ativo.", frappe.ValidationError)
+    doc.status, doc.enabled = "Ativo manual", 1
+    doc.activation_mode, doc.manual_reason = "Manual", reason[:1000]
+    doc.verified_by, doc.verified_at = frappe.session.user, frappe.utils.now_datetime()
+    doc.analysis_log = (doc.analysis_log or "") + f"\n[{frappe.utils.now()}] Ativação manual por {frappe.session.user}: {reason[:300]}"
+    doc.save()
+    return {"ok": True, "message": f"Mapeamento {doc.cost_center_code} ativado manualmente e auditado."}
 @frappe.whitelist()
 def get_cdc_admin_diagnostics():
     """Diagnosticos leves, sem shell e sem alterar dados."""
