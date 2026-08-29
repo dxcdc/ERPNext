@@ -354,6 +354,8 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertNotIn("var claim = claimActiveDashboard", main_theme_source)
         self.assertIn('"repair_theme"', api_source)
         self.assertIn("_theme_integrity_health", api_source)
+        self.assertIn('"server_repair_required"', api_source)
+        self.assertIn('"repair_complete"', api_source)
         self.assertNotIn("Todos os testes foram aprovados", tests_source)
 
     def test_warehouse_rbac_gate_runs_read_only_behavioral_audit(self):

@@ -407,7 +407,7 @@
     function renderDashboard(dashboard, data) {
         latestDashboardData = data;
         var summary = data.summary || {};
-        var labels = {passed: 'Aprovado', warning: 'Atenção', blocked: 'Bloqueado'};
+        var labels = {passed: 'Aprovado', warning: 'Atenção', blocked: 'Pendente'};
         var checksHTML = (data.checks || []).map(function(check) {
             var status = ['passed', 'warning', 'blocked'].indexOf(check.status) !== -1 ? check.status : 'warning';
             var details = Array.isArray(check.details) ? check.details : [check.evidence];
@@ -445,19 +445,21 @@
                     <div class="cdc-tests-hero-copy">
                         <span class="cdc-quality-eyebrow">Qualidade operacional</span>
                         <h1>CDC Testes</h1>
-                        <p>Validações de rotas, integrações, segurança e critérios obrigatórios antes da publicação.</p>
+                        <p>Validações técnicas para liberar a próxima atualização do sistema.</p>
                     </div>
                     <div class="cdc-tests-release-state">
                         <span>${summary.ready_to_publish ? '✓' : '!'}</span>
-                        <div><strong>${summary.ready_to_publish ? 'Pronto para publicar' : 'Publicação bloqueada'}</strong><small>${summary.passed || 0} de ${summary.total || 10} gates aprovados</small></div>
+                        <div><strong>${summary.ready_to_publish ? 'Atualização pronta para publicação' : 'Validação da próxima atualização incompleta'}</strong><small>${summary.passed || 0} de ${summary.total || 10} verificações aprovadas</small></div>
                     </div>
                 </header>
 
+                <p class="cdc-quality-note"><strong>O uso do ERP continua liberado:</strong> estas pendências técnicas não bloqueiam lançamentos, entradas, saídas nem as demais operações do sistema.</p>
+
                 <section class="cdc-tests-summary" aria-label="Resumo dos testes">
-                    <article><span>Total de gates</span><strong>${summary.total || 0}</strong><small>Critérios monitorados</small></article>
+                    <article><span>Total de verificações</span><strong>${summary.total || 0}</strong><small>Critérios técnicos monitorados</small></article>
                     <article class="is-passed"><span>Aprovados</span><strong>${summary.passed || 0}</strong><small>Com evidência confirmada</small></article>
                     <article class="is-warning"><span>Atenções</span><strong>${summary.warnings || 0}</strong><small>Dependem de validação externa</small></article>
-                    <article class="is-blocked"><span>Bloqueios</span><strong>${summary.blocked || 0}</strong><small>Impedem a publicação</small></article>
+                    <article class="is-blocked"><span>Pendências técnicas</span><strong>${summary.blocked || 0}</strong><small>Antes da próxima atualização</small></article>
                 </section>
 
                 <section class="cdc-tests-toolbar">
@@ -476,7 +478,7 @@
                     ${checksHTML || '<div class="cdc-tests-state is-error">Nenhum teste retornado pelo servidor.</div>'}
                 </section>
                 <p class="cdc-quality-note"><strong>Recuperação do tema:</strong> o botão “Reparar tema e caches” atua quando o ERP está acessível. Se o Desk ou o backend não carregarem, use no servidor <code>./scripts/reparar_tema.sh</code>, que também verifica sintaxe, serviços e publicação dos assets.</p>
-                <p class="cdc-quality-note"><strong>Política:</strong> resultados indisponíveis permanecem como atenção ou bloqueio. Esta tela não executa sincronizações externas nem publica código.</p>
+                <p class="cdc-quality-note"><strong>Política:</strong> resultados indisponíveis permanecem como atenção ou pendência técnica. Esta tela não bloqueia operações, não executa sincronizações externas e não publica código.</p>
             </div>`;
         setExecutionButtonState();
         syncTerminal();
@@ -882,6 +884,24 @@
                         setGateStage(gateId, 2, repairSummary && Number(repairSummary.errors || 0) > 0 ? 'warning' : 'passed', repairSummary
                             ? `${repairSummary.ok || 0}/${repairSummary.total || 0} diagnósticos saudáveis após o reparo.`
                             : 'Servidor reconciliado; diagnóstico detalhado indisponível.');
+                        if (result.repair_complete === false) {
+                            if (result.theme_gate) updateSingleGate(result.theme_gate, null);
+                            var pendingEvidence = result.theme_gate && result.theme_gate.evidence
+                                ? result.theme_gate.evidence
+                                : 'O servidor não confirmou a integridade dos assets.';
+                            setGateStage(gateId, 3, 'warning', 'A limpeza de caches não resolve a pendência identificada nos assets publicados.');
+                            setGateStage(gateId, 4, 'failed', pendingEvidence);
+                            completeGateProgress(gateId, 'failed');
+                            appendExecutionLog('WARN', `Reparo parcial: ${pendingEvidence}`);
+                            appendGateLog(gateId, 'WARN', `Reparo no servidor necessário — ${pendingEvidence}`);
+                            runningGateId = null;
+                            finishGateConsole(gateId, 'PENDENTE', 'O reparo pelo ERP foi concluído, mas o gate 9 continua pendente e exige ação no servidor.');
+                            button.disabled = false;
+                            button.textContent = 'Reparar tema e caches';
+                            renderGateResult(gateId, true);
+                            frappe.msgprint(__(result.message));
+                            return;
+                        }
                         setGateStage(gateId, 3, 'running', 'Limpando o estado local e preparando a remontagem SPA.');
                         appendExecutionLog('REPAIR', 'Servidor reconciliado; limpando o estado do navegador e revalidando os assets...');
                         appendGateLog(gateId, 'REPAIR', 'Servidor reconciliado; limpando o estado local e revalidando assets...');

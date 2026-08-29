@@ -168,6 +168,7 @@ const fakeFrappe = {
             options.callback({message: {
                 ok: true,
                 message: 'Tema reparado.',
+                repair_complete: true,
                 diagnostics: {summary: {total: 7, ok: 7, errors: 0}}
             }});
         }
@@ -208,6 +209,9 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     assert.match(dashboard.innerHTML, /data-cdc-overall-progress/);
     assert.match(dashboard.innerHTML, /data-cdc-gate-progress="item-group-route"/);
     assert.match(dashboard.innerHTML, /Linha deste teste/);
+    assert.match(dashboard.innerHTML, /Validação da próxima atualização incompleta/);
+    assert.match(dashboard.innerHTML, /não bloqueiam lançamentos, entradas, saídas/);
+    assert.match(dashboard.innerHTML, /Pendências técnicas/);
     click.call(executionButton);
 
     assert.deepEqual(calls, [

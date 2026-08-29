@@ -780,6 +780,23 @@ def run_cdc_admin_action(action):
         message = "Tema claro reaplicado ao usuário atual."
 
     diagnostics = get_cdc_admin_diagnostics() if action == "repair_theme" else None
+    theme_gate = None
+    repair_complete = None
+    if action == "repair_theme":
+        dashboard = get_cdc_tests_dashboard()
+        theme_gate = next(
+            (item for item in dashboard["checks"] if item["id"] == "theme-integrity"),
+            None,
+        )
+        repair_complete = bool(theme_gate and theme_gate["status"] == "passed")
+        if repair_complete:
+            message = "Tema, workspaces, assets e caches foram revalidados com sucesso."
+        else:
+            evidence = theme_gate["evidence"] if theme_gate else "diagnóstico do tema indisponível"
+            message = (
+                "O reparo acessível pelo ERP foi executado, mas o tema ainda possui pendências: "
+                f"{evidence} Execute ./scripts/reparar_tema.sh no servidor."
+            )
     frappe.logger("cdc_admin").info("CDC Admin action=%s user=%s", action, frappe.session.user)
     return {
         "ok": True,
@@ -788,6 +805,10 @@ def run_cdc_admin_action(action):
         "reload_required": action == "repair_theme",
         "browser_repair_required": action == "repair_theme",
         "diagnostics": diagnostics,
+        "theme_gate": theme_gate,
+        "repair_complete": repair_complete,
+        "server_repair_required": action == "repair_theme" and not repair_complete,
+        "repair_command": "./scripts/reparar_tema.sh" if action == "repair_theme" and not repair_complete else None,
     }
 
 
