@@ -2633,6 +2633,14 @@ QUALITY_GATE_COPY = {
     },
     "ongsys-integrity": {
         "execution_type": "Automático",
+        "attention_label": "Revisar integração",
+        "attention_impact": (
+            "Isso não bloqueia lançamentos manuais. Indica que a proteção contra pedidos duplicados "
+            "ou a confirmação recente da sincronização ONGSYS ainda não está completa."
+        ),
+        "attention_next_step": (
+            "Confirmar o índice único de pedidos ONGSYS e uma sincronização concluída nas últimas duas horas."
+        ),
         "stages": ("Preparação", "Permissões", "Normalização", "Idempotência e checkpoint", "Resultado"),
         "summary": "Protege a importação ONGSYS contra duplicidades e acompanha a atualização da sincronização.",
         "details": (
@@ -2656,6 +2664,14 @@ QUALITY_GATE_COPY = {
     },
     "security-ci": {
         "execution_type": "Externo",
+        "attention_label": "Validação externa",
+        "attention_impact": (
+            "Este aviso não afirma que uma senha vazou ou que o backup falhou. A tela apenas não possui "
+            "acesso suficiente ao servidor e ao GitHub para comprovar esses controles sozinha."
+        ),
+        "attention_next_step": (
+            "Registrar a confirmação do backup, da verificação de segredos e das proteções da CI/PR fora do ERP."
+        ),
         "stages": ("Preparação", "Permissões", "Segredos e backup", "CI e proteção do PR", "Resultado externo"),
         "summary": "Lembra as verificações externas de segredos, backups e proteção do processo de publicação.",
         "details": (
@@ -2665,6 +2681,14 @@ QUALITY_GATE_COPY = {
     },
     "automated-tests": {
         "execution_type": "Híbrido",
+        "attention_label": "CI pendente",
+        "attention_impact": (
+            "As APIs disponíveis podem ser testadas nesta tela, mas isso não substitui a suíte completa nem "
+            "a validação visual autenticada. O aviso não impede o uso normal do ERP."
+        ),
+        "attention_next_step": (
+            "Executar este item para validar as APIs reais e anexar o resultado da suíte automatizada/CI."
+        ),
         "stages": ("Preparação", "Permissões", "API Estoque", "API Usuários", "Evidências e CI", "Resultado"),
         "summary": "Verifica as APIs autenticadas de Estoque e Usuários e indica o que ainda depende da suíte automatizada.",
         "details": (
@@ -2719,6 +2743,16 @@ def _monitoring_quality_gate(
         "execution_type": copy.get("execution_type", "Automático"),
         "stages": list(copy.get("stages", ("Preparação", "Permissões", "Evidências", "Resultado"))),
     }
+    if status == "warning":
+        gate["attention_label"] = copy.get("attention_label", "Requer confirmação")
+        gate["attention_impact"] = copy.get(
+            "attention_impact",
+            "A verificação ficou inconclusiva; isso não significa, por si só, falha operacional.",
+        )
+        gate["attention_next_step"] = copy.get(
+            "attention_next_step",
+            "Abra os detalhes e execute novamente o teste para obter evidências atualizadas.",
+        )
     if action:
         gate["action"] = action
         gate["action_label"] = action_label or "Executar correção"

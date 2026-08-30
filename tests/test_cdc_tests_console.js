@@ -107,7 +107,7 @@ const fakeFrappe = {
                 checks: [
                     {id: 'item-group-route', title: '1. Rotas', summary: 'Rotas corretas.', details: ['Um', 'Dois', 'Três'], evidence: 'Rotas válidas', status: 'passed', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Rotas', 'Evidências', 'Resultado']},
                     {id: 'warehouse-rbac', title: '5. RBAC por armazém', summary: 'Isolamento por armazém.', details: ['Um', 'Dois', 'Três'], evidence: 'SQL legado ainda não comprovado', status: 'blocked', execution_type: 'Automático', stages: ['Preparação', 'Autorização administrativa', 'Configuração RBAC', 'Usuário restrito', 'Consulta permitida', 'Tentativa proibida', 'Agregados legados', 'Resultado']},
-                    {id: 'automated-tests', title: '7. APIs', summary: 'APIs reais.', details: ['Um', 'Dois', 'Três'], evidence: 'CI externa pendente', status: 'warning', execution_type: 'Híbrido', stages: ['Preparação', 'Permissões', 'API Estoque', 'API Usuários', 'Evidências e CI', 'Resultado']},
+                    {id: 'automated-tests', title: '7. APIs', summary: 'APIs reais.', details: ['Um', 'Dois', 'Três'], evidence: 'CI externa pendente', status: 'warning', attention_label: 'CI pendente', attention_impact: 'O ERP continua disponível.', attention_next_step: 'Anexar o resultado da CI.', execution_type: 'Híbrido', stages: ['Preparação', 'Permissões', 'API Estoque', 'API Usuários', 'Evidências e CI', 'Resultado']},
                     {id: 'theme-integrity', title: '9. Tema', summary: 'Tema íntegro.', details: ['Um', 'Dois', 'Três'], evidence: 'Validação externa pendente', status: 'warning', execution_type: 'Automático', stages: ['Preparação', 'Permissões', 'Assets', 'Montagem', 'Resultado']}
                 ]
             }});
@@ -212,6 +212,12 @@ new Function('window', 'document', 'frappe', '$', '__', 'sessionStorage', source
     assert.match(dashboard.innerHTML, /Validação da próxima atualização incompleta/);
     assert.match(dashboard.innerHTML, /não bloqueiam lançamentos, entradas, saídas/);
     assert.match(dashboard.innerHTML, /Pendências técnicas/);
+    assert.match(dashboard.innerHTML, /Por que aparece atenção\?/);
+    assert.match(dashboard.innerHTML, /Impacto real/);
+    assert.match(dashboard.innerHTML, /O que falta fazer/);
+    assert.match(dashboard.innerHTML, /CI pendente/);
+    assert.match(dashboard.innerHTML, /\[MOTIVO\] CI externa pendente/);
+    assert.match(dashboard.innerHTML, /\[PRÓXIMO PASSO\] Anexar o resultado da CI/);
     click.call(executionButton);
 
     assert.deepEqual(calls, [

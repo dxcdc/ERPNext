@@ -299,12 +299,21 @@
         syncTerminal();
     }
 
-    function gateTerminalHTML(gateId, title) {
+    function gateTerminalHTML(check) {
+        var gateId = check.id;
+        var title = check.title;
         var logs = gateExecutionLogs[gateId] || [];
         var status = gateExecutionStatus[gateId] || 'PRONTO';
-        var output = logs.length
-            ? escapeHTML(logs.join('\n'))
-            : `$ Aguardando “Executar este teste” para validar ${escapeHTML(title)}...`;
+        var initialLines = check.status === 'warning'
+            ? [
+                '$ STATUS ATUAL: ATENÇÃO',
+                `[MOTIVO] ${check.evidence || 'A validação ficou inconclusiva.'}`,
+                `[IMPACTO] ${check.attention_impact || 'Este aviso não comprova uma falha operacional.'}`,
+                `[PRÓXIMO PASSO] ${check.attention_next_step || 'Execute este teste para atualizar as evidências.'}`,
+                '$ Use “Executar este teste” para atualizar esta análise.'
+            ]
+            : [`$ Aguardando “Executar este teste” para validar ${title}...`];
+        var output = escapeHTML(logs.length ? logs.join('\n') : initialLines.join('\n'));
         return `<section class="cdc-gate-terminal ${status === 'EXECUTANDO' ? 'is-running' : ''}" data-cdc-gate-terminal="${escapeHTML(gateId)}" aria-label="Console do teste ${escapeHTML(title)}" aria-live="polite">
             <header><span class="cdc-terminal-lights"><i></i><i></i><i></i></span><strong>console / ${escapeHTML(gateId)}</strong><span data-cdc-gate-terminal-status>${escapeHTML(status)}</span></header>
             <pre data-cdc-gate-terminal-output>${output}</pre>
@@ -417,23 +426,34 @@
             var actionHTML = check.action
                 ? `<button type="button" class="btn btn-xs btn-default" data-cdc-tests-action="${escapeHTML(check.action)}" data-cdc-action-gate="${escapeHTML(check.id)}">${escapeHTML(check.action_label || 'Executar correção')}</button>`
                 : '';
+            var attentionHTML = status === 'warning'
+                ? `<aside class="cdc-quality-gate-attention" aria-label="Explicação desta atenção">
+                    <strong>Por que aparece atenção?</strong>
+                    <p>${escapeHTML(check.evidence || 'A validação ficou inconclusiva.')}</p>
+                    <dl>
+                        <div><dt>Impacto real</dt><dd>${escapeHTML(check.attention_impact || 'Este aviso não comprova uma falha operacional.')}</dd></div>
+                        <div><dt>O que falta fazer</dt><dd>${escapeHTML(check.attention_next_step || 'Execute novamente o teste para atualizar as evidências.')}</dd></div>
+                    </dl>
+                </aside>`
+                : '';
             return `<article class="cdc-quality-gate is-${status}" data-quality-gate="${escapeHTML(check.id)}">
                 <div class="cdc-quality-gate-status">${status === 'passed' ? '✓' : (status === 'blocked' ? '×' : '!')}</div>
                 <div class="cdc-quality-gate-copy">
                     <h3>${escapeHTML(check.title)}</h3>
                     <p class="cdc-quality-gate-summary">${escapeHTML(check.summary || check.evidence)}</p>
+                    ${attentionHTML}
                     <details class="cdc-quality-gate-details">
                         <summary><span aria-hidden="true">+</span> Entender este teste</summary>
                         <div>${detailsHTML}</div>
                     </details>
                 </div>
                 <div class="cdc-quality-gate-actions">
-                    <span class="cdc-quality-gate-badge">${labels[status]}</span>
+                    <span class="cdc-quality-gate-badge">${escapeHTML(status === 'warning' ? (check.attention_label || labels[status]) : labels[status])}</span>
                     <button type="button" class="btn btn-xs btn-primary" data-cdc-run-gate="${escapeHTML(check.id)}">${runningGateId === check.id ? 'Executando...' : 'Executar este teste'}</button>
                     ${actionHTML}
                 </div>
                 ${gateProgressHTML(check)}
-                ${gateTerminalHTML(check.id, check.title)}
+                ${gateTerminalHTML(check)}
             </article>`;
         }).join('');
 
