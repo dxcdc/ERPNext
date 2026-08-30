@@ -386,7 +386,10 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("finally:", finder_source)
         self.assertIn("frappe.set_user(original_user)", finder_source)
         self.assertIn("require_stock_manager=True", audit_source)
-        self.assertIn("Nenhum Stock Manager existente possui escopo parcial", audit_source)
+        self.assertIn("legacy_role_barrier_isolated", audit_source)
+        self.assertIn("_CDC_RBAC_AUDIT_TOKEN", audit_source)
+        self.assertIn("project_warehouses", audit_source)
+        self.assertIn("forbidden_legacy_blocked", audit_source)
         for forbidden_mutation in (
             "frappe.db.set_value", ".save(", ".insert(", "frappe.new_doc",
             'frappe.get_doc({"doctype": "User Permission"',
@@ -397,6 +400,16 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("function executeWarehouseRbacStages", tests_source)
         self.assertIn("result.check.stage_results", tests_source)
         self.assertIn("gateId === 'warehouse-rbac'", tests_source)
+
+    def test_legacy_stock_sql_applies_native_warehouse_scope_everywhere(self):
+        api_source = API_PY.read_text()
+        self.assertIn("def _permitted_leaf_warehouses", api_source)
+        self.assertIn("def _warehouse_permission_sql", api_source)
+        self.assertIn("_warehouse_permission_sql(stock_entry_warehouse)", api_source)
+        self.assertIn("_warehouse_permission_sql('warehouse')", api_source)
+        self.assertIn("_warehouse_permission_sql('w.name')", api_source)
+        self.assertIn("_warehouse_permission_sql(wh_field)", api_source)
+        self.assertIn("Armazém indisponível para o usuário atual.", api_source)
 
     def test_cdc_groups_uses_permission_scoped_management_dashboard(self):
         source = GROUPS_JS.read_text()

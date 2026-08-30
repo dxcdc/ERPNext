@@ -9,6 +9,9 @@ import frappe
 from frappe.utils import add_days, add_months, get_datetime, get_first_day, getdate, now_datetime, today
 
 
+_CDC_RBAC_AUDIT_TOKEN = object()
+
+
 def _require_system_manager():
     """Restringe operacoes administrativas mesmo para usuarios autenticados."""
     frappe.only_for("System Manager")
@@ -24,13 +27,35 @@ def _require_read_permission(doctype):
 
 
 def _require_stock_dashboard_access():
-    """Restringe consultas agregadas que usam SQL e não aplicam User Permission por linha."""
+    """Restringe o painel consolidado antes da aplicação do escopo por armazém."""
+    if getattr(frappe.flags, "cdc_rbac_audit_token", None) is _CDC_RBAC_AUDIT_TOKEN:
+        return
     roles = set(frappe.get_roles(frappe.session.user))
     if not roles.intersection({"System Manager", "Stock Manager"}):
         frappe.throw(
             "Painel consolidado restrito a gestores de estoque.",
             frappe.PermissionError,
         )
+
+
+def _permitted_leaf_warehouses():
+    """Usa a consulta nativa do Frappe para materializar o escopo efetivo do usuário."""
+    return set(frappe.get_list(
+        "Warehouse",
+        filters={"is_group": 0},
+        pluck="name",
+        order_by="name asc",
+        limit_page_length=0,
+    ))
+
+
+def _warehouse_permission_sql(field_expression):
+    """Produz uma cláusula SQL fechada sobre os Warehouse permitidos pelo Frappe."""
+    warehouses = sorted(_permitted_leaf_warehouses())
+    if not warehouses:
+        return "1=0"
+    escaped = ", ".join(frappe.db.escape(name) for name in warehouses)
+    return f"{field_expression} IN ({escaped})"
 
 @frappe.whitelist()
 def custom_get_desktop_page(page):
@@ -1942,13 +1967,13 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
     wh_field = "se.from_warehouse" if is_issue else "se.to_warehouse"
 
     unit_prefix = get_unit_prefix(selected_unit)
-    where_unit = ""
+    where_unit = f" AND {_warehouse_permission_sql(wh_field)}"
     project_clause = _project_warehouse_clause(wh_field, selected_project)
     if project_clause:
-        where_unit = f" AND {project_clause}"
+        where_unit += f" AND {project_clause}"
     elif unit_prefix != 'All':
         unit_keyword = unit_prefix.replace("'", "''")
-        where_unit = f" AND ({wh_field} = '{unit_keyword}' OR {wh_field} LIKE '%{unit_keyword}%')"
+        where_unit += f" AND ({wh_field} = '{unit_keyword}' OR {wh_field} LIKE '%{unit_keyword}%')"
 
     projects_list = [
         "Projeto Atitude II.I",
@@ -2182,17 +2207,23 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     _require_read_permission("Warehouse")
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
-        
+
+    permitted_warehouses = _permitted_leaf_warehouses()
+    all_leaf_warehouses = set(frappe.get_all(
+        "Warehouse", filters={"is_group": 0}, pluck="name", limit_page_length=0,
+    ))
     unit_prefix = get_unit_prefix(selected_unit)
+    if permitted_warehouses < all_leaf_warehouses and unit_prefix != 'All':
+        permitted_selection = any(
+            name == unit_prefix or unit_prefix in name
+            for name in permitted_warehouses
+        )
+        if not permitted_selection:
+            frappe.throw("Armazém indisponível para o usuário atual.", frappe.PermissionError)
     
     current_month_start = get_first_day(today())
     previous_month_start = get_first_day(add_months(current_month_start, -1))
     activity_cutoff = add_days(today(), -30)
-    where_se = f"WHERE se.docstatus=1 AND se.posting_date >= '{current_month_start}'"
-    where_recent = "WHERE se.docstatus=1"
-    where_bin = "WHERE 1=1"
-    where_wh = "WHERE w.is_group=0"
-
     # ERPNext costuma manter o armazém nas linhas de Stock Entry Detail. O
     # cabeçalho pode ficar vazio, especialmente em transferências e documentos
     # antigos. Esta expressão preserva os filtros e rótulos nesses dois casos.
@@ -2202,6 +2233,13 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         (SELECT NULLIF(MAX(sed.s_warehouse), '') FROM `tabStock Entry Detail` sed WHERE sed.parent=se.name),
         ''
     )"""
+    where_se = (
+        f"WHERE se.docstatus=1 AND se.posting_date >= '{current_month_start}' "
+        f"AND {_warehouse_permission_sql(stock_entry_warehouse)}"
+    )
+    where_recent = f"WHERE se.docstatus=1 AND {_warehouse_permission_sql(stock_entry_warehouse)}"
+    where_bin = f"WHERE {_warehouse_permission_sql('warehouse')}"
+    where_wh = f"WHERE w.is_group=0 AND {_warehouse_permission_sql('w.name')}"
     project_se_clause = _project_warehouse_clause(stock_entry_warehouse, selected_project)
     project_bin_clause = _project_warehouse_clause("warehouse", selected_project)
     project_wh_clause = _project_warehouse_clause("w.name", selected_project)
@@ -2227,15 +2265,9 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         where_recent += " AND se.purpose='Material Issue'"
         
     # 1. Contadores dos 4 Cards Numeradores
-    if selected_unit == 'All' and not project_se_clause:
-        month_filters = {'docstatus': 1, 'posting_date': ['>=', current_month_start]}
-        receipts_month = frappe.db.count('Stock Entry', {**month_filters, 'purpose': 'Material Receipt'})
-        issues_month = frappe.db.count('Stock Entry', {**month_filters, 'purpose': 'Material Issue'})
-        transfers_month = frappe.db.count('Stock Entry', {**month_filters, 'purpose': 'Material Transfer'})
-    else:
-        receipts_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Receipt'")[0][0] or 0
-        issues_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Issue'")[0][0] or 0
-        transfers_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Transfer'")[0][0] or 0
+    receipts_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Receipt'")[0][0] or 0
+    issues_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Issue'")[0][0] or 0
+    transfers_month = frappe.db.sql(f"SELECT COUNT(*) FROM `tabStock Entry` se {where_se} AND se.purpose='Material Transfer'")[0][0] or 0
     
     total_qty = frappe.db.sql(f"SELECT SUM(actual_qty) FROM tabBin {where_bin}")[0][0] or 0
     total_items = frappe.db.sql(f"SELECT COUNT(DISTINCT item_code) FROM tabBin {where_bin} AND actual_qty > 0")[0][0] or 0
@@ -2298,10 +2330,10 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         })
         
     # 3. Lista atual de armazéns para o dropdown
-    warehouses_raw = frappe.db.sql("""
+    warehouses_raw = frappe.db.sql(f"""
         SELECT name 
         FROM tabWarehouse 
-        WHERE is_group=0 
+        WHERE is_group=0 AND {_warehouse_permission_sql('name')}
         ORDER BY name ASC
     """)
     
@@ -2431,13 +2463,14 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     elif selected_project:
         unit_display_label = selected_project
 
-    previous_counts = frappe.db.sql("""
+    previous_counts = frappe.db.sql(f"""
         SELECT
             SUM(purpose='Material Receipt') AS receipts,
             SUM(purpose='Material Issue') AS issues,
             SUM(purpose='Material Transfer') AS transfers
-        FROM `tabStock Entry`
-        WHERE docstatus=1 AND posting_date >= %s AND posting_date < %s
+        FROM `tabStock Entry` se
+        WHERE se.docstatus=1 AND se.posting_date >= %s AND se.posting_date < %s
+          AND {_warehouse_permission_sql(stock_entry_warehouse)}
     """, (previous_month_start, current_month_start), as_dict=True)[0]
 
     return {
@@ -2964,11 +2997,22 @@ def _run_warehouse_rbac_audit():
         ])
 
     manager_candidate = _find_restricted_warehouse_user(all_warehouses, require_stock_manager=True)
-    if manager_candidate:
-        metrics["legacy_identity"] = manager_candidate["masked_user"]
-        metrics["legacy_visible_warehouses"] = len(manager_candidate["visible_warehouses"])
+    legacy_candidate = manager_candidate or catalog_candidate
+    if legacy_candidate:
+        metrics["legacy_identity"] = legacy_candidate["masked_user"]
+        metrics["legacy_visible_warehouses"] = len(legacy_candidate["visible_warehouses"])
+        metrics["legacy_role_barrier_isolated"] = not bool(manager_candidate)
         try:
-            frappe.set_user(manager_candidate["user"])
+            frappe.set_user(legacy_candidate["user"])
+            if not manager_candidate:
+                role_barrier_confirmed = False
+                try:
+                    _require_stock_dashboard_access()
+                except frappe.PermissionError:
+                    role_barrier_confirmed = True
+                if not role_barrier_confirmed:
+                    raise RuntimeError("A barreira de papel do CDC Estoque não rejeitou a identidade restrita.")
+                frappe.flags.cdc_rbac_audit_token = _CDC_RBAC_AUDIT_TOKEN
             legacy_result = get_stock_dashboard_data(
                 selected_unit="All", period="quarter", entry_type="receipt", table_type="all",
             )
@@ -2976,17 +3020,42 @@ def _run_warehouse_rbac_audit():
                 row.get("value") for row in (legacy_result.get("available_units") or [])
                 if row.get("value") and row.get("value") != "All"
             }
-            unexpected = legacy_units - manager_candidate["visible_warehouses"]
+            unexpected = legacy_units - legacy_candidate["visible_warehouses"]
+            project_warehouses = sum(
+                int(row.get("warehouses") or 0)
+                for row in (legacy_result.get("projects") or [])
+            )
             legacy_ok = (
                 not unexpected
                 and int(legacy_result.get("total_warehouses") or 0)
-                <= len(manager_candidate["visible_warehouses"])
+                <= len(legacy_candidate["visible_warehouses"])
+                and project_warehouses <= len(legacy_candidate["visible_warehouses"])
             )
+            permitted_legacy = sorted(legacy_candidate["visible_warehouses"])[0]
+            forbidden_legacy = sorted(all_warehouses - legacy_candidate["visible_warehouses"])[0]
+            get_stock_dashboard_data(
+                selected_unit=permitted_legacy, period="quarter",
+                entry_type="receipt", table_type="all",
+            )
+            metrics["forbidden_attempts"] += 1
+            forbidden_legacy_blocked = False
+            try:
+                get_stock_dashboard_data(
+                    selected_unit=forbidden_legacy, period="quarter",
+                    entry_type="receipt", table_type="all",
+                )
+            except frappe.PermissionError:
+                forbidden_legacy_blocked = True
+            legacy_ok = legacy_ok and forbidden_legacy_blocked
             metrics["unexpected_warehouses"] += len(unexpected)
             stage_results.append(_warehouse_rbac_stage(
                 6, "Agregados legados", "passed" if legacy_ok else "failed",
-                "CDC Estoque respeitou o mesmo conjunto de armazéns permitidos."
-                if legacy_ok else "CDC Estoque expôs opções ou totais além do escopo permitido.",
+                (
+                    "CDC Estoque limitou cards, opções, projetos e séries ao escopo permitido; "
+                    "a seleção externa também foi rejeitada."
+                    if legacy_ok else
+                    "CDC Estoque expôs opções/totais externos ou aceitou uma seleção fora do escopo."
+                ),
             ))
         except Exception as error:
             stage_results.append(_warehouse_rbac_stage(
@@ -2994,12 +3063,13 @@ def _run_warehouse_rbac_audit():
                 f"A validação do CDC Estoque terminou com erro do tipo {type(error).__name__}.",
             ))
         finally:
+            frappe.flags.cdc_rbac_audit_token = None
             frappe.set_user(original_user)
     else:
         metrics["legacy_identity"] = "indisponível"
         stage_results.append(_warehouse_rbac_stage(
             6, "Agregados legados", "failed",
-            "Nenhum Stock Manager existente possui escopo parcial de Warehouse; o isolamento dos SQL agregados não pôde ser comprovado.",
+            "Nenhuma identidade existente possui escopo parcial e leituras suficientes para auditar os agregados.",
         ))
 
     frappe.set_user(original_user)
