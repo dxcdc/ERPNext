@@ -1,4 +1,4 @@
-name: Sincronizar Issues Ansible e Semaphore
+name: Sincronizar Issues Ansible e Rundeck
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - lab/estabilizacao-tema-cdc
       - main
     paths:
-      - docs/issues_ansible_semaphore.json
+      - docs/issues_ansible_rundeck.json
       - .github/workflows/automatizar_issues_ansible.yml
   workflow_dispatch:
 
@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validar manifesto de Issues
-        run: jq -e 'type == "array" and length > 0 and all(.[]; .title and .body and .labels)' docs/issues_ansible_semaphore.json
+        run: jq -e 'type == "array" and length > 0 and all(.[]; .title and .body and .labels)' docs/issues_ansible_rundeck.json
 
       - name: Criar labels e Issues ausentes
         env:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          jq -c '.[]' docs/issues_ansible_semaphore.json | while IFS= read -r issue; do
+          jq -c '.[]' docs/issues_ansible_rundeck.json | while IFS= read -r issue; do
             title=$(jq -r '.title' <<< "$issue")
             body=$(jq -r '.body' <<< "$issue")
             labels=$(jq -r '.labels' <<< "$issue")

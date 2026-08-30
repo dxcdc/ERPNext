@@ -3,9 +3,9 @@
 Esta automacao gerencia a VPS Docker Compose em `/opt/nexterp/code`. O Terraform existente
 continua responsavel pelo laboratorio Docker local.
 
-Para integracao com o Ansible Semaphore, siga o contrato em
-[`SEMAPHORE.md`](SEMAPHORE.md). Deploy e rollback nao devem ser liberados no
-painel antes da homologacao do transporte verificavel da revisao.
+Para integração com o Rundeck (CDC Automatiza), siga o contrato em
+[`RUNDECK.md`](RUNDECK.md). Deploy e rollback não devem ser liberados no
+painel antes da homologação do transporte verificável da revisão.
 
 ## Principios de seguranca
 
