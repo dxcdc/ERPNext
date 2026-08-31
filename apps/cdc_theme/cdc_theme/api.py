@@ -10,6 +10,8 @@ from frappe.utils import add_days, add_months, date_diff, get_datetime, get_firs
 
 
 _CDC_RBAC_AUDIT_TOKEN = object()
+CDC_STOCK_RESTRICTED_ROLE = "CDC Estoque Restrito"
+CDC_STOCK_WORKSPACE = "CDC Estoque"
 
 
 def _require_system_manager():
@@ -31,13 +33,48 @@ def _require_stock_dashboard_access(additional_roles=None):
     if getattr(frappe.flags, "cdc_rbac_audit_token", None) is _CDC_RBAC_AUDIT_TOKEN:
         return
     roles = set(frappe.get_roles(frappe.session.user))
-    allowed_roles = {"System Manager", "Stock Manager"}
+    allowed_roles = {
+        "System Manager", "Stock Manager", "Gestor de Estoque",
+        CDC_STOCK_RESTRICTED_ROLE,
+    }
     allowed_roles.update(set(additional_roles or ()))
     if not roles.intersection(allowed_roles):
         frappe.throw(
             "Painel consolidado restrito a gestores de estoque.",
             frappe.PermissionError,
         )
+
+
+def _is_restricted_stock_workspace_user():
+    roles = set(frappe.get_roles(frappe.session.user))
+    return CDC_STOCK_RESTRICTED_ROLE in roles and "System Manager" not in roles
+
+
+def configure_restricted_stock_user(user):
+    """Aplica o perfil mínimo de navegação sem ampliar permissões documentais."""
+    _require_system_manager()
+    user = str(user or "").strip()
+    if not user or not frappe.db.exists("User", user):
+        frappe.throw("Usuário não encontrado.", frappe.DoesNotExistError)
+
+    if not frappe.db.exists("Role", CDC_STOCK_RESTRICTED_ROLE):
+        frappe.get_doc({
+            "doctype": "Role",
+            "role_name": CDC_STOCK_RESTRICTED_ROLE,
+            "desk_access": 1,
+        }).insert(ignore_permissions=True)
+
+    user_doc = frappe.get_doc("User", user)
+    if not any(row.role == CDC_STOCK_RESTRICTED_ROLE for row in user_doc.roles):
+        user_doc.append("roles", {"role": CDC_STOCK_RESTRICTED_ROLE})
+    user_doc.default_workspace = CDC_STOCK_WORKSPACE
+    user_doc.save(ignore_permissions=True)
+    frappe.clear_cache(user=user)
+    return {
+        "user": user,
+        "role": CDC_STOCK_RESTRICTED_ROLE,
+        "default_workspace": CDC_STOCK_WORKSPACE,
+    }
 
 
 def _permitted_leaf_warehouses():
@@ -116,11 +153,15 @@ def custom_get_desktop_page(page):
     lower_name = str(name).lower().strip()
     if lower_name in slug_map:
         target_name = slug_map[lower_name]
+        if _is_restricted_stock_workspace_user() and target_name != CDC_STOCK_WORKSPACE:
+            target_name = CDC_STOCK_WORKSPACE
         if isinstance(p_dict, dict):
             p_dict["name"] = target_name
             page = json.dumps(p_dict)
         else:
             page = json.dumps({"name": target_name})
+    elif _is_restricted_stock_workspace_user() and lower_name.startswith("cdc "):
+        page = json.dumps({"name": CDC_STOCK_WORKSPACE})
 
     from frappe.desk.desktop import get_desktop_page
     return get_desktop_page(page)

@@ -1,0 +1,20 @@
+[Unit]
+Description=CDC ONGSYS finalized stock order import
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/cdc/secrets/ongsys.env
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/nexterp/code/extractor
+Environment=CDC_ONGSYS_ENV=/etc/cdc/secrets/ongsys.env
+ExecStart=/usr/bin/flock -E 0 -n /opt/nexterp/code/extractor/.run_job.lock /opt/nexterp/code/extractor/venv/bin/python /opt/nexterp/code/extractor/5_extrator_requisicoes_v2.py prod
+TimeoutStartSec=20min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+UMask=0077
+

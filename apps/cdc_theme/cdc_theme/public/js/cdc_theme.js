@@ -2211,9 +2211,27 @@
         }
     });
 
+    function isRestrictedStockWorkspaceUser() {
+        var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
+        return roles.indexOf('CDC Estoque Restrito') !== -1 && roles.indexOf('System Manager') === -1;
+    }
+
+    function enforceRestrictedStockWorkspaceRoute() {
+        if (!isRestrictedStockWorkspaceUser()) return false;
+        var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (!/^\/app\/cdc-/.test(pathname) || /^\/app\/cdc-estoque(?:\/|$)/.test(pathname)) return false;
+        if (window.frappe && frappe.set_route) frappe.set_route('Workspaces', 'CDC Estoque');
+        else window.location.replace('/app/cdc-estoque');
+        return true;
+    }
+
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: mantém somente as áreas CDC aprovadas
     function sanitizeSidebarWorkspaces() {
-        var allowedList = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
+        var restrictedStockUser = isRestrictedStockWorkspaceUser();
+        var allowedList = restrictedStockUser
+            ? ['cdc estoque']
+            : ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -2224,6 +2242,9 @@
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
                 /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|integracoes|pendencias|monitoramento|testes|admin|treinamento)(\/|$)/.test(href);
+            if (restrictedStockUser) {
+                isAllowed = primaryLabel === 'cdc estoque' || /^\/app\/cdc-estoque(?:\/|$)/.test(href);
+            }
             var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
                 /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
             if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
@@ -2295,6 +2316,7 @@
 
     function scheduleThemeRender() {
         if (redirectCDCWarehouseWorkspaceAlias()) return;
+        if (enforceRestrictedStockWorkspaceRoute()) return;
         [0, 250, 700, 1500, 3500].forEach(function(delay) {
             setTimeout(function() {
                 syncCDCBrandLogos();
@@ -2375,16 +2397,9 @@
             return false;
         }
 
-        var requiredTokens = [
-            'cdc estoque',
-            'cdc usuarios',
-            'cdc grupos',
-            'cdc itens',
-            'cdc armazem',
-            'cdc integracoes',
-            'cdc pendencias',
-            'cdc monitoramento',
-            'cdc treinamento'
+        var requiredTokens = isRestrictedStockWorkspaceUser() ? ['cdc estoque'] : [
+            'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem',
+            'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc treinamento'
         ];
 
         if (window.frappe && Array.isArray(frappe.user_roles) && frappe.user_roles.indexOf('System Manager') !== -1) {

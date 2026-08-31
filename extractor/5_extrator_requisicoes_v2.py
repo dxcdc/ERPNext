@@ -27,6 +27,40 @@ def parse_datetime(value: Optional[str]) -> Optional[datetime]:
     return parsed.replace(tzinfo=None)
 
 
+def is_finalized_order(order: Dict[str, Any]) -> bool:
+    status = " ".join(str(order.get("statusPedido") or "").casefold().split())
+    return status == FINAL_STATUS.casefold()
+
+
+def finalization_datetime(order: Dict[str, Any]) -> Optional[datetime]:
+    """Usa a confirmação mais recente do fluxo finalizado, nunca a idade original para elegibilidade."""
+    if not is_finalized_order(order):
+        return None
+    log_dates = []
+    for log in order.get("logs") or []:
+        try:
+            parsed = parse_datetime(log.get("data"))
+        except (TypeError, ValueError):
+            parsed = None
+        if parsed:
+            log_dates.append(parsed)
+    if log_dates:
+        return max(log_dates)
+    try:
+        return parse_datetime(order.get("dataPedido"))
+    except (TypeError, ValueError):
+        return None
+
+
+def is_batch_eligible(order: Dict[str, Any], cutoff: datetime) -> bool:
+    finalized_at = finalization_datetime(order)
+    return bool(
+        is_product_order(order.get("tipoPedido"))
+        and finalized_at
+        and finalized_at >= cutoff
+    )
+
+
 def require_response(response, operation: str, accepted=(200,)):
     if response.status_code not in accepted:
         detail = (response.text or "")[:300]
@@ -120,7 +154,13 @@ def load_warehouse_map(api: Optional[Common] = None) -> Dict[str, str]:
         if response.status_code == 200:
             for row in response.json().get("message") or []:
                 code = str(row.get("cost_center_code") or "").strip()
-                if row.get("status") == "Ativo" and row.get("warehouse"):
+                active_statuses = {"Ativo", "Ativo automático", "Ativo manual"}
+                if (
+                    row.get("status") in active_statuses
+                    and int(row.get("enabled") or 0) == 1
+                    and row.get("warehouse_status") == "Ativo"
+                    and row.get("warehouse")
+                ):
                     mappings[code] = str(row["warehouse"]).removesuffix(" - C")
                 elif row.get("status") == "Bloqueado":
                     mappings.pop(code, None)
@@ -143,8 +183,8 @@ def ensure_fiscal_year(api: Common) -> None:
 
 
 def latest_log_date(order: Dict[str, Any]):
-    dates = [log.get("data") for log in order.get("logs", []) if log.get("data")]
-    return max(dates) if dates else order.get("dataPedido")
+    finalized_at = finalization_datetime(order)
+    return finalized_at.isoformat(sep=" ") if finalized_at else None
 
 
 def build_items(order: Dict[str, Any], warehouses: Dict[str, str]) -> List[Dict[str, Any]]:
@@ -183,16 +223,18 @@ def order_exists(api: Common, order_id: str) -> bool:
     return bool(response.json().get("data"))
 
 
-def import_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict[str, str]):
+def import_orders(
+    api: Common,
+    orders: List[Dict[str, Any]],
+    warehouses: Dict[str, str],
+    enforce_recency: bool = True,
+):
     cutoff = datetime.now() - timedelta(days=ORDER_MAX_AGE_DAYS)
     eligible = []
     for order in orders:
-        order_date = parse_datetime(order.get("dataPedido"))
-        if (
-            is_product_order(order.get("tipoPedido"))
-            and order.get("statusPedido") == FINAL_STATUS
-            and order_date
-            and order_date >= cutoff
+        finalized_at = finalization_datetime(order)
+        if is_product_order(order.get("tipoPedido")) and finalized_at and (
+            not enforce_recency or finalized_at >= cutoff
         ):
             eligible.append(order)
 
@@ -235,16 +277,20 @@ def preflight_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict
     results = []
     for order in orders:
         order_id = str(order.get("idPedido"))
+        finalized_at = finalization_datetime(order)
+        product_order = is_product_order(order.get("tipoPedido"))
+        already_imported = order_exists(api, order_id)
+        cutoff = datetime.now() - timedelta(days=ORDER_MAX_AGE_DAYS)
         result = {
             "order_id": order_id,
             "title": order.get("titulo"),
             "status": order.get("statusPedido"),
             "type": order.get("tipoPedido"),
-            "eligible": bool(
-                is_product_order(order.get("tipoPedido"))
-                and order.get("statusPedido") == FINAL_STATUS
-            ),
-            "already_imported": order_exists(api, order_id),
+            "order_date": order.get("dataPedido"),
+            "finalized_at": finalized_at.isoformat(sep=" ") if finalized_at else None,
+            "eligible": bool(product_order and finalized_at),
+            "within_batch_window": bool(finalized_at and finalized_at >= cutoff),
+            "already_imported": already_imported,
         }
         try:
             items = build_items(order, warehouses)
@@ -272,7 +318,9 @@ def main(force_full: bool = False, dry_run: bool = False, order_id: Optional[int
         if not checks[0]["valid"] or not checks[0]["eligible"]:
             raise RuntimeError("Pedido controlado não passou na pré-validação")
         ensure_fiscal_year(api)
-        created, skipped, eligible = import_orders(api, orders, warehouses)
+        created, skipped, eligible = import_orders(
+            api, orders, warehouses, enforce_recency=False,
+        )
         print(f"Importação controlada: {eligible} elegível, {created} criado e {skipped} existente")
         return
     state, state_resource = get_state(api)

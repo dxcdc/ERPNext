@@ -1,0 +1,12 @@
+[Unit]
+Description=Run CDC ONGSYS finalized stock order import hourly
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=cdc-ongsys-stock-import.service
+
+[Install]
+WantedBy=timers.target
+

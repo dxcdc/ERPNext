@@ -33,4 +33,5 @@ cdc_containers:
   - nexterp-redis-queue-1
 cdc_observed_systemd_units:
   - cdc-ongsys-discovery.timer
+  - cdc-ongsys-stock-import.timer
 cdc_deploy_lock: /var/lock/cdc-nexterp-deploy.lock
