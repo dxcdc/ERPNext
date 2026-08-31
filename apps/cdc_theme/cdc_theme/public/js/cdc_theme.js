@@ -1371,7 +1371,7 @@
                             <span>Filtrar visão:</span>
                         </div>
                         <div class="cdc-stock-scope-controls">
-                            <label class="cdc-stock-scope-field">
+                            <label class="cdc-stock-scope-field is-warehouse">
                                 <span>Armazém</span>
                                 <select id="cdc-unit-filter-select" class="form-control">
                                 ${unitOptions}

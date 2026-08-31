@@ -542,8 +542,12 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 
 .cdc-stock-scope-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 18px; width: 100%; padding: 14px 20px; margin-bottom: 20px; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.03); }
 .cdc-stock-scope-title { display: flex; align-items: center; gap: 10px; color: #0f172a; font-size: 15px; font-weight: 800; white-space: nowrap; }
-.cdc-stock-scope-controls { display: grid; grid-template-columns: minmax(280px, 1fr) auto minmax(260px, .8fr) auto; align-items: end; gap: 10px; min-width: 0; }
+.cdc-stock-scope-controls { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(280px, auto) auto; grid-template-areas: "warehouse warehouse clear" "presets range range"; align-items: end; gap: 10px; min-width: 0; }
 .cdc-stock-scope-field { display: flex; min-width: 0; flex-direction: column; gap: 4px; margin: 0; }
+.cdc-stock-scope-field.is-warehouse { grid-area: warehouse; }
+.cdc-stock-scope-field.is-period-presets { grid-area: presets; }
+.cdc-stock-scope-field.is-date-range { grid-area: range; }
+#cdc-clear-unit-filter { grid-area: clear; }
 .cdc-stock-scope-field > span { color: #475569; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .cdc-stock-scope-field .form-control { width: 100%; min-width: 0; height: 42px; padding: 0 34px 0 12px; color: #0f172a; background-color: #f8fafc; border: 2px solid #2563eb; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .cdc-stock-period-segments { display: inline-flex; overflow: hidden; height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; }
@@ -558,13 +562,13 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-stock-date-range-fallback { display: flex; align-items: center; gap: 6px; min-height: 42px; }
 .cdc-stock-date-range-fallback input { height: 42px; padding: 0 8px; border: 2px solid #2563eb; border-radius: 8px; }
 
-@media (max-width: 1200px) {
+@media (max-width: 820px) {
   .cdc-stock-scope-bar { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
-  .cdc-stock-scope-controls { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+  .cdc-stock-scope-controls { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "warehouse clear" "presets presets" "range range"; align-items: end; }
 }
 
 @media (max-width: 650px) {
-  .cdc-stock-scope-controls { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .cdc-stock-scope-controls { grid-template-columns: minmax(0, 1fr); grid-template-areas: "warehouse" "clear" "presets" "range"; align-items: stretch; }
   .cdc-stock-period-segments { width: 100%; }
   .cdc-stock-period-segments .cdc-period-btn { flex: 1 1 25%; min-width: 0; }
   #cdc-clear-unit-filter { width: 100%; }
