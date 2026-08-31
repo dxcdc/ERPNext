@@ -546,14 +546,24 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 .cdc-stock-scope-field { display: flex; flex-direction: column; gap: 4px; margin: 0; }
 .cdc-stock-scope-field > span { color: #475569; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .cdc-stock-scope-field .form-control { width: min(420px, 38vw); min-width: 260px; height: 42px; padding: 0 34px 0 12px; color: #0f172a; background-color: #f8fafc; border: 2px solid #2563eb; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
-.cdc-stock-scope-field.is-period .form-control { width: 150px; min-width: 150px; }
+.cdc-stock-period-segments { display: inline-flex; overflow: hidden; height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.cdc-stock-period-segments .cdc-period-btn { min-width: 68px; height: 40px; padding: 0 10px; border: 0; border-right: 1px solid #cbd5e1; border-radius: 0; }
+.cdc-stock-period-segments .cdc-period-btn:last-child { border-right: 0; }
+.cdc-stock-scope-field.is-date-range { min-width: 260px; }
+#cdc-stock-date-range-control .form-group { margin: 0; }
+#cdc-stock-date-range-control .control-label { display: none; }
+#cdc-stock-date-range-control .form-control { width: 270px; min-width: 270px; }
+.cdc-stock-date-range-fallback { display: flex; align-items: center; gap: 6px; min-height: 42px; }
+.cdc-stock-date-range-fallback input { height: 42px; padding: 0 8px; border: 2px solid #2563eb; border-radius: 8px; }
 
 @media (max-width: 850px) {
   .cdc-stock-scope-bar { align-items: stretch; flex-direction: column; }
   .cdc-stock-scope-controls { align-items: stretch; flex-wrap: wrap; justify-content: flex-start; }
   .cdc-stock-scope-field { flex: 1 1 220px; }
   .cdc-stock-scope-field .form-control,
-  .cdc-stock-scope-field.is-period .form-control { width: 100%; min-width: 0; }
+  #cdc-stock-date-range-control .form-control { width: 100%; min-width: 0; }
+  .cdc-stock-period-segments { width: 100%; }
+  .cdc-stock-period-segments .cdc-period-btn { flex: 1 1 25%; min-width: 0; }
 }
 
 /* Botões de Tipo de Ocorrência */

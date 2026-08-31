@@ -7,8 +7,9 @@ const path = require('node:path');
 const js = fs.readFileSync(path.join(__dirname, '..', 'apps', 'cdc_theme', 'cdc_theme', 'public', 'js', 'cdc_theme.js'), 'utf8');
 const api = fs.readFileSync(path.join(__dirname, '..', 'apps', 'cdc_theme', 'cdc_theme', 'api.py'), 'utf8');
 
-assert.match(js, /id="cdc-stock-period-filter"/, 'a barra superior deve conter o filtro de período');
-assert.match(js, /off\('change', '#cdc-stock-period-filter'\)/, 'o filtro de período deve atualizar o painel');
+assert.match(js, /id="cdc-stock-date-range-control"/, 'a barra superior deve conter o filtro de intervalo');
+assert.match(js, /fieldtype: 'Date Range'/, 'a barra superior deve usar o seletor único de início e fim do Frappe');
+assert.match(js, /cdc-stock-period-segments/, 'a barra superior deve manter atalhos segmentados de período');
 assert.match(api, /selected_unit not in permitted_warehouses/, 'a seleção deve validar o nome exato permitido');
 assert.match(api, /AND warehouse = \{selected_unit_sql\}/, 'saldos devem usar igualdade exata de armazém');
 assert.match(api, /selected_sed\.s_warehouse = \{selected_unit_sql\}/, 'movimentos de origem devem respeitar o armazém exato');

@@ -6,6 +6,11 @@
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
     var currentSelectedPeriod = sessionStorage.getItem('cdc_period') || 'quarter';
+    var currentStockFromDate = sessionStorage.getItem('cdc_stock_from_date') || '';
+    var currentStockToDate = sessionStorage.getItem('cdc_stock_to_date') || '';
+    if (currentSelectedPeriod === 'custom' && (!currentStockFromDate || !currentStockToDate)) {
+        currentSelectedPeriod = 'quarter';
+    }
     var currentOccurrencesType = sessionStorage.getItem('cdc_occ_type') || 'all';
     var currentTableTypeFilter = sessionStorage.getItem('cdc_table_type') || 'all';
     var currentSelectedProjectFilter = sessionStorage.getItem('cdc_project_filter') || 'all';
@@ -1209,11 +1214,57 @@
             pilotProject ? pilotProject.name : '',
             currentSelectedUnit,
             currentSelectedPeriod,
+            currentStockFromDate,
+            currentStockToDate,
             currentOccurrencesType,
             currentSelectedProjectFilter,
             currentTableTypeFilter,
             categoryState
         ].join('|');
+    }
+
+    function setupStockDateRange(dashboard, data) {
+        var host = dashboard.querySelector('#cdc-stock-date-range-control');
+        if (!host) return;
+        var initialRange = [data.period_start || '', data.period_end || ''];
+        if (!(window.frappe && frappe.ui && frappe.ui.form && frappe.ui.form.make_control)) {
+            host.innerHTML = `<div class="cdc-stock-date-range-fallback"><input type="date" value="${escapeHTML(initialRange[0])}" aria-label="Data inicial"><span>até</span><input type="date" value="${escapeHTML(initialRange[1])}" aria-label="Data final"></div>`;
+            var inputs = host.querySelectorAll('input');
+            inputs.forEach(function(input) {
+                input.addEventListener('change', function() {
+                    if (!inputs[0].value || !inputs[1].value) return;
+                    currentStockFromDate = inputs[0].value;
+                    currentStockToDate = inputs[1].value;
+                    currentSelectedPeriod = 'custom';
+                    sessionStorage.setItem('cdc_stock_from_date', currentStockFromDate);
+                    sessionStorage.setItem('cdc_stock_to_date', currentStockToDate);
+                    sessionStorage.setItem('cdc_period', 'custom');
+                    renderStockDashboard();
+                });
+            });
+            return;
+        }
+        var initializing = true;
+        var control = frappe.ui.form.make_control({
+            parent: host,
+            df: {fieldtype: 'Date Range', fieldname: 'cdc_stock_date_range', label: 'Intervalo personalizado'},
+            render_input: true
+        });
+        control.set_value(initialRange);
+        control.$input.attr('placeholder', 'Selecione início e fim');
+        control.$input.off('change.cdcStockRange').on('change.cdcStockRange', function() {
+            if (initializing) return;
+            var range = control.get_value();
+            if (!Array.isArray(range) || !range[0] || !range[1]) return;
+            currentStockFromDate = range[0];
+            currentStockToDate = range[1];
+            currentSelectedPeriod = 'custom';
+            sessionStorage.setItem('cdc_stock_from_date', currentStockFromDate);
+            sessionStorage.setItem('cdc_stock_to_date', currentStockToDate);
+            sessionStorage.setItem('cdc_period', 'custom');
+            renderStockDashboard();
+        });
+        window.setTimeout(function() { initializing = false; }, 0);
     }
 
     function renderStockDashboard() {
@@ -1264,6 +1315,8 @@
             args: { 
                 selected_unit: currentSelectedUnit,
                 period: currentSelectedPeriod,
+                from_date: currentStockFromDate || null,
+                to_date: currentStockToDate || null,
                 entry_type: currentOccurrencesType,
                 selected_project: pilotProject ? pilotProject.name : null,
                 table_type: currentTableTypeFilter
@@ -1324,15 +1377,19 @@
                                 ${unitOptions}
                                 </select>
                             </label>
-                            <label class="cdc-stock-scope-field is-period">
-                                <span>Período</span>
-                                <select id="cdc-stock-period-filter" class="form-control">
-                                    <option value="month" ${currentSelectedPeriod === 'month' ? 'selected' : ''}>Mês</option>
-                                    <option value="quarter" ${currentSelectedPeriod === 'quarter' ? 'selected' : ''}>Trimestre</option>
-                                    <option value="semester" ${currentSelectedPeriod === 'semester' ? 'selected' : ''}>Semestre</option>
-                                    <option value="year" ${currentSelectedPeriod === 'year' ? 'selected' : ''}>Ano</option>
-                                </select>
-                            </label>
+                            <div class="cdc-stock-scope-field is-period-presets">
+                                <span>Período rápido</span>
+                                <div class="cdc-stock-period-segments" role="group" aria-label="Períodos rápidos">
+                                    <button type="button" class="cdc-period-btn ${currentSelectedPeriod === 'month' ? 'active' : ''}" data-period="month">Mês</button>
+                                    <button type="button" class="cdc-period-btn ${currentSelectedPeriod === 'quarter' ? 'active' : ''}" data-period="quarter">Trimestre</button>
+                                    <button type="button" class="cdc-period-btn ${currentSelectedPeriod === 'semester' ? 'active' : ''}" data-period="semester">Semestre</button>
+                                    <button type="button" class="cdc-period-btn ${currentSelectedPeriod === 'year' ? 'active' : ''}" data-period="year">Ano</button>
+                                </div>
+                            </div>
+                            <div class="cdc-stock-scope-field is-date-range">
+                                <span>Intervalo personalizado</span>
+                                <div id="cdc-stock-date-range-control"></div>
+                            </div>
                             <button id="cdc-clear-unit-filter" type="button" class="btn btn-default" ${currentSelectedUnit === 'All' ? 'disabled aria-disabled="true"' : ''} style="height:42px;font-size:12px;font-weight:800;border-radius:8px;white-space:nowrap;opacity:${currentSelectedUnit === 'All' ? '.55' : '1'};">↺ Mostrar todos</button>
                         </div>
                     </div>
@@ -1815,6 +1872,7 @@
                 dashDiv.dataset.state = 'ready';
                 stockRenderStage = 'inicialização dos gráficos';
                 setupStockPageNavigator(dashDiv);
+                setupStockDateRange(dashDiv, data);
 
                 window._cdc_debug_dashboard_data = data;
 
@@ -1988,13 +2046,6 @@
             renderStockDashboard();
         });
 
-        $(document).off('change', '#cdc-stock-period-filter').on('change', '#cdc-stock-period-filter', function(e) {
-            e.stopPropagation();
-            currentSelectedPeriod = $(this).val() || 'quarter';
-            sessionStorage.setItem('cdc_period', currentSelectedPeriod);
-            renderStockDashboard();
-        });
-
         $(document).off('click', '.cdc-pilot-project-link').on('click', '.cdc-pilot-project-link', function(e) {
             e.preventDefault();
             window.history.pushState({}, '', this.getAttribute('href'));
@@ -2080,9 +2131,13 @@
         $(document).off('click', '.cdc-period-btn').on('click', '.cdc-period-btn', function(e) {
             e.preventDefault();
             var newPeriod = $(this).attr('data-period') || $(this).data('period');
-            if (newPeriod && newPeriod !== currentSelectedPeriod) {
+            if (newPeriod && (newPeriod !== currentSelectedPeriod || currentStockFromDate || currentStockToDate)) {
                 currentSelectedPeriod = newPeriod;
+                currentStockFromDate = '';
+                currentStockToDate = '';
                 sessionStorage.setItem('cdc_period', currentSelectedPeriod);
+                sessionStorage.removeItem('cdc_stock_from_date');
+                sessionStorage.removeItem('cdc_stock_to_date');
                 renderStockDashboard();
             }
         });
@@ -2354,7 +2409,7 @@
                 localStorage.removeItem('workspace_sidebar_items');
                 localStorage.removeItem('frappe:boot');
                 [
-                    'cdc_unit', 'cdc_period', 'cdc_occ_type', 'cdc_table_type',
+                    'cdc_unit', 'cdc_period', 'cdc_stock_from_date', 'cdc_stock_to_date', 'cdc_occ_type', 'cdc_table_type',
                     'cdc_project_filter', 'cdc_users_project', 'cdc_users_warehouse'
                 ].forEach(function(key) { sessionStorage.removeItem(key); });
                 localStorage.setItem('cdc_theme_version', currentBuildTag);
@@ -2369,7 +2424,7 @@
                 localStorage.removeItem(key);
             });
             [
-                'cdc_unit', 'cdc_period', 'cdc_occ_type', 'cdc_table_type',
+                'cdc_unit', 'cdc_period', 'cdc_stock_from_date', 'cdc_stock_to_date', 'cdc_occ_type', 'cdc_table_type',
                 'cdc_project_filter', 'cdc_users_project', 'cdc_users_warehouse',
                 'cdc_catalog_project', 'cdc_catalog_warehouse'
             ].forEach(function(key) { sessionStorage.removeItem(key); });
@@ -2378,6 +2433,8 @@
         }
         currentSelectedUnit = 'All';
         currentSelectedPeriod = 'quarter';
+        currentStockFromDate = '';
+        currentStockToDate = '';
         currentOccurrencesType = 'all';
         currentTableTypeFilter = 'all';
         currentSelectedProjectFilter = 'all';

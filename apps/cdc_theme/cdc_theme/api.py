@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 import frappe
-from frappe.utils import add_days, add_months, get_datetime, get_first_day, getdate, now_datetime, today
+from frappe.utils import add_days, add_months, date_diff, get_datetime, get_first_day, getdate, now_datetime, today
 
 
 _CDC_RBAC_AUDIT_TOKEN = object()
@@ -1978,7 +1978,10 @@ def _project_warehouse_clause(field, selected_project):
 
 
 @frappe.whitelist()
-def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_type='receipt', selected_project=None):
+def get_project_weekly_occurrences(
+    period='quarter', selected_unit=None, entry_type='receipt', selected_project=None,
+    from_date=None, to_date=None,
+):
     """
     Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
     entry_type: 'receipt' (Entrada) ou 'issue' (Saída). Padrão: 'receipt'.
@@ -2036,6 +2039,75 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
 
     current_date = getdate(today())
     current_month_start = getdate(get_first_day(current_date))
+
+    if from_date and to_date:
+        range_start = getdate(from_date)
+        range_end = getdate(to_date)
+        if range_start > range_end:
+            frappe.throw("A data inicial não pode ser posterior à data final.", frappe.ValidationError)
+        total_days = date_diff(range_end, range_start) + 1
+        daily = total_days <= 62
+        period_key = "DATE_FORMAT(se.posting_date, '%%Y-%%m-%%d')" if daily else "DATE_FORMAT(se.posting_date, '%%Y-%%m')"
+        label_ref = "DATE_FORMAT(se.posting_date, '%%d/%%m')" if daily else "DATE_FORMAT(se.posting_date, '%%m/%%Y')"
+        rows = frappe.db.sql(f"""
+            SELECT
+                {period_key} as period_key,
+                {label_ref} as label_ref,
+                CASE
+                    WHEN COALESCE({wh_field}, '') LIKE '%%ATITUDE II.I%%' THEN 'Projeto Atitude II.I'
+                    WHEN COALESCE({wh_field}, '') LIKE '%%ATITUDE%%' THEN 'Projeto Atitude'
+                    WHEN COALESCE({wh_field}, '') LIKE '%%BEM VIVER%%' THEN 'Projeto Bem Viver'
+                    WHEN COALESCE({wh_field}, '') LIKE '%%CAIS%%' THEN 'Projeto Cais'
+                    WHEN COALESCE({wh_field}, '') LIKE '%%ATM%%' THEN 'Projeto ATM'
+                    ELSE 'Institucional / Geral'
+                END as projeto,
+                COUNT(DISTINCT se.name) as total_ocorrencias
+            FROM `tabStock Entry` se
+            WHERE se.docstatus = 1 AND se.purpose = %s
+              AND se.posting_date BETWEEN %s AND %s {where_unit}
+            GROUP BY period_key, label_ref, projeto
+            ORDER BY period_key ASC
+        """, (purpose_val, range_start, range_end), as_dict=True)
+
+        labels = []
+        label_by_key = {}
+        if daily:
+            cursor = range_start
+            while cursor <= range_end:
+                key = str(cursor)
+                label = cursor.strftime("%d/%m")
+                labels.append(label)
+                label_by_key[key] = label
+                cursor = getdate(add_days(cursor, 1))
+        else:
+            cursor = getdate(get_first_day(range_start))
+            final_month = getdate(get_first_day(range_end))
+            while cursor <= final_month:
+                key = cursor.strftime("%Y-%m")
+                label = cursor.strftime("%m/%Y")
+                labels.append(label)
+                label_by_key[key] = label
+                cursor = getdate(add_months(cursor, 1))
+
+        project_map = {project: {label: 0 for label in labels} for project in projects_list}
+        for row in rows:
+            label = label_by_key.get(str(row.period_key), row.label_ref)
+            if row.projeto in project_map and label in project_map[row.projeto]:
+                project_map[row.projeto][label] = int(row.total_ocorrencias)
+        datasets = [{
+            "project": project,
+            "color": colors_map.get(project, "#64748b"),
+            "occurrences": [project_map[project][label] for label in labels],
+            "total_occurrences": sum(project_map[project].values()),
+        } for project in projects_list]
+        datasets.sort(key=lambda dataset: dataset["total_occurrences"], reverse=True)
+        return {
+            "period": "custom",
+            "entry_type": entry_type,
+            "labels": labels,
+            "grouped_months": [{"month": "PERÍODO PERSONALIZADO", "weeks": labels}],
+            "datasets": datasets,
+        }
 
     if period == 'month':
         where_date = f"AND se.posting_date >= '{current_month_start}'"
@@ -2234,7 +2306,10 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
         }
 
 @frappe.whitelist()
-def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='receipt', selected_project=None, table_type='all'):
+def get_stock_dashboard_data(
+    selected_unit=None, period='quarter', entry_type='receipt', selected_project=None,
+    table_type='all', from_date=None, to_date=None,
+):
     """
     Retorna métricas dinâmicas para o Painel Executivo do Estoque.
     """
@@ -2244,6 +2319,9 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
 
+    custom_range = bool(from_date or to_date)
+    if custom_range and not (from_date and to_date):
+        frappe.throw("Informe as datas inicial e final.", frappe.ValidationError)
     period = period if period in {"month", "quarter", "semester", "year"} else "quarter"
     period_months = {"month": 1, "quarter": 3, "semester": 6, "year": 12}[period]
     period_labels = {"month": "Mês", "quarter": "Trimestre", "semester": "Semestre", "year": "Ano"}
@@ -2253,8 +2331,20 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         frappe.throw("Armazém indisponível para o usuário atual.", frappe.PermissionError)
     
     current_month_start = get_first_day(today())
-    period_start = getdate(add_months(current_month_start, -(period_months - 1)))
-    previous_period_start = getdate(add_months(period_start, -period_months))
+    if custom_range:
+        period_start = getdate(from_date)
+        period_end = getdate(to_date)
+        if period_start > period_end:
+            frappe.throw("A data inicial não pode ser posterior à data final.", frappe.ValidationError)
+        period_days = date_diff(period_end, period_start) + 1
+        previous_period_start = getdate(add_days(period_start, -period_days))
+        period_label = "Período personalizado"
+        period = "custom"
+    else:
+        period_start = getdate(add_months(current_month_start, -(period_months - 1)))
+        period_end = getdate(today())
+        previous_period_start = getdate(add_months(period_start, -period_months))
+        period_label = period_labels[period]
     activity_cutoff = period_start
     # ERPNext costuma manter o armazém nas linhas de Stock Entry Detail. O
     # cabeçalho pode ficar vazio, especialmente em transferências e documentos
@@ -2266,11 +2356,11 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         ''
     )"""
     where_se = (
-        f"WHERE se.docstatus=1 AND se.posting_date >= '{period_start}' "
+        f"WHERE se.docstatus=1 AND se.posting_date BETWEEN '{period_start}' AND '{period_end}' "
         f"AND {_warehouse_permission_sql(stock_entry_warehouse)}"
     )
     where_recent = (
-        f"WHERE se.docstatus=1 AND se.posting_date >= '{period_start}' "
+        f"WHERE se.docstatus=1 AND se.posting_date BETWEEN '{period_start}' AND '{period_end}' "
         f"AND {_warehouse_permission_sql(stock_entry_warehouse)}"
     )
     where_previous = (
@@ -2332,7 +2422,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
           AND EXISTS (
             SELECT 1 FROM `tabStock Entry` se
             WHERE se.docstatus = 1
-              AND se.posting_date >= '{activity_cutoff}'
+              AND se.posting_date BETWEEN '{activity_cutoff}' AND '{period_end}'
               AND (
                 se.from_warehouse = w.name OR se.to_warehouse = w.name OR EXISTS (
                   SELECT 1 FROM `tabStock Entry Detail` sed
@@ -2505,6 +2595,8 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     occurrences_data = get_project_weekly_occurrences(
         period=period, selected_unit=selected_unit,
         entry_type=entry_type, selected_project=selected_project,
+        from_date=period_start if custom_range else None,
+        to_date=period_end if custom_range else None,
     )
 
     unit_display_label = f"Todos os Armazéns ({int(total_warehouses)} Armazéns)"
@@ -2526,9 +2618,9 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         "selected_unit": selected_unit,
         "selected_project": selected_project,
         "period": period,
-        "period_label": period_labels[period],
+        "period_label": period_label,
         "period_start": str(period_start),
-        "period_end": str(today()),
+        "period_end": str(period_end),
         "unit_display_label": unit_display_label,
         "available_units": available_warehouses,
         "receipts_month": receipts_month,
