@@ -104,6 +104,7 @@ resource "null_resource" "cdc_theme_setup" {
     pending_javascript_hash = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_pending.js")
     management_js_hash      = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_management.js")
     stock_routes_js_hash    = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js")
+    reports_js_hash         = filesha256("../apps/cdc_theme/cdc_theme/public/js/cdc_reports.js")
     pending_doctype_hash    = filesha256("../apps/cdc_theme/cdc_theme/cdc_theme/doctype/cdc_ongsys_pending_order/cdc_ongsys_pending_order.json")
     pending_state_hash      = filesha256("../apps/cdc_theme/cdc_theme/cdc_theme/doctype/cdc_ongsys_sync_state/cdc_ongsys_sync_state.json")
     stylesheet_hash         = filesha256("../apps/cdc_theme/cdc_theme/public/css/cdc_theme.css")
@@ -117,6 +118,7 @@ resource "null_resource" "cdc_theme_setup" {
       node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_theme.js
       node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_management.js
       node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js
+      node --check ../apps/cdc_theme/cdc_theme/public/js/cdc_reports.js
       docker exec nexterp-backend-1 sh -lc "bench --site ${var.site_name} list-apps | grep -qx cdc_theme || bench --site ${var.site_name} install-app cdc_theme"
       docker exec nexterp-backend-1 bench --site ${var.site_name} migrate
       docker exec nexterp-backend-1 bench build
@@ -132,7 +134,7 @@ resource "null_resource" "workspace_sanitization" {
 
   triggers = {
     database_backup_hash = filesha256("../${var.gcp_backup_path}")
-    workspace_schema     = "20260828-cdc-training-v8"
+    workspace_schema     = "20260831-cdc-reports-v9"
   }
 
   provisioner "local-exec" {
@@ -140,7 +142,7 @@ resource "null_resource" "workspace_sanitization" {
       echo "🗺️ Garantindo as Workspaces e Tabelas-Filhas do CDC..."
       docker exec -i nexterp-db-1 mysql -u root -p'${var.db_password}' "${var.db_name}" -e "
         DELETE FROM tabWorkspace WHERE name IN ('cdc-estoque', 'cdc-usuarios', 'cdc-integracoes', 'cdc-integrações', 'CDC Usuários dup');
-        DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Armazém', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin', 'CDC Treinamento');
+        DELETE FROM tabWorkspace WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Armazém', 'CDC Relatórios', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin', 'CDC Treinamento');
 
         INSERT INTO tabWorkspace (name, creation, modified, modified_by, owner, docstatus, idx, label, title, sequence_id, module, icon, public, is_hidden, content) VALUES
         ('CDC Estoque', NOW(), NOW(), 'Administrator', 'Administrator', 0, 1, 'CDC Estoque', 'CDC Estoque', 1.0, 'Stock', 'stock', 1, 0, '[]'),
@@ -148,15 +150,16 @@ resource "null_resource" "workspace_sanitization" {
         ('CDC Grupos', NOW(), NOW(), 'Administrator', 'Administrator', 0, 3, 'CDC Grupos', 'CDC Grupos', 3.0, 'Core', 'folder-normal', 1, 0, '[]'),
         ('CDC Itens', NOW(), NOW(), 'Administrator', 'Administrator', 0, 4, 'CDC Itens', 'CDC Itens', 4.0, 'Core', 'assets', 1, 0, '[]'),
         ('CDC Armazém', NOW(), NOW(), 'Administrator', 'Administrator', 0, 5, 'CDC Armazém', 'CDC Armazém', 5.0, 'Core', 'organization', 1, 0, '[]'),
-        ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 6, 'CDC Integrações', 'CDC Integrações', 6.0, 'Integrations', 'integration', 1, 0, '[{\"id\":\"NPK_AfSLQ2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"lDOo58F7ZI\",\"type\":\"card\",\"data\":{\"card_name\":\"Backup\",\"col\":4}},{\"id\":\"ij1pcK8jst\",\"type\":\"card\",\"data\":{\"card_name\":\"Google Services\",\"col\":4}},{\"id\":\"aTlMujEHpN\",\"type\":\"card\",\"data\":{\"card_name\":\"Authentication\",\"col\":4}},{\"id\":\"gY5NXKtXss\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"n_CI3GGqW-\",\"type\":\"card\",\"data\":{\"card_name\":\"Push Notifications\",\"col\":4}}]'),
-        ('CDC Pendências', NOW(), NOW(), 'Administrator', 'Administrator', 0, 7, 'CDC Pendências', 'CDC Pendências', 7.0, 'Core', 'list-alt', 1, 0, '[{\"id\":\"cdc-pendencias-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Pendências</b></span>\",\"col\":12}},{\"id\":\"cdc-pendencias-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}}]'),
-        ('CDC Monitoramento', NOW(), NOW(), 'Administrator', 'Administrator', 0, 8, 'CDC Monitoramento', 'CDC Monitoramento', 8.0, 'Core', 'dashboard', 1, 0, '[{\"id\":\"cdc-monitoring-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Monitoramento</b></span>\",\"col\":12}}]'),
-        ('CDC Testes', NOW(), NOW(), 'Administrator', 'Administrator', 0, 9, 'CDC Testes', 'CDC Testes', 9.0, 'Core', 'check', 1, 0, '[]'),
-        ('CDC Admin', NOW(), NOW(), 'Administrator', 'Administrator', 0, 10, 'CDC Admin', 'CDC Admin', 10.0, 'Core', 'tool', 1, 0, '[]'),
-        ('CDC Treinamento', NOW(), NOW(), 'Administrator', 'Administrator', 0, 11, 'CDC Treinamento', 'CDC Treinamento', 11.0, 'Core', 'education', 1, 0, '[]');
+        ('CDC Relatórios', NOW(), NOW(), 'Administrator', 'Administrator', 0, 6, 'CDC Relatórios', 'CDC Relatórios', 6.0, 'Core', 'chart', 1, 0, '[]'),
+        ('CDC Integrações', NOW(), NOW(), 'Administrator', 'Administrator', 0, 7, 'CDC Integrações', 'CDC Integrações', 7.0, 'Integrations', 'integration', 1, 0, '[{\"id\":\"NPK_AfSLQ2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"lDOo58F7ZI\",\"type\":\"card\",\"data\":{\"card_name\":\"Backup\",\"col\":4}},{\"id\":\"ij1pcK8jst\",\"type\":\"card\",\"data\":{\"card_name\":\"Google Services\",\"col\":4}},{\"id\":\"aTlMujEHpN\",\"type\":\"card\",\"data\":{\"card_name\":\"Authentication\",\"col\":4}},{\"id\":\"gY5NXKtXss\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"n_CI3GGqW-\",\"type\":\"card\",\"data\":{\"card_name\":\"Push Notifications\",\"col\":4}}]'),
+        ('CDC Pendências', NOW(), NOW(), 'Administrator', 'Administrator', 0, 8, 'CDC Pendências', 'CDC Pendências', 8.0, 'Core', 'list-alt', 1, 0, '[{\"id\":\"cdc-pendencias-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Pendências</b></span>\",\"col\":12}},{\"id\":\"cdc-pendencias-spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}}]'),
+        ('CDC Monitoramento', NOW(), NOW(), 'Administrator', 'Administrator', 0, 9, 'CDC Monitoramento', 'CDC Monitoramento', 9.0, 'Core', 'dashboard', 1, 0, '[{\"id\":\"cdc-monitoring-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\'h4\\'><b>Monitoramento</b></span>\",\"col\":12}}]'),
+        ('CDC Testes', NOW(), NOW(), 'Administrator', 'Administrator', 0, 10, 'CDC Testes', 'CDC Testes', 10.0, 'Core', 'check', 1, 0, '[]'),
+        ('CDC Admin', NOW(), NOW(), 'Administrator', 'Administrator', 0, 11, 'CDC Admin', 'CDC Admin', 11.0, 'Core', 'tool', 1, 0, '[]'),
+        ('CDC Treinamento', NOW(), NOW(), 'Administrator', 'Administrator', 0, 12, 'CDC Treinamento', 'CDC Treinamento', 12.0, 'Core', 'education', 1, 0, '[]');
 
-        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Armazém', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin', 'CDC Treinamento');
-        UPDATE tabWorkspace SET is_hidden = 0 WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Armazém', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin', 'CDC Treinamento');
+        UPDATE tabWorkspace SET is_hidden = 1 WHERE name NOT IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Armazém', 'CDC Relatórios', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin', 'CDC Treinamento');
+        UPDATE tabWorkspace SET is_hidden = 0 WHERE name IN ('CDC Estoque', 'CDC Usuários', 'CDC Grupos', 'CDC Itens', 'CDC Armazém', 'CDC Relatórios', 'CDC Integrações', 'CDC Pendências', 'CDC Monitoramento', 'CDC Testes', 'CDC Admin', 'CDC Treinamento');
         UPDATE tabWorkspace SET icon = 'integration' WHERE name = 'CDC Integrações';
         UPDATE tabWorkspace SET icon = 'list-alt' WHERE name = 'CDC Pendências';
         UPDATE tabWorkspace SET icon = 'dashboard' WHERE name = 'CDC Monitoramento';
@@ -164,6 +167,7 @@ resource "null_resource" "workspace_sanitization" {
         UPDATE tabWorkspace SET icon = 'folder-normal' WHERE name = 'CDC Grupos';
         UPDATE tabWorkspace SET icon = 'assets' WHERE name = 'CDC Itens';
         UPDATE tabWorkspace SET icon = 'organization' WHERE name = 'CDC Armazém';
+        UPDATE tabWorkspace SET icon = 'chart' WHERE name = 'CDC Relatórios';
         UPDATE tabWorkspace SET icon = 'tool' WHERE name = 'CDC Admin';
         UPDATE tabWorkspace SET icon = 'education' WHERE name = 'CDC Treinamento';
         UPDATE tabWorkspace SET content = '[]' WHERE name = 'CDC Estoque';

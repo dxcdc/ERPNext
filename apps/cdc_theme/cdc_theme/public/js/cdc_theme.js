@@ -89,6 +89,7 @@
             {label: 'Grupos', href: '/app/cdc-grupos'},
             {label: 'Itens', href: '/app/cdc-itens'},
             {label: 'Armazéns', href: '/app/cdc-armazém'},
+            {label: 'Relatórios', href: '/app/cdc-relatórios'},
             {label: 'Integrações', href: '/app/cdc-integrações'},
             {label: 'Pendências', href: '/app/cdc-pendências'},
             {label: 'Monitoramento', href: '/app/cdc-monitoramento'},
@@ -2220,7 +2221,7 @@
         if (!isRestrictedStockWorkspaceUser()) return false;
         var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        if (!/^\/app\/cdc-/.test(pathname) || /^\/app\/cdc-estoque(?:\/|$)/.test(pathname)) return false;
+        if (!/^\/app\/cdc-/.test(pathname) || /^\/app\/cdc-(?:estoque|relatorios)(?:\/|$)/.test(pathname)) return false;
         if (window.frappe && frappe.set_route) frappe.set_route('Workspaces', 'CDC Estoque');
         else window.location.replace('/app/cdc-estoque');
         return true;
@@ -2230,8 +2231,8 @@
     function sanitizeSidebarWorkspaces() {
         var restrictedStockUser = isRestrictedStockWorkspaceUser();
         var allowedList = restrictedStockUser
-            ? ['cdc estoque']
-            : ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
+            ? ['cdc estoque', 'cdc relatorios']
+            : ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
         sidebarLinks.forEach(function(el) {
@@ -2241,9 +2242,9 @@
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
-                /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|integracoes|pendencias|monitoramento|testes|admin|treinamento)(\/|$)/.test(href);
+                /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|relatorios|integracoes|pendencias|monitoramento|testes|admin|treinamento)(\/|$)/.test(href);
             if (restrictedStockUser) {
-                isAllowed = primaryLabel === 'cdc estoque' || /^\/app\/cdc-estoque(?:\/|$)/.test(href);
+                isAllowed = ['cdc estoque', 'cdc relatorios'].indexOf(primaryLabel) !== -1 || /^\/app\/cdc-(?:estoque|relatorios)(?:\/|$)/.test(href);
             }
             var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
                 /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
@@ -2397,8 +2398,8 @@
             return false;
         }
 
-        var requiredTokens = isRestrictedStockWorkspaceUser() ? ['cdc estoque'] : [
-            'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem',
+        var requiredTokens = isRestrictedStockWorkspaceUser() ? ['cdc estoque', 'cdc relatorios'] : [
+            'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios',
             'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc treinamento'
         ];
 
@@ -3924,7 +3925,10 @@
                                 <h1 class="cdc-monitoring-h1">🏭 Armazéns</h1>
                                 <p class="cdc-monitoring-sub">Indicadores e filtros aplicados à lista oficial do ERPNext</p>
                             </div>
-                            <button class="btn btn-sm btn-default" id="cdc-btn-refresh-warehouses">🔄 Atualizar contexto</button>
+                            <div class="cdc-warehouse-header-actions">
+                                <button class="btn btn-sm btn-primary" id="cdc-btn-warehouse-report">Exportar movimentações</button>
+                                <button class="btn btn-sm btn-default" id="cdc-btn-refresh-warehouses">🔄 Atualizar contexto</button>
+                            </div>
                         </div>
                         <div class="cdc-monitoring-cards-grid">
                             <div class="cdc-monitoring-card is-info"><div class="cdc-card-label">Resultados</div><div class="cdc-card-value">${summary.total_results || 0}</div><div class="cdc-card-desc">Registros no contexto atual</div></div>
@@ -3956,6 +3960,13 @@
                 var statusSelect = dashboard.querySelector('#cdc-warehouse-status');
                 var kindSelect = dashboard.querySelector('#cdc-warehouse-kind');
                 var parentSelect = dashboard.querySelector('#cdc-warehouse-parent');
+                dashboard.querySelector('#cdc-btn-warehouse-report').addEventListener('click', function() {
+                    var prefill = {};
+                    if (parentSelect && parentSelect.value) prefill.group = parentSelect.value;
+                    else if (warehouseSelectedProject && warehouseSelectedProject !== 'All') prefill.project = warehouseSelectedProject;
+                    sessionStorage.setItem('cdc_reports_prefill', JSON.stringify(prefill));
+                    frappe.set_route('Workspaces', 'CDC Relatórios');
+                });
                 function applyFilters() {
                     warehouseSelectedProject = projectSelect ? projectSelect.value : 'All';
                     sessionStorage.setItem('cdc_warehouse_project', warehouseSelectedProject);

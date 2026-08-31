@@ -19,6 +19,78 @@
   --cdc-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
+/* CDC Relatórios */
+.cdc-custom-reports-active > :not(#cdc-reports-dashboard) { display: none !important; }
+#cdc-reports-dashboard { width: 100%; }
+.cdc-reports-shell { display: grid; gap: 20px; color: var(--text-color, #172033); }
+.cdc-reports-header,
+.cdc-report-builder { background: var(--card-bg, #fff); border: 1px solid var(--border-color, #d8e0ec); border-radius: 14px; padding: 22px; }
+.cdc-reports-header { background: linear-gradient(135deg, #eff6ff, #fff 65%); }
+.cdc-reports-eyebrow,
+.cdc-report-builder-heading span { color: #2563eb; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.cdc-reports-header h1 { margin: 5px 0; font-size: 28px; font-weight: 800; }
+.cdc-reports-header p,
+.cdc-report-card p,
+.cdc-report-builder-heading p,
+.cdc-report-result > p { margin: 0; color: var(--text-muted, #64748b); }
+.cdc-reports-catalog { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.cdc-report-card { min-height: 132px; padding: 18px; background: var(--card-bg, #fff); border: 1px solid var(--border-color, #d8e0ec); border-radius: 12px; }
+.cdc-report-card.is-active { border-color: #2563eb; box-shadow: 0 8px 26px rgba(37, 99, 235, .1); }
+.cdc-report-card > span { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.cdc-report-card.is-active > span { background: #dbeafe; color: #1d4ed8; }
+.cdc-report-card h2 { margin: 12px 0 5px; font-size: 16px; font-weight: 750; }
+.cdc-report-builder-heading { display: flex; justify-content: space-between; gap: 18px; align-items: end; margin-bottom: 18px; }
+.cdc-report-builder-heading h2 { margin: 3px 0 0; font-size: 21px; }
+.cdc-report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.cdc-report-field { display: grid; gap: 7px; min-width: 0; }
+.cdc-report-field.is-wide { grid-column: 1 / -1; }
+.cdc-report-field label,
+.cdc-report-label { color: var(--text-color, #172033); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.cdc-report-field input,
+.cdc-report-field select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 8px; background: var(--control-bg, #fff); color: var(--text-color, #172033); }
+.cdc-report-list-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cdc-report-warehouse-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; max-height: 260px; overflow: auto; padding: 8px; border: 1px solid var(--border-color, #d8e0ec); border-radius: 9px; background: var(--subtle-fg, #f8fafc); }
+.cdc-report-warehouse-option { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px; border-radius: 7px; background: var(--card-bg, #fff); cursor: pointer; text-transform: none !important; letter-spacing: normal !important; }
+.cdc-report-warehouse-option:hover { background: #eff6ff; }
+.cdc-report-warehouse-option input { width: 16px; min-height: 16px; margin: 0; }
+.cdc-report-warehouse-option span { display: grid; min-width: 0; }
+.cdc-report-warehouse-option strong,
+.cdc-report-warehouse-option small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cdc-report-warehouse-option strong { font-size: 12px; }
+.cdc-report-warehouse-option small { color: var(--text-muted, #64748b); font-size: 10px; }
+.cdc-report-periods { display: flex; flex-wrap: wrap; }
+.cdc-report-periods button { min-width: 88px; padding: 8px 13px; border: 1px solid var(--border-color, #cbd5e1); border-right: 0; background: var(--control-bg, #fff); color: var(--text-color, #172033); }
+.cdc-report-periods button:first-child { border-radius: 8px 0 0 8px; }
+.cdc-report-periods button:last-child { border-right: 1px solid var(--border-color, #cbd5e1); border-radius: 0 8px 8px 0; }
+.cdc-report-periods button.is-active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.cdc-report-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.cdc-report-result { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border-color, #d8e0ec); }
+.cdc-report-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+.cdc-report-summary > div { display: grid; padding: 14px; border-radius: 9px; background: var(--subtle-fg, #f8fafc); }
+.cdc-report-summary strong { font-size: 22px; color: #1d4ed8; }
+.cdc-report-summary span,
+.cdc-report-scope-note { color: var(--text-muted, #64748b); font-size: 11px; }
+.cdc-report-table-wrap { margin-top: 12px; overflow: auto; border: 1px solid var(--border-color, #d8e0ec); border-radius: 9px; }
+.cdc-report-table-wrap table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+.cdc-report-table-wrap th,
+.cdc-report-table-wrap td { padding: 8px 10px; border-bottom: 1px solid var(--border-color, #e2e8f0); text-align: left; font-size: 11px; }
+.cdc-report-table-wrap th { background: #eff6ff; color: #1e3a8a; font-weight: 800; }
+
+@media (max-width: 900px) {
+    .cdc-reports-catalog,
+    .cdc-report-warehouse-list { grid-template-columns: 1fr; }
+    .cdc-report-grid,
+    .cdc-report-summary { grid-template-columns: 1fr 1fr; }
+    .cdc-report-builder-heading { align-items: start; flex-direction: column; }
+}
+
+@media (max-width: 560px) {
+    .cdc-report-grid,
+    .cdc-report-summary { grid-template-columns: 1fr; }
+    .cdc-report-actions { align-items: stretch; flex-direction: column; }
+    .cdc-report-periods button { flex: 1; min-width: 70px; }
+}
+
 /* CDC Treinamento — página de apresentação ------------------------------ */
 .cdc-custom-training-active > :not(#cdc-training-dashboard) { display: none !important; }
 #cdc-training-dashboard { color: var(--text-color); animation: cdcFadeIn .25s ease-out; }

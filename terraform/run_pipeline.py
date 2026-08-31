@@ -65,12 +65,12 @@ def main():
         ).splitlines())
         required = {
             "CDC Estoque", "CDC Usuários", "CDC Grupos", "CDC Itens",
-            "CDC Armazém", "CDC Integrações", "CDC Pendências",
+            "CDC Armazém", "CDC Relatórios", "CDC Integrações", "CDC Pendências",
             "CDC Monitoramento", "CDC Testes", "CDC Admin", "CDC Treinamento",
         }
         missing = required - visible
         assert not missing, f"Workspaces ausentes: {sorted(missing)}"
-        return "Onze workspaces CDC públicas e visíveis"
+        return "Doze workspaces CDC públicas e visíveis"
 
     def containers():
         running = set(command("docker", "ps", "--format", "{{.Names}}").splitlines())
@@ -88,6 +88,7 @@ def main():
             ("cdc_theme.js", 50_000),
             ("cdc_management.js", 10_000),
             ("cdc_stock_routes.js", 10_000),
+            ("cdc_reports.js", 10_000),
         )
         sizes = []
         for filename, minimum_size in assets_to_check:

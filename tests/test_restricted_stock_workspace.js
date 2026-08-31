@@ -40,11 +40,14 @@ assert.deepEqual(restricted.routes, [['Workspaces', 'CDC Estoque']]);
 const stock = evaluateGuard(['CDC Estoque Restrito'], '/app/cdc-estoque');
 assert.equal(stock.guard.enforceRestrictedStockWorkspaceRoute(), false, 'rota de estoque deve permanecer acessível');
 
+const reports = evaluateGuard(['CDC Estoque Restrito'], '/app/cdc-relatorios');
+assert.equal(reports.guard.enforceRestrictedStockWorkspaceRoute(), false, 'rota de relatórios deve permanecer acessível');
+
 const manager = evaluateGuard(['CDC Estoque Restrito', 'System Manager'], '/app/cdc-monitoramento');
 assert.equal(manager.guard.isRestrictedStockWorkspaceUser(), false, 'System Manager não deve ser restringido');
 assert.equal(manager.guard.enforceRestrictedStockWorkspaceRoute(), false);
 
-assert.match(source, /restrictedStockUser\s*\? \['cdc estoque'\]/, 'sidebar restrita deve manter somente CDC Estoque');
-assert.match(source, /isRestrictedStockWorkspaceUser\(\) \? \['cdc estoque'\]/, 'cache não deve restaurar workspaces proibidos');
+assert.match(source, /restrictedStockUser\s*\? \['cdc estoque', 'cdc relatorios'\]/, 'sidebar restrita deve manter estoque e relatórios');
+assert.match(source, /isRestrictedStockWorkspaceUser\(\) \? \['cdc estoque', 'cdc relatorios'\]/, 'cache não deve restaurar workspaces proibidos');
 
 console.log('CDC restricted stock workspace test: OK');
