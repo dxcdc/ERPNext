@@ -15,6 +15,7 @@ from urllib3.util.retry import Retry
 
 
 PROTECTED_CONFIG_PATH = "/etc/cdc/secrets/nexterp-extractor.env"
+ONGSYS_SECRET_PATH = "/etc/cdc/secrets/ongsys.env"
 
 
 def _read_env_file(path: str) -> Dict[str, str]:
@@ -67,6 +68,9 @@ class Common:
 
         protected = _read_env_file(
             os.getenv("CDC_NEXTERP_EXTRACTOR_ENV", PROTECTED_CONFIG_PATH)
+        )
+        protected.update(
+            _read_env_file(os.getenv("CDC_ONGSYS_ENV", ONGSYS_SECRET_PATH))
         )
 
         def setting(name: str) -> Optional[str]:

@@ -34,7 +34,10 @@ class ExtractorProtectedConfigTests(unittest.TestCase):
             )
             with patch.dict(
                 os.environ,
-                {"CDC_NEXTERP_EXTRACTOR_ENV": str(protected)},
+                {
+                    "CDC_NEXTERP_EXTRACTOR_ENV": str(protected),
+                    "CDC_ONGSYS_ENV": f"{directory}/missing-ongsys.env",
+                },
                 clear=True,
             ):
                 previous = os.getcwd()
@@ -51,7 +54,10 @@ class ExtractorProtectedConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(
                 os.environ,
-                {"CDC_NEXTERP_EXTRACTOR_ENV": f"{directory}/missing.env"},
+                {
+                    "CDC_NEXTERP_EXTRACTOR_ENV": f"{directory}/missing.env",
+                    "CDC_ONGSYS_ENV": f"{directory}/missing-ongsys.env",
+                },
                 clear=True,
             ):
                 previous = os.getcwd()
