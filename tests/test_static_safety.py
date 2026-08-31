@@ -90,6 +90,8 @@ class StaticSafetyTest(unittest.TestCase):
             '_require_stock_dashboard_access({"CDC Core M2M Read Only"})',
             extractor,
         )
+        self.assertIn('"description", "warehouse", "status", "enabled"', extractor)
+        self.assertIn('mapping.warehouse_status = "Desativado"', extractor)
         self.assertNotIn("_require_system_manager()", extractor)
 
     def test_item_group_route_does_not_match_query_parameters(self):

@@ -604,11 +604,37 @@ def get_ongsys_warehouse_mappings_for_extractor():
     """Contrato mínimo para o integrador autenticado; nunca expõe credenciais."""
     _require_stock_dashboard_access({"CDC Core M2M Read Only"})
     _require_ongsys_mapping_doctype()
-    return frappe.get_all(
+    mappings = frappe.get_all(
         ONGSYS_MAPPING_DOCTYPE,
-        fields=["cost_center_code", "warehouse", "status"],
+        fields=[
+            "cost_center_code", "description", "warehouse", "status", "enabled",
+            "evidence_order_id", "confidence", "validation_detail", "last_analyzed_at",
+        ],
         order_by="cost_center_code asc", limit_page_length=1000,
     )
+    warehouse_names = sorted({row.warehouse for row in mappings if row.warehouse})
+    warehouses = {
+        row.name: row
+        for row in frappe.get_all(
+            "Warehouse",
+            filters={"name": ["in", warehouse_names]},
+            fields=["name", "disabled", "is_group"],
+            limit_page_length=1000,
+        )
+    } if warehouse_names else {}
+    for mapping in mappings:
+        warehouse = warehouses.get(mapping.warehouse)
+        if not mapping.warehouse:
+            mapping.warehouse_status = "Não definido"
+        elif not warehouse:
+            mapping.warehouse_status = "Não encontrado"
+        elif warehouse.is_group:
+            mapping.warehouse_status = "Grupo"
+        elif warehouse.disabled:
+            mapping.warehouse_status = "Desativado"
+        else:
+            mapping.warehouse_status = "Ativo"
+    return mappings
 
 
 @frappe.whitelist(methods=["POST"])
