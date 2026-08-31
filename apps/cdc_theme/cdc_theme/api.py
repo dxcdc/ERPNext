@@ -26,12 +26,14 @@ def _require_read_permission(doctype):
         )
 
 
-def _require_stock_dashboard_access():
+def _require_stock_dashboard_access(additional_roles=None):
     """Restringe o painel consolidado antes da aplicação do escopo por armazém."""
     if getattr(frappe.flags, "cdc_rbac_audit_token", None) is _CDC_RBAC_AUDIT_TOKEN:
         return
     roles = set(frappe.get_roles(frappe.session.user))
-    if not roles.intersection({"System Manager", "Stock Manager"}):
+    allowed_roles = {"System Manager", "Stock Manager"}
+    allowed_roles.update(set(additional_roles or ()))
+    if not roles.intersection(allowed_roles):
         frappe.throw(
             "Painel consolidado restrito a gestores de estoque.",
             frappe.PermissionError,
@@ -600,7 +602,7 @@ def activate_ongsys_warehouse_mappings(names=None):
 @frappe.whitelist()
 def get_ongsys_warehouse_mappings_for_extractor():
     """Contrato mínimo para o integrador autenticado; nunca expõe credenciais."""
-    _require_stock_dashboard_access()
+    _require_stock_dashboard_access({"CDC Core M2M Read Only"})
     _require_ongsys_mapping_doctype()
     return frappe.get_all(
         ONGSYS_MAPPING_DOCTYPE,

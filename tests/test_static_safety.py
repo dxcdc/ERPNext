@@ -82,6 +82,16 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('doc.status = "Validado"', api_source)
         self.assertIn('doc.enabled = 0', api_source)
 
+        extractor = api_source[
+            api_source.index("def get_ongsys_warehouse_mappings_for_extractor"):
+            api_source.index("def save_ongsys_warehouse_mapping")
+        ]
+        self.assertIn(
+            '_require_stock_dashboard_access({"CDC Core M2M Read Only"})',
+            extractor,
+        )
+        self.assertNotIn("_require_system_manager()", extractor)
+
     def test_item_group_route_does_not_match_query_parameters(self):
         source = THEME_JS.read_text()
         route_block = source[source.index("function isItemGroupRoute"):source.index("function removeItemGroupDashboard")]
