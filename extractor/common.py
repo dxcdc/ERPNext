@@ -14,6 +14,24 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
+PROTECTED_CONFIG_PATH = "/etc/cdc/secrets/nexterp-extractor.env"
+
+
+def _read_env_file(path: str) -> Dict[str, str]:
+    values: Dict[str, str] = {}
+    try:
+        with open(path, "r", encoding="utf-8") as stream:
+            for raw_line in stream:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                values[key.strip()] = value.strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return values
+
+
 def normalize_order_type(value: Any) -> str:
     """Normaliza variações observadas como Produto e Pedido de Produto."""
     normalized = unicodedata.normalize("NFKD", str(value or ""))
@@ -36,25 +54,34 @@ class Common:
     ONGSYS_RETRIES: int = 3
 
     def __init__(self) -> None:
-        # Carregar configurações do arquivo JSON
+        # O arquivo JSON e apenas uma ponte legada. Segredos novos devem vir do
+        # ambiente ou do arquivo root-only administrado pelo Rundeck.
         try:
             with open("configs.json", "r") as f:
                 config = json.load(f)
         except FileNotFoundError:
-            print("Arquivo configs.json não encontrado.")
             config = {}
         except json.JSONDecodeError:
             print("Erro ao decodificar configs.json.")
             config = {}
 
-        # URLs e credenciais do ERPNext e ONGSYS (mantidas)
-        self.ERP_URL: str = (config.get("ERPNext_URL") or "").rstrip("/")
-        self.API_KEY: Optional[str] = config.get("ERPNext_API_KEY")
-        self.API_SECRET: Optional[str] = config.get("ERPNext_API_SECRET")
+        protected = _read_env_file(
+            os.getenv("CDC_NEXTERP_EXTRACTOR_ENV", PROTECTED_CONFIG_PATH)
+        )
 
-        self.ONGSYS_URL: str = (config.get("ONGSYS_URL_BASE") or "").rstrip("/")
-        self.ONGSYS_USER: Optional[str] = config.get("ONGSYS_USERNAME")
-        self.ONGSYS_PASS: Optional[str] = config.get("ONGSYS_PASSWORD")
+        def setting(name: str) -> Optional[str]:
+            return os.getenv(name) or protected.get(name) or config.get(name)
+
+        # URLs e credenciais do ERPNext e ONGSYS (mantidas)
+        self.ERP_URL: str = (setting("ERPNext_URL") or "").rstrip("/")
+        self.API_KEY: Optional[str] = setting("ERPNext_API_KEY")
+        self.API_SECRET: Optional[str] = setting("ERPNext_API_SECRET")
+
+        self.ONGSYS_URL: str = (setting("ONGSYS_URL_BASE") or "").rstrip("/")
+        self.ONGSYS_USER: Optional[str] = setting("ONGSYS_USERNAME")
+        self.ONGSYS_PASS: Optional[str] = setting("ONGSYS_PASSWORD")
+        if not all((self.ONGSYS_URL, self.ONGSYS_USER, self.ONGSYS_PASS)):
+            raise RuntimeError("Credencial OngSys incompleta no cofre protegido.")
 
         # Cabeçalhos para ERPNext (mantidos)
         self.HEADERS_ERP: Dict[str, str] = {

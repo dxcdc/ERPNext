@@ -1,0 +1,9 @@
+{
+    "ERPNext_URL": "http://localhost:8085",
+    "ERPNext_API_KEY": "CHANGE_ME",
+    "ERPNext_API_SECRET": "CHANGE_ME",
+    "ONGSYS_URL_BASE": "https://www.ongsys.com.br/app/index.php/api/v2",
+    "ONGSYS_USERNAME": "CHANGE_ME",
+    "ONGSYS_PASSWORD": "CHANGE_ME",
+    "ERPNext_WAREHOUSE": "Stores - CDC"
+}
