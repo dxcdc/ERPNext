@@ -96,7 +96,9 @@
   gap: 16px;
 }
 
-.cdc-users-create-button { flex: 0 0 auto; }
+.cdc-users-heading-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.cdc-users-create-button,
+.cdc-users-link-employee-button { flex: 0 0 auto; white-space: nowrap; }
 
 .cdc-users-heading h2,
 .cdc-users-table-header h3,
@@ -207,7 +209,9 @@
 
 @media (max-width: 600px) {
   .cdc-users-heading { align-items: stretch; flex-direction: column; }
-  .cdc-users-create-button { width: 100%; }
+  .cdc-users-heading-actions { align-items: stretch; flex-direction: column; }
+  .cdc-users-create-button,
+  .cdc-users-link-employee-button { width: 100%; }
   .cdc-linked-filters { align-items: stretch; flex-direction: column; }
   .cdc-linked-filters label { flex-basis: auto; }
   .cdc-users-metrics { grid-template-columns: 1fr; }

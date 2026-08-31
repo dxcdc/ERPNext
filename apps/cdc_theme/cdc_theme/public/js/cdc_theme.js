@@ -497,7 +497,10 @@
                     ${getCDCBreadcrumbHTML('Usuários')}
                     <div class="cdc-users-heading">
                         <div><h2>Visão geral de usuários</h2><p>Indicadores e acessos cadastrados no NextERP.</p></div>
-                        <a class="btn btn-primary cdc-users-create-button" href="/app/user/new-user-byeuadqsvz">Cadastrar novo usuário</a>
+                        <div class="cdc-users-heading-actions">
+                            <a class="btn btn-default cdc-users-link-employee-button" href="/app/user-permission">Vincular funcionário</a>
+                            <a class="btn btn-primary cdc-users-create-button" href="/app/user/new-user-byeuadqsvz">Cadastrar novo usuário</a>
+                        </div>
                     </div>
                     <div class="cdc-linked-filters" aria-label="Filtros de usuários">
                         <label><span>Projeto</span><select id="cdc-users-project-filter">${projectOptionsHTML}</select></label>
