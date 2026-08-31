@@ -1309,15 +1309,27 @@
                         <a id="cdc-project-back" href="/app/cdc-estoque" style="background:#fff;color:#1d4ed8;border-radius:8px;padding:9px 14px;text-decoration:none;font-size:12px;font-weight:800;">← Voltar à visão geral</a>
                     </div>
                 ` : `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
-                        <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #0f172a; font-size: 15px;">
+                    <div class="cdc-stock-scope-bar">
+                        <div class="cdc-stock-scope-title">
                             <span style="font-size: 18px;">👁️</span>
-                            <span>Filtrar Visão por Armazém:</span>
+                            <span>Filtrar visão:</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <select id="cdc-unit-filter-select" class="form-control" style="width: auto; min-width: 320px; max-width: 460px; height: 42px; font-size: 14px; font-weight: 700; border-radius: 8px; border: 2px solid #2563eb; color: #0f172a; cursor: pointer; background-color: #f8fafc; padding: 0 12px;">
+                        <div class="cdc-stock-scope-controls">
+                            <label class="cdc-stock-scope-field">
+                                <span>Armazém</span>
+                                <select id="cdc-unit-filter-select" class="form-control">
                                 ${unitOptions}
-                            </select>
+                                </select>
+                            </label>
+                            <label class="cdc-stock-scope-field is-period">
+                                <span>Período</span>
+                                <select id="cdc-stock-period-filter" class="form-control">
+                                    <option value="month" ${currentSelectedPeriod === 'month' ? 'selected' : ''}>Mês</option>
+                                    <option value="quarter" ${currentSelectedPeriod === 'quarter' ? 'selected' : ''}>Trimestre</option>
+                                    <option value="semester" ${currentSelectedPeriod === 'semester' ? 'selected' : ''}>Semestre</option>
+                                    <option value="year" ${currentSelectedPeriod === 'year' ? 'selected' : ''}>Ano</option>
+                                </select>
+                            </label>
                             <button id="cdc-clear-unit-filter" type="button" class="btn btn-default" ${currentSelectedUnit === 'All' ? 'disabled aria-disabled="true"' : ''} style="height:42px;font-size:12px;font-weight:800;border-radius:8px;white-space:nowrap;opacity:${currentSelectedUnit === 'All' ? '.55' : '1'};">↺ Mostrar todos</button>
                         </div>
                     </div>
@@ -1346,8 +1358,8 @@
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📥 ENTRADA MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${receiptsCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
-                                <span style="color: #2563eb;">🔵 ${receiptsCount} este mês</span>
-                                <span style="color: #d97706;">🟠 ${data.receipts_last_month || 0} mês passado</span>
+                                <span style="color: #2563eb;">🔵 ${receiptsCount} neste ${String(data.period_label || 'período').toLowerCase()}</span>
+                                <span style="color: #d97706;">🟠 ${data.receipts_last_month || 0} período anterior</span>
                             </div>
                         </a>
 
@@ -1355,8 +1367,8 @@
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📤 SAÍDA DE MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${issuesCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
-                                <span style="color: #2563eb;">🔵 ${issuesCount} este mês</span>
-                                <span style="color: #d97706;">🟠 ${data.issues_last_month || 0} mês passado</span>
+                                <span style="color: #2563eb;">🔵 ${issuesCount} neste ${String(data.period_label || 'período').toLowerCase()}</span>
+                                <span style="color: #d97706;">🟠 ${data.issues_last_month || 0} período anterior</span>
                             </div>
                         </a>
 
@@ -1364,8 +1376,8 @@
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🔄 TRANSFERÊNCIA</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${transfersCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
-                                <span style="color: #2563eb;">🔵 ${transfersCount} este mês</span>
-                                <span style="color: #d97706;">🟠 ${data.transfers_accumulated || 0} no mês passado</span>
+                                <span style="color: #2563eb;">🔵 ${transfersCount} neste ${String(data.period_label || 'período').toLowerCase()}</span>
+                                <span style="color: #d97706;">🟠 ${data.transfers_accumulated || 0} período anterior</span>
                             </div>
                         </a>
                     </div>
@@ -1960,6 +1972,13 @@
             e.preventDefault();
             currentSelectedUnit = 'All';
             sessionStorage.setItem('cdc_unit', 'All');
+            renderStockDashboard();
+        });
+
+        $(document).off('change', '#cdc-stock-period-filter').on('change', '#cdc-stock-period-filter', function(e) {
+            e.stopPropagation();
+            currentSelectedPeriod = $(this).val() || 'quarter';
+            sessionStorage.setItem('cdc_period', currentSelectedPeriod);
             renderStockDashboard();
         });
 

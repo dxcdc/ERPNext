@@ -1994,14 +1994,22 @@ def get_project_weekly_occurrences(period='quarter', selected_unit=None, entry_t
     purpose_val = 'Material Issue' if is_issue else 'Material Receipt'
     wh_field = "se.from_warehouse" if is_issue else "se.to_warehouse"
 
-    unit_prefix = get_unit_prefix(selected_unit)
+    selected_unit = (selected_unit or "All").strip()
     where_unit = f" AND {_warehouse_permission_sql(wh_field)}"
     project_clause = _project_warehouse_clause(wh_field, selected_project)
     if project_clause:
         where_unit += f" AND {project_clause}"
-    elif unit_prefix != 'All':
-        unit_keyword = unit_prefix.replace("'", "''")
-        where_unit += f" AND ({wh_field} = '{unit_keyword}' OR {wh_field} LIKE '%{unit_keyword}%')"
+    elif selected_unit != 'All':
+        selected_unit_sql = frappe.db.escape(selected_unit)
+        detail_warehouse_field = "s_warehouse" if is_issue else "t_warehouse"
+        where_unit += f""" AND (
+            {wh_field} = {selected_unit_sql}
+            OR EXISTS (
+                SELECT 1 FROM `tabStock Entry Detail` occurrence_sed
+                WHERE occurrence_sed.parent = se.name
+                  AND occurrence_sed.{detail_warehouse_field} = {selected_unit_sql}
+            )
+        )"""
 
     projects_list = [
         "Projeto Atitude II.I",
@@ -2236,22 +2244,18 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
         selected_unit = 'All'
 
+    period = period if period in {"month", "quarter", "semester", "year"} else "quarter"
+    period_months = {"month": 1, "quarter": 3, "semester": 6, "year": 12}[period]
+    period_labels = {"month": "Mês", "quarter": "Trimestre", "semester": "Semestre", "year": "Ano"}
+
     permitted_warehouses = _permitted_leaf_warehouses()
-    all_leaf_warehouses = set(frappe.get_all(
-        "Warehouse", filters={"is_group": 0}, pluck="name", limit_page_length=0,
-    ))
-    unit_prefix = get_unit_prefix(selected_unit)
-    if permitted_warehouses < all_leaf_warehouses and unit_prefix != 'All':
-        permitted_selection = any(
-            name == unit_prefix or unit_prefix in name
-            for name in permitted_warehouses
-        )
-        if not permitted_selection:
-            frappe.throw("Armazém indisponível para o usuário atual.", frappe.PermissionError)
+    if selected_unit != 'All' and selected_unit not in permitted_warehouses:
+        frappe.throw("Armazém indisponível para o usuário atual.", frappe.PermissionError)
     
     current_month_start = get_first_day(today())
-    previous_month_start = get_first_day(add_months(current_month_start, -1))
-    activity_cutoff = add_days(today(), -30)
+    period_start = getdate(add_months(current_month_start, -(period_months - 1)))
+    previous_period_start = getdate(add_months(period_start, -period_months))
+    activity_cutoff = period_start
     # ERPNext costuma manter o armazém nas linhas de Stock Entry Detail. O
     # cabeçalho pode ficar vazio, especialmente em transferências e documentos
     # antigos. Esta expressão preserva os filtros e rótulos nesses dois casos.
@@ -2262,10 +2266,18 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         ''
     )"""
     where_se = (
-        f"WHERE se.docstatus=1 AND se.posting_date >= '{current_month_start}' "
+        f"WHERE se.docstatus=1 AND se.posting_date >= '{period_start}' "
         f"AND {_warehouse_permission_sql(stock_entry_warehouse)}"
     )
-    where_recent = f"WHERE se.docstatus=1 AND {_warehouse_permission_sql(stock_entry_warehouse)}"
+    where_recent = (
+        f"WHERE se.docstatus=1 AND se.posting_date >= '{period_start}' "
+        f"AND {_warehouse_permission_sql(stock_entry_warehouse)}"
+    )
+    where_previous = (
+        f"WHERE se.docstatus=1 AND se.posting_date >= '{previous_period_start}' "
+        f"AND se.posting_date < '{period_start}' "
+        f"AND {_warehouse_permission_sql(stock_entry_warehouse)}"
+    )
     where_bin = f"WHERE {_warehouse_permission_sql('warehouse')}"
     where_wh = f"WHERE w.is_group=0 AND {_warehouse_permission_sql('w.name')}"
     project_se_clause = _project_warehouse_clause(stock_entry_warehouse, selected_project)
@@ -2275,16 +2287,26 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     if project_se_clause:
         where_se += f" AND {project_se_clause}"
         where_recent += f" AND {project_se_clause}"
+        where_previous += f" AND {project_se_clause}"
         where_bin += f" AND {project_bin_clause}"
         where_wh += f" AND {project_wh_clause}"
         selected_unit = 'All'
-    elif unit_prefix != 'All':
-        unit_keyword = unit_prefix.replace("'", "''")
-        warehouse_match = f"({stock_entry_warehouse} = '{unit_keyword}' OR {stock_entry_warehouse} LIKE '%{unit_keyword}%')"
+    elif selected_unit != 'All':
+        selected_unit_sql = frappe.db.escape(selected_unit)
+        warehouse_match = f"""(
+            se.from_warehouse = {selected_unit_sql}
+            OR se.to_warehouse = {selected_unit_sql}
+            OR EXISTS (
+                SELECT 1 FROM `tabStock Entry Detail` selected_sed
+                WHERE selected_sed.parent = se.name
+                  AND (selected_sed.s_warehouse = {selected_unit_sql} OR selected_sed.t_warehouse = {selected_unit_sql})
+            )
+        )"""
         where_se += f" AND {warehouse_match}"
         where_recent += f" AND {warehouse_match}"
-        where_bin += f" AND (warehouse = '{unit_keyword}' OR warehouse LIKE '%{unit_keyword}%')"
-        where_wh += f" AND (w.name = '{unit_keyword}' OR w.name LIKE '%{unit_keyword}%')"
+        where_previous += f" AND {warehouse_match}"
+        where_bin += f" AND warehouse = {selected_unit_sql}"
+        where_wh += f" AND w.name = {selected_unit_sql}"
 
     table_type = table_type if table_type in ('all', 'receipt', 'issue') else 'all'
     if table_type == 'receipt':
@@ -2367,7 +2389,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
     
     available_warehouses = [{
         "value": "All",
-        "label": f"Todos os Armazéns ({int(total_warehouses)} Armazéns)",
+        "label": f"Todos os Armazéns ({len(permitted_warehouses)} Armazéns)",
     }]
     for w in warehouses_raw:
         clean_label = w[0].replace(' - C', '').strip()
@@ -2497,13 +2519,15 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
             SUM(purpose='Material Issue') AS issues,
             SUM(purpose='Material Transfer') AS transfers
         FROM `tabStock Entry` se
-        WHERE se.docstatus=1 AND se.posting_date >= %s AND se.posting_date < %s
-          AND {_warehouse_permission_sql(stock_entry_warehouse)}
-    """, (previous_month_start, current_month_start), as_dict=True)[0]
+        {where_previous}
+    """, as_dict=True)[0]
 
     return {
         "selected_unit": selected_unit,
         "selected_project": selected_project,
+        "period": period,
+        "period_label": period_labels[period],
+        "period_start": str(period_start),
         "unit_display_label": unit_display_label,
         "available_units": available_warehouses,
         "receipts_month": receipts_month,
