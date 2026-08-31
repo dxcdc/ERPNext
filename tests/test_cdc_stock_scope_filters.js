@@ -15,5 +15,7 @@ assert.match(api, /selected_sed\.s_warehouse = \{selected_unit_sql\}/, 'moviment
 assert.match(api, /len\(permitted_warehouses\)/, 'a opção Todos deve preservar a contagem total acessível');
 assert.match(api, /occurrence_sed\.\{detail_warehouse_field\} = \{selected_unit_sql\}/, 'o gráfico deve considerar linhas com o armazém exato');
 assert.match(api, /previous_period_start/, 'a comparação deve usar um período anterior equivalente');
+assert.match(js, /exactStockReportHref\('Entrada de Material'\)/, 'cartão de entradas deve abrir o relatório com o mesmo escopo');
+assert.match(js, /exactStockReportHref\('Saída de Material'\)/, 'cartão de saídas deve abrir o relatório com o mesmo escopo');
 
 console.log('CDC stock scope filters test: OK');

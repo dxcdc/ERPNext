@@ -1836,6 +1836,16 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     border-radius: 10px;
 }
 
+.cdc-stock-exact-report-active > .cdc-stock-route-native { display: none !important; }
+.cdc-stock-exact-table-card { overflow: hidden; margin-top: 14px; background: var(--card-bg, #fff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px; }
+.cdc-stock-exact-table-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border-color, #e2e8f0); }
+.cdc-stock-exact-table-header h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.cdc-stock-exact-table-header strong { color: #2563eb; font-size: 18px; }
+.cdc-stock-exact-table-scroll { max-height: 560px; overflow: auto; }
+.cdc-stock-exact-table-card table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 12px; }
+.cdc-stock-exact-table-card th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; color: #475569; background: #f8fafc; text-align: left; text-transform: uppercase; }
+.cdc-stock-exact-table-card td { padding: 11px 12px; border-top: 1px solid #f1f5f9; }
+
 @media (max-width: 1180px) {
     .cdc-stock-context-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

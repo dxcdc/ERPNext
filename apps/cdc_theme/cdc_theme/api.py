@@ -2528,6 +2528,7 @@ def get_stock_dashboard_data(selected_unit=None, period='quarter', entry_type='r
         "period": period,
         "period_label": period_labels[period],
         "period_start": str(period_start),
+        "period_end": str(today()),
         "unit_display_label": unit_display_label,
         "available_units": available_warehouses,
         "receipts_month": receipts_month,
@@ -3995,6 +3996,7 @@ def get_stock_document_dashboard_data(
     to_date=None,
     docstatus=None,
     movement_type=None,
+    warehouse=None,
 ):
     """Resume listas de movimentação sem contornar permissões do Frappe."""
     definitions = {
@@ -4022,6 +4024,7 @@ def get_stock_document_dashboard_data(
     requested_search = (search or "").strip()[:120]
     requested_company = (company or "").strip()
     requested_movement = (movement_type or "").strip()
+    requested_warehouse = (warehouse or "").strip()
     requested_status = str(docstatus).strip() if docstatus is not None else ""
     if requested_status not in {"", "0", "1", "2"}:
         frappe.throw("Situação documental inválida.", frappe.ValidationError)
@@ -4045,6 +4048,9 @@ def get_stock_document_dashboard_data(
         frappe.throw("Empresa indisponível para o usuário atual.", frappe.PermissionError)
     if requested_movement and requested_movement not in movement_types:
         frappe.throw("Tipo de movimentação indisponível para o usuário atual.", frappe.PermissionError)
+    permitted_warehouses = sorted(_permitted_leaf_warehouses()) if document_type == "Stock Entry" else []
+    if requested_warehouse and requested_warehouse not in permitted_warehouses:
+        frappe.throw("Armazém indisponível para o usuário atual.", frappe.PermissionError)
 
     filters = {}
     if requested_search:
@@ -4069,6 +4075,34 @@ def get_stock_document_dashboard_data(
         order_by="posting_date desc, modified desc",
         limit_page_length=0,
     )
+    if document_type == "Stock Entry" and requested_warehouse and rows:
+        detail_rows = frappe.get_list(
+            "Stock Entry Detail",
+            filters={"parent": ["in", [row.name for row in rows]]},
+            fields=["parent", "s_warehouse", "t_warehouse"],
+            parent_doctype="Stock Entry",
+            limit_page_length=0,
+        )
+        detail_warehouses = {}
+        for detail in detail_rows:
+            scope = detail_warehouses.setdefault(detail.parent, {"source": set(), "target": set()})
+            if detail.s_warehouse:
+                scope["source"].add(detail.s_warehouse)
+            if detail.t_warehouse:
+                scope["target"].add(detail.t_warehouse)
+
+        def matches_exact_warehouse(row):
+            purpose = str(row.purpose or "")
+            detail_scope = detail_warehouses.get(row.name, {"source": set(), "target": set()})
+            source_match = row.from_warehouse == requested_warehouse or requested_warehouse in detail_scope["source"]
+            target_match = row.to_warehouse == requested_warehouse or requested_warehouse in detail_scope["target"]
+            if purpose == "Material Issue":
+                return source_match
+            if purpose == "Material Receipt":
+                return target_match
+            return source_match or target_match
+
+        rows = [row for row in rows if matches_exact_warehouse(row)]
     submitted = sum(1 for row in rows if int(row.docstatus or 0) == 1)
     drafts = sum(1 for row in rows if int(row.docstatus or 0) == 0)
     cancelled = sum(1 for row in rows if int(row.docstatus or 0) == 2)
@@ -4085,20 +4119,33 @@ def get_stock_document_dashboard_data(
             "issues": sum("issue" in value for value in purposes),
             "transfers": sum("transfer" in value for value in purposes),
         })
+        result_rows = [{
+            "name": row.name,
+            "posting_date": str(row.posting_date) if row.posting_date else "",
+            "purpose": row.purpose or "",
+            "movement_type": row.stock_entry_type or row.purpose or "",
+            "from_warehouse": row.from_warehouse or "",
+            "to_warehouse": row.to_warehouse or "",
+            "docstatus": int(row.docstatus or 0),
+        } for row in rows]
     else:
         summary["difference_amount"] = sum(
             float(row.difference_amount or 0)
             for row in rows if int(row.docstatus or 0) == 1
         )
+        result_rows = []
 
     return {
         "document_type": document_type,
         "summary": summary,
+        "rows": result_rows,
         "filters": {
             "companies": companies,
             "movement_types": movement_types,
+            "warehouses": permitted_warehouses,
             "selected_company": requested_company,
             "selected_movement_type": requested_movement,
+            "selected_warehouse": requested_warehouse,
             "selected_docstatus": requested_status,
             "search": requested_search,
             "from_date": requested_from,

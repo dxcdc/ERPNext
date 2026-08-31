@@ -66,6 +66,10 @@ assert.equal(detect(['query-report', 'Stock Balance'], '/app/query-report/Stock 
 
 assert.match(source, /_cdc_claim_active_dashboard\('cdc-stock-route-dashboard'/, 'painel deve usar apenas o contêiner SPA ativo');
 assert.match(source, /get_stock_document_dashboard_data/, 'cards documentais devem vir do endpoint real');
+assert.match(source, /data-cdc-stock-warehouse/, 'relatório de lançamentos deve permitir armazém exato');
+assert.match(source, /exactStockRows\(data\.rows \|\| \[\]\)/, 'indicador e tabela devem usar a mesma resposta do backend');
+assert.match(source, /cdc-stock-exact-report-active/, 'tabela nativa divergente deve ser ocultada somente no relatório corrigido');
+assert.match(source, /context\.docstatus === ''\) context\.docstatus = '1'/, 'relatório corrigido deve iniciar somente com confirmados');
 assert.match(source, /get_stock_report_filter_options/, 'opções dos relatórios devem respeitar o backend');
 assert.match(source, /frappe\.set_route\('List', 'Stock Entry', 'Report'/, 'filtros de lançamentos devem atualizar o relatório nativo');
 assert.match(source, /frappe\.set_route\('List', 'Stock Entry', 'List'/, 'filtros de lançamentos devem atualizar a lista nativa');

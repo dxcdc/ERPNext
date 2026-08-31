@@ -1345,6 +1345,16 @@
                 var totalWh = data.total_warehouses || 0;
                 var activeWh = data.active_warehouses || 0;
                 var inactiveWh = data.inactive_warehouses || 0;
+                function exactStockReportHref(movementType) {
+                    var params = new URLSearchParams({
+                        from_date: data.period_start || '',
+                        to_date: data.period_end || '',
+                        docstatus: '1',
+                        stock_entry_type: movementType
+                    });
+                    if (data.selected_unit && data.selected_unit !== 'All') params.set('warehouse', data.selected_unit);
+                    return '/app/stock-entry/view/report/Lancamento%20no%20Estoque%20-%20CDC?' + params.toString();
+                }
 
                 var top4CardsGrid = `
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
@@ -1357,7 +1367,7 @@
                             </div>
                         </a>
 
-                        <a href="/app/stock-entry?purpose=Material%20Receipt" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
+                        <a href="${exactStockReportHref('Entrada de Material')}" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📥 ENTRADA MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${receiptsCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
@@ -1366,7 +1376,7 @@
                             </div>
                         </a>
 
-                        <a href="/app/stock-entry?purpose=Material%20Issue" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
+                        <a href="${exactStockReportHref('Saída de Material')}" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">📤 SAÍDA DE MATERIAL</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${issuesCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">
@@ -1375,7 +1385,7 @@
                             </div>
                         </a>
 
-                        <a href="/app/stock-entry?purpose=Material%20Transfer" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
+                        <a href="${exactStockReportHref('Transferência de Material')}" class="cdc-exec-card cdc-kpi-link" style="padding: 16px; margin-bottom: 0;">
                             <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">🔄 TRANSFERÊNCIA</div>
                             <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${transfersCount}</div>
                             <div style="display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600;">

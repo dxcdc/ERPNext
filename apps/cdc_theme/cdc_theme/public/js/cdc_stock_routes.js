@@ -107,6 +107,9 @@
         document.querySelectorAll('.cdc-stock-route-native').forEach(function(node) {
             node.classList.remove('cdc-stock-route-native');
         });
+        document.querySelectorAll('.cdc-stock-exact-report-active').forEach(function(node) {
+            node.classList.remove('cdc-stock-exact-report-active');
+        });
     }
 
     function claimDashboard() {
@@ -173,10 +176,11 @@
             document_type: definition.doctype,
             search: scalar('name'),
             company: scalar('company'),
-            from_date: fromDate,
-            to_date: toDate,
-            docstatus: scalar('docstatus'),
-            movement_type: scalar(definition.movementField)
+            from_date: fromDate || routeValue('from_date'),
+            to_date: toDate || routeValue('to_date'),
+            docstatus: scalar('docstatus') || routeValue('docstatus'),
+            movement_type: scalar(definition.movementField) || routeValue(definition.movementField),
+            warehouse: routeValue('warehouse')
         };
     }
 
@@ -189,7 +193,8 @@
             from_date: routeValue('posting_date') || routeValue('from_date'),
             to_date: routeValue('to_date'),
             docstatus: routeValue('docstatus'),
-            movement_type: routeValue(definition.movementField)
+            movement_type: routeValue(definition.movementField),
+            warehouse: routeValue('warehouse')
         };
         var postingDate = nativeContext ? null : rawRouteValue('posting_date');
         if (!nativeContext && Array.isArray(postingDate) && String(postingDate[0]).toLowerCase() === 'between' && Array.isArray(postingDate[1])) {
@@ -201,6 +206,7 @@
         }
         pendingDocumentContext = null;
         pendingDocumentUntil = 0;
+        if (definition.key === 'stock-entry-report' && context.docstatus === '') context.docstatus = '1';
         return context;
     }
 
@@ -269,10 +275,36 @@
         ].join('');
     }
 
+    function exactStockRows(rows) {
+        var statusLabels = {0: 'Rascunho', 1: 'Confirmado', 2: 'Cancelado'};
+        var body = (rows || []).map(function(row) {
+            var purpose = row.purpose === 'Material Receipt' ? 'Entrada' :
+                (row.purpose === 'Material Issue' ? 'Saída' :
+                    (row.purpose === 'Material Transfer' ? 'Transferência' : row.movement_type));
+            var warehouse = row.purpose === 'Material Issue' ? row.from_warehouse :
+                (row.purpose === 'Material Receipt' ? row.to_warehouse : (row.from_warehouse || row.to_warehouse));
+            return `<tr>
+                <td><a class="cdc-doc-link" href="/app/stock-entry/${encodeURIComponent(row.name)}">${escapeHTML(row.name)}</a></td>
+                <td>${escapeHTML(row.posting_date)}</td>
+                <td>${escapeHTML(purpose)}</td>
+                <td>${escapeHTML(warehouse || 'Registrado nas linhas')}</td>
+                <td><span class="cdc-user-status ${Number(row.docstatus) === 1 ? 'is-enabled' : 'is-disabled'}">${escapeHTML(statusLabels[row.docstatus] || 'Desconhecido')}</span></td>
+            </tr>`;
+        }).join('');
+        return `<div class="cdc-stock-exact-table-card">
+            <div class="cdc-stock-exact-table-header"><h2>Documentos encontrados</h2><strong>${number((rows || []).length)}</strong></div>
+            <div class="cdc-stock-exact-table-scroll"><table>
+                <thead><tr><th>Documento</th><th>Data</th><th>Tipo</th><th>Armazém</th><th>Situação</th></tr></thead>
+                <tbody>${body || '<tr><td colspan="5">Nenhum lançamento encontrado neste contexto.</td></tr>'}</tbody>
+            </table></div>
+        </div>`;
+    }
+
     function renderDocument(definition) {
         var claim = claimDashboard();
         if (!claim) return;
         var dashboard = claim.dashboard;
+        if (definition.key === 'stock-entry-report') claim.body.classList.add('cdc-stock-exact-report-active');
         var context = getDocumentContext(definition);
         var requestKey = definition.key + '|' + JSON.stringify(context);
         if (dashboard.dataset.loaded === '1' && dashboard.dataset.requestKey === requestKey) return;
@@ -305,6 +337,7 @@
                 var filters = data.filters || {};
                 var companyOptions = optionHTML(filters.companies, filters.selected_company, 'Todas as empresas');
                 var movementOptions = optionHTML(filters.movement_types, filters.selected_movement_type, 'Todos os tipos');
+                var warehouseOptions = optionHTML(filters.warehouses, filters.selected_warehouse, 'Todos os armazéns permitidos');
                 dashboard.innerHTML = `${breadcrumb(definition.title)}
                     <div class="cdc-stock-context-wrapper">
                         <div class="cdc-stock-context-header">
@@ -319,10 +352,12 @@
                             <label><span>Data final</span><input type="date" data-cdc-stock-to value="${escapeHTML(filters.to_date || '')}"></label>
                             <label><span>Situação</span><select data-cdc-stock-status><option value="">Todas</option><option value="0"${filters.selected_docstatus === '0' ? ' selected' : ''}>Rascunho</option><option value="1"${filters.selected_docstatus === '1' ? ' selected' : ''}>Confirmado</option><option value="2"${filters.selected_docstatus === '2' ? ' selected' : ''}>Cancelado</option></select></label>
                             <label><span>Tipo</span><select data-cdc-stock-movement>${movementOptions}</select></label>
+                            ${definition.key === 'stock-entry-report' ? `<label><span>Armazém</span><select data-cdc-stock-warehouse>${warehouseOptions}</select></label>` : ''}
                             <button type="button" class="btn btn-sm btn-primary" data-cdc-stock-apply>Aplicar filtros</button>
                             <button type="button" class="btn btn-sm btn-default" data-cdc-stock-clear>Limpar filtros</button>
                         </div>
-                        <p class="cdc-catalog-filter-note">A pesquisa utiliza o identificador oficial. Cards, paginação, edição, exportação e ações permanecem ligados ao componente nativo do ERPNext.</p>
+                        <p class="cdc-catalog-filter-note">${definition.key === 'stock-entry-report' ? 'Indicadores e documentos usam o mesmo período, situação e armazém exato. Entradas consideram destino; saídas consideram origem, inclusive nas linhas do lançamento.' : 'A pesquisa utiliza o identificador oficial. Cards, paginação, edição, exportação e ações permanecem ligados ao componente nativo do ERPNext.'}</p>
+                        ${definition.key === 'stock-entry-report' ? exactStockRows(data.rows || []) : ''}
                     </div>`;
                 dashboard.dataset.loaded = '1';
                 dashboard.dataset.requestKey = requestKey;
@@ -350,7 +385,8 @@
                 from_date: value('[data-cdc-stock-from]'),
                 to_date: value('[data-cdc-stock-to]'),
                 docstatus: value('[data-cdc-stock-status]'),
-                movement_type: value('[data-cdc-stock-movement]')
+                movement_type: value('[data-cdc-stock-movement]'),
+                warehouse: value('[data-cdc-stock-warehouse]')
             };
             if (context.from_date && context.to_date && context.from_date > context.to_date) {
                 frappe.msgprint(__('A data inicial não pode ser posterior à data final.'));
@@ -367,6 +403,10 @@
             pendingDocumentContext = context;
             pendingDocumentUntil = Date.now() + 1600;
             dashboard.dataset.loaded = '0';
+            if (definition.key === 'stock-entry-report') {
+                renderDocument(definition);
+                return;
+            }
             var applied = applyNativeDocumentFilters(definition, filters);
             if (applied) {
                 Promise.resolve(applied).finally(function() { scheduleRender(180); });
@@ -388,10 +428,14 @@
         dashboard.querySelector('[data-cdc-stock-clear]').addEventListener('click', function() {
             pendingDocumentContext = {
                 document_type: definition.doctype, search: '', company: '', from_date: '',
-                to_date: '', docstatus: '', movement_type: ''
+                to_date: '', docstatus: definition.key === 'stock-entry-report' ? '1' : '', movement_type: '', warehouse: ''
             };
             pendingDocumentUntil = Date.now() + 1600;
             dashboard.dataset.loaded = '0';
+            if (definition.key === 'stock-entry-report') {
+                renderDocument(definition);
+                return;
+            }
             var cleared = applyNativeDocumentFilters(definition, {});
             if (cleared) {
                 Promise.resolve(cleared).finally(function() { scheduleRender(180); });
