@@ -144,6 +144,31 @@
         return value === undefined || value === null ? '' : String(value).replace(/^%|%$/g, '');
     }
 
+    function storedStockWarehouse() {
+        var value = sessionStorage.getItem('cdc_unit') || 'All';
+        return value === 'All' ? '' : value;
+    }
+
+    function syncExactStockWarehouse(warehouse, updateUrl) {
+        var value = String(warehouse || '').trim();
+        sessionStorage.setItem('cdc_unit', value || 'All');
+        if (!updateUrl) return;
+        var url = new URL(window.location.href);
+        if (value) url.searchParams.set('warehouse', value);
+        else url.searchParams.delete('warehouse');
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+
+    function exactReportWarehouse() {
+        var params = new URLSearchParams(window.location.search || '');
+        if (params.has('warehouse')) {
+            var routeWarehouse = String(params.get('warehouse') || '').trim();
+            syncExactStockWarehouse(routeWarehouse, false);
+            return routeWarehouse;
+        }
+        return storedStockWarehouse();
+    }
+
     function nativeDocumentContext(definition) {
         var list = window.cur_list;
         if (!list || normalize(list.doctype) !== normalize(definition.doctype) || !list.filter_area || typeof list.filter_area.get !== 'function') {
@@ -206,7 +231,10 @@
         }
         pendingDocumentContext = null;
         pendingDocumentUntil = 0;
-        if (definition.key === 'stock-entry-report' && context.docstatus === '') context.docstatus = '1';
+        if (definition.key === 'stock-entry-report') {
+            context.warehouse = exactReportWarehouse();
+            if (context.docstatus === '') context.docstatus = '1';
+        }
         return context;
     }
 
@@ -342,7 +370,10 @@
                     <div class="cdc-stock-context-wrapper">
                         <div class="cdc-stock-context-header">
                             <div><h1>${definition.icon} ${escapeHTML(definition.title)}</h1><p>${escapeHTML(definition.subtitle)}</p></div>
-                            <button type="button" class="btn btn-sm btn-default" data-cdc-stock-refresh>🔄 Atualizar indicadores</button>
+                            <div class="cdc-stock-context-header-actions">
+                                ${definition.key === 'stock-entry-report' ? `<label class="cdc-stock-report-warehouse-picker"><span>Escolher armazém</span><select data-cdc-stock-warehouse>${warehouseOptions}</select></label><button type="button" class="btn btn-sm btn-primary" data-cdc-stock-warehouse-apply>Aplicar armazém</button>` : ''}
+                                <button type="button" class="btn btn-sm btn-default" data-cdc-stock-refresh>🔄 Atualizar indicadores</button>
+                            </div>
                         </div>
                         <div class="cdc-stock-context-cards">${documentCards(definition, data.summary || {})}</div>
                         <div class="cdc-linked-filters cdc-stock-context-filters" aria-label="Pesquisa e filtros de ${escapeHTML(definition.title)}">
@@ -352,7 +383,6 @@
                             <label><span>Data final</span><input type="date" data-cdc-stock-to value="${escapeHTML(filters.to_date || '')}"></label>
                             <label><span>Situação</span><select data-cdc-stock-status><option value="">Todas</option><option value="0"${filters.selected_docstatus === '0' ? ' selected' : ''}>Rascunho</option><option value="1"${filters.selected_docstatus === '1' ? ' selected' : ''}>Confirmado</option><option value="2"${filters.selected_docstatus === '2' ? ' selected' : ''}>Cancelado</option></select></label>
                             <label><span>Tipo</span><select data-cdc-stock-movement>${movementOptions}</select></label>
-                            ${definition.key === 'stock-entry-report' ? `<label><span>Armazém</span><select data-cdc-stock-warehouse>${warehouseOptions}</select></label>` : ''}
                             <button type="button" class="btn btn-sm btn-primary" data-cdc-stock-apply>Aplicar filtros</button>
                             <button type="button" class="btn btn-sm btn-default" data-cdc-stock-clear>Limpar filtros</button>
                         </div>
@@ -400,6 +430,7 @@
             else if (context.to_date) filters.posting_date = ['<=', context.to_date];
             if (context.docstatus !== '') filters.docstatus = Number(context.docstatus);
             if (context.movement_type) filters[definition.movementField] = context.movement_type;
+            if (definition.key === 'stock-entry-report') syncExactStockWarehouse(context.warehouse, true);
             pendingDocumentContext = context;
             pendingDocumentUntil = Date.now() + 1600;
             dashboard.dataset.loaded = '0';
@@ -422,10 +453,13 @@
             }
         }
         dashboard.querySelector('[data-cdc-stock-apply]').addEventListener('click', apply);
+        var warehouseApply = dashboard.querySelector('[data-cdc-stock-warehouse-apply]');
+        if (warehouseApply) warehouseApply.addEventListener('click', apply);
         dashboard.querySelector('[data-cdc-stock-search]').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') apply();
         });
         dashboard.querySelector('[data-cdc-stock-clear]').addEventListener('click', function() {
+            if (definition.key === 'stock-entry-report') syncExactStockWarehouse('', true);
             pendingDocumentContext = {
                 document_type: definition.doctype, search: '', company: '', from_date: '',
                 to_date: '', docstatus: definition.key === 'stock-entry-report' ? '1' : '', movement_type: '', warehouse: ''

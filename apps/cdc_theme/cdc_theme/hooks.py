@@ -7,7 +7,7 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_stock_filter_rows_v67"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_stock_warehouse_memory_v68"
 app_include_js = [
     "/assets/cdc_theme/js/cdc_theme.js?v=20260831_stock_filter_rows_v67",
     "/assets/cdc_theme/js/cdc_pending.js?v=20260829_attention_help_v60",
@@ -16,11 +16,11 @@ app_include_js = [
     "/assets/cdc_theme/js/cdc_groups.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_items.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_warehouse.js?v=20260829_attention_help_v60",
-    "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260831_exact_stock_report_v64",
+    "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260831_stock_warehouse_memory_v68",
     "/assets/cdc_theme/js/cdc_admin.js?v=20260829_attention_help_v60",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_stock_filter_rows_v67"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_stock_warehouse_memory_v68"
 web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260831_stock_filter_rows_v67"
 
 favicon = "/assets/cdc_theme/images/favicon.png"

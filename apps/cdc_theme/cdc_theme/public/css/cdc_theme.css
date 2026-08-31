@@ -1791,6 +1791,42 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
     font-size: 13px;
 }
 
+.cdc-stock-context-header-actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cdc-stock-report-warehouse-picker {
+    display: flex;
+    min-width: 280px;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+}
+
+.cdc-stock-report-warehouse-picker span {
+    color: var(--text-muted, #64748b);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.cdc-stock-report-warehouse-picker select {
+    min-width: 0;
+    height: 34px;
+    padding: 0 30px 0 10px;
+    color: var(--text-color, #0f172a);
+    background: var(--control-bg, #fff);
+    border: 1px solid #2563eb;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
 .cdc-stock-context-cards {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1870,6 +1906,9 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 
 @media (max-width: 600px) {
     .cdc-stock-context-header { align-items: stretch; flex-direction: column; }
+    .cdc-stock-context-header-actions { align-items: stretch; justify-content: flex-start; }
+    .cdc-stock-report-warehouse-picker { width: 100%; min-width: 0; }
+    .cdc-stock-context-header-actions .btn { flex: 1 1 auto; }
     .cdc-stock-context-cards { grid-template-columns: 1fr; }
 }
 

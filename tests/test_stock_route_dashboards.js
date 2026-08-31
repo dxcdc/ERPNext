@@ -67,6 +67,10 @@ assert.equal(detect(['query-report', 'Stock Balance'], '/app/query-report/Stock 
 assert.match(source, /_cdc_claim_active_dashboard\('cdc-stock-route-dashboard'/, 'painel deve usar apenas o contêiner SPA ativo');
 assert.match(source, /get_stock_document_dashboard_data/, 'cards documentais devem vir do endpoint real');
 assert.match(source, /data-cdc-stock-warehouse/, 'relatório de lançamentos deve permitir armazém exato');
+assert.match(source, /sessionStorage\.getItem\('cdc_unit'\)/, 'relatório deve recuperar o armazém escolhido no painel');
+assert.match(source, /sessionStorage\.setItem\('cdc_unit', value \|\| 'All'\)/, 'troca no relatório deve persistir o armazém compartilhado');
+assert.match(source, /history\.replaceState/, 'troca no relatório deve sincronizar o armazém na URL');
+assert.match(source, /data-cdc-stock-warehouse-apply/, 'relatório deve oferecer ação explícita para escolher armazém');
 assert.match(source, /exactStockRows\(data\.rows \|\| \[\]\)/, 'indicador e tabela devem usar a mesma resposta do backend');
 assert.match(source, /cdc-stock-exact-report-active/, 'tabela nativa divergente deve ser ocultada somente no relatório corrigido');
 assert.match(source, /context\.docstatus === ''\) context\.docstatus = '1'/, 'relatório corrigido deve iniciar somente com confirmados');
@@ -84,6 +88,38 @@ assert.match(source, /typeof report\.refresh === 'function' \? report\.refresh\(
 assert.match(source, /outQty \+= Math\.abs\(Number\(row\.out_qty \|\| 0\)\)/, 'card de saídas deve exibir volume positivo sem alterar a tabela nativa');
 assert.match(source, /serial !== requestSerial/, 'respostas antigas de navegação SPA devem ser descartadas');
 assert.doesNotMatch(source, /frappe\.db/, 'o navegador não pode consultar o banco diretamente');
+
+const memoryStart = source.indexOf('function storedStockWarehouse()');
+const memoryEnd = source.indexOf('function nativeDocumentContext(', memoryStart);
+assert.ok(memoryStart >= 0 && memoryEnd > memoryStart, 'funções de memória do armazém não encontradas');
+const memorySource = source.slice(memoryStart, memoryEnd);
+
+function warehouseMemory(search, storedValue) {
+    const state = {cdc_unit: storedValue};
+    const replacements = [];
+    const fakeWindow = {
+        location: {search, href: `https://stok.cdc.org.br/app/report${search}`},
+        history: {state: null, replaceState(_state, _title, value) { replacements.push(value); }}
+    };
+    const storage = {
+        getItem(key) { return state[key] || null; },
+        setItem(key, value) { state[key] = value; }
+    };
+    const functions = new Function(
+        'window', 'sessionStorage', 'URLSearchParams', 'URL',
+        `${memorySource}; return {storedStockWarehouse, syncExactStockWarehouse, exactReportWarehouse};`
+    )(fakeWindow, storage, URLSearchParams, URL);
+    return {state, replacements, functions};
+}
+
+const remembered = warehouseMemory('', 'JAB BREVE - C');
+assert.equal(remembered.functions.exactReportWarehouse(), 'JAB BREVE - C', 'rota direta deve recuperar o armazém do painel');
+const linked = warehouseMemory('?warehouse=JAB%20BREVE%20-%20C', 'All');
+assert.equal(linked.functions.exactReportWarehouse(), 'JAB BREVE - C', 'armazém explícito da URL deve prevalecer');
+assert.equal(linked.state.cdc_unit, 'JAB BREVE - C', 'armazém da URL deve atualizar a memória compartilhada');
+linked.functions.syncExactStockWarehouse('', true);
+assert.equal(linked.state.cdc_unit, 'All', 'limpeza do relatório deve restaurar Todos');
+assert.equal(linked.replacements.at(-1), '/app/report', 'limpeza deve remover o armazém antigo da URL');
 
 for (const control of [
     'data-cdc-stock-search', 'data-cdc-stock-company', 'data-cdc-stock-from',
