@@ -89,6 +89,15 @@
   color: var(--cdc-text-dark);
 }
 
+.cdc-users-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cdc-users-create-button { flex: 0 0 auto; }
+
 .cdc-users-heading h2,
 .cdc-users-table-header h3,
 .cdc-users-shortcuts-label h3 {
@@ -197,6 +206,8 @@
 }
 
 @media (max-width: 600px) {
+  .cdc-users-heading { align-items: stretch; flex-direction: column; }
+  .cdc-users-create-button { width: 100%; }
   .cdc-linked-filters { align-items: stretch; flex-direction: column; }
   .cdc-linked-filters label { flex-basis: auto; }
   .cdc-users-metrics { grid-template-columns: 1fr; }
