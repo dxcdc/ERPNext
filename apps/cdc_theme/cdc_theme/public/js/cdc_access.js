@@ -41,6 +41,8 @@
             data: null,
             view: 'matrix',
             loaded: false,
+            helpOpen: localStorage.getItem('cdc_access_help_open') !== '0',
+            matrixScrollCleanup: null,
             filters: {search: '', role_profile: '', page_key: '', status: ''}
         };
         states.set(dashboard, state);
@@ -98,7 +100,20 @@
 
         state.root.innerHTML = '<section class="cdc-access-admin">'
             + '<div class="cdc-access-heading"><div><h3>Perfis e permissões</h3><p>Acesso efetivo por usuário, página, ação e escopo de armazém.</p></div>'
-            + '<button type="button" class="btn btn-primary" data-cdc-access-new>Nova exceção</button></div>'
+            + '<div class="cdc-access-heading-actions"><button type="button" class="btn btn-default cdc-access-help-toggle" data-cdc-access-help aria-expanded="' + (state.helpOpen ? 'true' : 'false') + '" aria-controls="cdc-access-help-panel"><span aria-hidden="true">' + (state.helpOpen ? '−' : '+') + '</span> Entenda esta matriz</button>'
+            + '<button type="button" class="btn btn-primary" data-cdc-access-new>Nova exceção</button></div></div>'
+            + '<section id="cdc-access-help-panel" class="cdc-access-help"' + (state.helpOpen ? '' : ' hidden') + ' aria-label="Como utilizar a matriz de acesso">'
+            + '<div class="cdc-access-help-copy"><h4>Como utilizar a matriz</h4>'
+            + '<p>Esta matriz apresenta o acesso efetivo de cada usuário às páginas do sistema. As permissões podem vir do perfil ou cargo atribuído ao usuário e são limitadas aos armazéns vinculados a ele.</p>'
+            + '<p>A marcação <strong>Perfil</strong> indica um acesso concedido pelo perfil ou cargo. <strong>Exceção</strong> representa uma autorização ou um bloqueio específico para aquele usuário. <strong>Sem acesso</strong> significa que o usuário não pode abrir aquela página.</p>'
+            + '<p>Para alterar uma permissão, localize o usuário, selecione a página desejada e configure a exceção. Informe a justificativa e, quando necessário, a validade. Depois, utilize <strong>Ver como este usuário ou perfil</strong> para conferir o resultado.</p></div>'
+            + '<div class="cdc-access-help-legend" aria-label="Legenda das permissões">'
+            + '<div><span class="cdc-access-state is-native">Perfil</span><small>Acesso herdado do perfil ou cargo.</small></div>'
+            + '<div><span class="cdc-access-state is-exception">Exceção</span><small>Regra específica para o usuário ou perfil.</small></div>'
+            + '<div><span class="cdc-access-state is-denied">Sem acesso</span><small>A página não está disponível.</small></div>'
+            + '<div><span class="cdc-access-state is-admin">Administrador</span><small>Acesso administrativo completo.</small></div></div>'
+            + '<div class="cdc-access-help-warning"><strong>Importante:</strong> liberar uma página não amplia os armazéns do usuário. Os dados continuam restritos aos armazéns aos quais ele está vinculado.</div>'
+            + '</section>'
             + '<div class="cdc-access-subtabs" role="tablist">'
             + ['matrix', 'exceptions', 'history'].map(function (view) {
                 var label = {matrix: 'Matriz de acesso', exceptions: 'Exceções individuais', history: 'Histórico'}[view];
@@ -117,6 +132,14 @@
     }
 
     function bindShell(state) {
+        var helpButton = state.root.querySelector('[data-cdc-access-help]');
+        helpButton.addEventListener('click', function () {
+            state.helpOpen = !state.helpOpen;
+            state.root.querySelector('#cdc-access-help-panel').hidden = !state.helpOpen;
+            helpButton.setAttribute('aria-expanded', state.helpOpen ? 'true' : 'false');
+            helpButton.querySelector('[aria-hidden="true"]').textContent = state.helpOpen ? '−' : '+';
+            localStorage.setItem('cdc_access_help_open', state.helpOpen ? '1' : '0');
+        });
         state.root.querySelectorAll('[data-cdc-access-view]').forEach(function (button) {
             button.addEventListener('click', function () {
                 state.view = button.dataset.cdcAccessView;
@@ -139,9 +162,53 @@
     }
 
     function renderCurrentView(state) {
+        if (state.matrixScrollCleanup) {
+            state.matrixScrollCleanup();
+            state.matrixScrollCleanup = null;
+        }
         if (state.view === 'exceptions') renderExceptions(state);
         else if (state.view === 'history') renderHistory(state);
         else renderMatrix(state);
+    }
+
+    function bindSynchronizedMatrixScroll(state, content) {
+        var top = content.querySelector('[data-cdc-access-top-scroll]');
+        var topContent = content.querySelector('[data-cdc-access-top-scroll-content]');
+        var bottom = content.querySelector('.cdc-access-matrix-scroll');
+        var table = content.querySelector('.cdc-access-matrix');
+        if (!top || !topContent || !bottom || !table) return;
+
+        var syncing = false;
+        function sync(source, target) {
+            if (syncing) return;
+            syncing = true;
+            target.scrollLeft = source.scrollLeft;
+            syncing = false;
+        }
+        function refreshWidth() {
+            topContent.style.width = table.scrollWidth + 'px';
+            top.hidden = table.scrollWidth <= bottom.clientWidth + 1;
+            top.scrollLeft = bottom.scrollLeft;
+        }
+        function fromTop() { sync(top, bottom); }
+        function fromBottom() { sync(bottom, top); }
+        top.addEventListener('scroll', fromTop);
+        bottom.addEventListener('scroll', fromBottom);
+
+        var observer = typeof ResizeObserver === 'function' ? new ResizeObserver(refreshWidth) : null;
+        if (observer) {
+            observer.observe(bottom);
+            observer.observe(table);
+        } else {
+            window.addEventListener('resize', refreshWidth);
+        }
+        requestAnimationFrame(refreshWidth);
+        state.matrixScrollCleanup = function () {
+            top.removeEventListener('scroll', fromTop);
+            bottom.removeEventListener('scroll', fromBottom);
+            if (observer) observer.disconnect();
+            else window.removeEventListener('resize', refreshWidth);
+        };
     }
 
     function renderMatrix(state) {
@@ -162,8 +229,10 @@
             return '<tr><th><strong>' + escapeHTML(user.full_name) + '</strong><small>' + escapeHTML(user.email) + '</small></th>'
                 + '<td><span>' + escapeHTML(user.role_profile || 'Sem perfil') + '</span><small>' + Number(user.warehouse_count || 0) + ' armazém(ns)</small></td>' + cells + '</tr>';
         }).join('') || '<tr><td colspan="' + (pages.length + 2) + '">Nenhum usuário encontrado.</td></tr>';
-        content.innerHTML = '<div class="cdc-access-legend"><span class="cdc-access-state is-native">Perfil</span><span class="cdc-access-state is-exception">Exceção</span><span class="cdc-access-state is-denied">Sem acesso</span></div>'
+        content.innerHTML = '<div class="cdc-access-legend"><span class="cdc-access-state is-native">Perfil</span><span class="cdc-access-state is-exception">Exceção</span><span class="cdc-access-state is-denied">Sem acesso</span><span class="cdc-access-state is-admin">Administrador</span></div>'
+            + '<div class="cdc-access-top-scroll" data-cdc-access-top-scroll aria-label="Rolagem horizontal superior da matriz" tabindex="0"><div data-cdc-access-top-scroll-content></div></div>'
             + '<div class="cdc-access-matrix-scroll"><table class="cdc-access-matrix"><thead><tr><th>Usuário</th><th>Perfil e escopo</th>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+        bindSynchronizedMatrixScroll(state, content);
         content.querySelectorAll('[data-cdc-access-user]').forEach(function (button) {
             button.addEventListener('click', function () {
                 openExceptionDialog(state, {subject_type: 'User', user: button.dataset.cdcAccessUser, page_key: button.dataset.cdcAccessPage});
