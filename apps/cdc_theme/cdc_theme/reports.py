@@ -260,8 +260,8 @@ def _summary(rows, selected, start, end):
     }
 
 
-def _build_report(scope_mode, warehouses, group, project, from_date, to_date, movement_type):
-    _require_stock_reports_access()
+def _build_report(scope_mode, warehouses, group, project, from_date, to_date, movement_type, access_action="view"):
+    _require_stock_reports_access(access_action)
     _require_read_permission("Warehouse")
     _require_read_permission("Stock Entry")
     start, end = _validate_period(from_date, to_date)
@@ -437,7 +437,10 @@ def download_stock_movement_report(
     requested_format = str(file_format or "xlsx").strip().lower()
     if requested_format not in {"pdf", "xlsx", "csv"}:
         frappe.throw("Formato de arquivo inválido.", frappe.ValidationError)
-    report = _build_report(scope_mode, warehouses, group, project, from_date, to_date, movement_type)
+    report = _build_report(
+        scope_mode, warehouses, group, project, from_date, to_date, movement_type,
+        access_action="export",
+    )
     generators = {"pdf": _pdf_content, "xlsx": _xlsx_content, "csv": _csv_content}
     content = generators[requested_format](report)
     filename = f"movimentacoes-estoque-{report['summary']['from_date']}-{report['summary']['to_date']}.{requested_format}"

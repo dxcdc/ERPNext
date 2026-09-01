@@ -1,0 +1,26 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["event","reference_exception","target_user","target_role_profile","actor","occurred_at","details"],
+ "fields": [
+  {"fieldname":"event","fieldtype":"Data","label":"Evento","reqd":1,"in_list_view":1},
+  {"fieldname":"reference_exception","fieldtype":"Link","label":"Exceção","options":"CDC Access Exception","in_list_view":1},
+  {"fieldname":"target_user","fieldtype":"Link","label":"Usuário","options":"User","in_list_view":1},
+  {"fieldname":"target_role_profile","fieldtype":"Link","label":"Perfil/cargo","options":"Role Profile","in_list_view":1},
+  {"fieldname":"actor","fieldtype":"Link","label":"Administrador","options":"User","reqd":1,"in_list_view":1},
+  {"fieldname":"occurred_at","fieldtype":"Datetime","label":"Data e hora","reqd":1,"in_list_view":1},
+  {"fieldname":"details","fieldtype":"Long Text","label":"Detalhes"}
+ ],
+ "links": [],
+ "modified": "2026-09-01 09:00:00",
+ "modified_by": "Administrator",
+ "module": "cdc_theme",
+ "name": "CDC Access Audit Log",
+ "owner": "Administrator",
+ "permissions": [{"role":"System Manager","read":1,"write":0,"create":0,"delete":0,"export":1,"report":1}],
+ "sort_field": "occurred_at",
+ "sort_order": "DESC",
+ "states": []
+}

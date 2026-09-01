@@ -259,7 +259,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('def deny_common_query(user=None):', permissions_source)
         for doctype in ("Warehouse", "User", "Stock Entry", "Bin", "Stock Ledger Entry", "CDC ONGSYS Pending Order"):
             self.assertIn(f'"{doctype}"', hooks_source)
-        self.assertIn('cdc_theme.js?v=20260831_common_scope_v72', hooks_source)
+        self.assertIn('cdc_theme.js?v=20260901_access_matrix_v73', hooks_source)
 
     def test_stock_routes_preserve_native_components_and_permission_scoped_data(self):
         source = STOCK_ROUTES_JS.read_text()
@@ -627,7 +627,7 @@ class StaticSafetyTest(unittest.TestCase):
             "warehouses", "item-groups", "items", "stock-balances", "stock-movements",
         ):
             self.assertIn(f'"{dataset_id}"', api_source)
-        self.assertIn("_require_stock_dashboard_access()", access)
+        self.assertIn('_require_cdc_page_access("integrations", "view")', access)
         self.assertIn("_require_read_permission(doctype)", access)
         self.assertIn("_catalog_filter_context", catalog)
         self.assertIn("_catalog_filter_context", dataset)

@@ -291,6 +291,293 @@
   #cdc-users-search { width: 100%; }
 }
 
+/* Matriz administrativa de perfis, paginas e excecoes. */
+.cdc-users-tabs,
+.cdc-access-subtabs {
+    display: flex;
+    gap: 4px;
+    margin: 14px 0 18px;
+    border-bottom: 1px solid var(--border-color, #d8dce2);
+}
+
+.cdc-users-tabs button,
+.cdc-access-subtabs button {
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    padding: 10px 14px;
+    color: var(--text-muted, #6b7280);
+    font-weight: 700;
+}
+
+.cdc-users-tabs button.is-active,
+.cdc-access-subtabs button.is-active {
+    border-bottom-color: var(--primary, #2563eb);
+    color: var(--text-color, #111827);
+}
+
+.cdc-access-admin {
+    min-width: 0;
+}
+
+.cdc-access-heading,
+.cdc-access-dialog-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.cdc-access-heading h3,
+.cdc-access-dialog-heading h3 {
+    margin: 0 0 4px;
+}
+
+.cdc-access-heading p,
+.cdc-access-dialog-heading p {
+    margin: 0;
+    color: var(--text-muted, #6b7280);
+}
+
+.cdc-access-filters {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(145px, 1fr)) auto;
+    gap: 10px;
+    align-items: end;
+    margin: 16px 0;
+    padding: 14px;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 10px;
+    background: var(--card-bg, #fff);
+}
+
+.cdc-access-filters label,
+.cdc-access-form-grid label,
+.cdc-access-reason {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.cdc-access-filters label > span,
+.cdc-access-form-grid label > span,
+.cdc-access-reason > span {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text-muted, #6b7280);
+}
+
+.cdc-access-filters input,
+.cdc-access-filters select,
+.cdc-access-dialog input[type="date"],
+.cdc-access-dialog select,
+.cdc-access-dialog textarea {
+    width: 100%;
+    min-height: 36px;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 7px;
+    padding: 7px 9px;
+    background: var(--control-bg, #fff);
+    color: var(--text-color, #111827);
+}
+
+.cdc-access-matrix-scroll,
+.cdc-access-table-scroll {
+    overflow: auto;
+    max-width: 100%;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 10px;
+    background: var(--card-bg, #fff);
+}
+
+.cdc-access-matrix,
+.cdc-access-exceptions,
+.cdc-access-history {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+}
+
+.cdc-access-matrix th,
+.cdc-access-matrix td,
+.cdc-access-exceptions th,
+.cdc-access-exceptions td,
+.cdc-access-history th,
+.cdc-access-history td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    text-align: left;
+    vertical-align: top;
+}
+
+.cdc-access-matrix thead th,
+.cdc-access-exceptions thead th,
+.cdc-access-history thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--subtle-fg, #f8fafc);
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.cdc-access-matrix tbody > tr > th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 210px;
+    background: var(--card-bg, #fff);
+}
+
+.cdc-access-matrix small,
+.cdc-access-exceptions small,
+.cdc-access-cell small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-muted, #6b7280);
+    font-size: 11px;
+}
+
+.cdc-access-cell {
+    width: 100%;
+    min-width: 105px;
+    border: 0;
+    background: transparent;
+    padding: 2px;
+    text-align: left;
+}
+
+.cdc-access-cell.is-locked { opacity: .72; cursor: not-allowed; }
+
+.cdc-access-state,
+.cdc-access-effect,
+.cdc-access-status {
+    display: inline-flex;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.cdc-access-state.is-native,
+.cdc-access-effect.is-allow,
+.cdc-access-status.is-active { background: #dcfce7; color: #166534; }
+.cdc-access-state.is-exception,
+.cdc-access-status.is-scheduled { background: #dbeafe; color: #1d4ed8; }
+.cdc-access-state.is-admin { background: #ede9fe; color: #6d28d9; }
+.cdc-access-state.is-denied,
+.cdc-access-effect.is-block,
+.cdc-access-status.is-expired { background: #fee2e2; color: #991b1b; }
+.cdc-access-status.is-disabled { background: #e5e7eb; color: #4b5563; }
+
+.cdc-access-legend {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 10px;
+}
+
+.cdc-access-loading,
+.cdc-access-error {
+    padding: 28px;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.cdc-access-dialog {
+    width: min(820px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    border: 0;
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
+}
+
+.cdc-access-dialog::backdrop { background: rgba(15, 23, 42, .48); }
+.cdc-access-dialog form { padding: 22px; }
+.cdc-access-dialog-heading { margin-bottom: 18px; }
+.cdc-access-dialog-heading > button { border: 0; background: transparent; font-size: 28px; }
+
+.cdc-access-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.cdc-access-dialog fieldset {
+    margin: 16px 0;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.cdc-access-dialog legend { padding: 0 6px; font-weight: 800; }
+.cdc-access-dialog select[multiple] { margin-top: 10px; }
+.cdc-access-dialog fieldset > small { display: block; margin-top: 6px; color: var(--text-muted, #6b7280); }
+
+.cdc-access-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 10px;
+}
+
+.cdc-access-checkboxes.is-disabled { opacity: .45; pointer-events: none; }
+.cdc-access-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+.cdc-access-preview-control {
+    position: fixed;
+    z-index: 1040;
+    right: 62px;
+    top: 10px;
+    max-width: 210px;
+}
+
+.cdc-access-preview-banner {
+    position: fixed;
+    z-index: 1035;
+    top: 48px;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 46px;
+    padding: 8px 18px;
+    border-bottom: 1px solid #f59e0b;
+    background: #fffbeb;
+    color: #78350f;
+    box-shadow: 0 3px 10px rgba(120, 53, 15, .12);
+}
+
+.cdc-access-preview-banner span { margin-left: 8px; color: #92400e; }
+.cdc-access-preview-active .layout-main-section-wrapper { padding-top: 46px; }
+.cdc-access-preview-dialog [data-cdc-preview-warehouses] { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.cdc-access-preview-dialog [data-cdc-preview-warehouses][hidden] { display: none; }
+.cdc-access-preview-notice {
+    margin-top: 16px;
+    padding: 11px 13px;
+    border: 1px solid #fbbf24;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #78350f;
+}
+
+@media (max-width: 1100px) {
+    .cdc-access-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .cdc-access-heading,
+    .cdc-access-dialog-heading { flex-direction: column; }
+    .cdc-access-filters,
+    .cdc-access-form-grid { grid-template-columns: 1fr; }
+}
+
 /* CDC Grupos, Itens e Armazém — visão gerencial compartilhada */
 .cdc-management-shell {
     max-width: 1440px;

@@ -28,8 +28,9 @@ def load_reports():
     api = types.ModuleType("cdc_theme.api")
     api.CDC_PROJECTS = ("Projeto Cais", "Institucional / Geral")
     api._permitted_leaf_warehouses = lambda: {"A - C", "B - C"}
+    api._require_cdc_page_access = lambda page, action="view": None
     api._require_read_permission = lambda doctype: None
-    api._require_stock_reports_access = lambda: None
+    api._require_stock_reports_access = lambda action="view": None
     api._warehouse_project = lambda warehouse: "Projeto Cais" if "CAIS" in warehouse else "Institucional / Geral"
     package = types.ModuleType("cdc_theme")
     package.__path__ = []

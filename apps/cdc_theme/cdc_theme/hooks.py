@@ -7,9 +7,9 @@ app_license = "mit"
 app_version = "1.0.0"
 
 # Global Assets Inclusions
-app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_cdc_reports_v70"
+app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260901_access_matrix_v73"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260831_common_scope_v72",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260901_access_matrix_v73",
     "/assets/cdc_theme/js/cdc_pending.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_tests.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_management.js?v=20260829_attention_help_v60",
@@ -19,10 +19,11 @@ app_include_js = [
     "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260831_stock_warehouse_memory_v68",
     "/assets/cdc_theme/js/cdc_admin.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_reports.js?v=20260831_reports_loading_v71",
+    "/assets/cdc_theme/js/cdc_access.js?v=20260901_access_matrix_v73",
 ]
 
-web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_cdc_reports_v70"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260831_common_scope_v72"
+web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260901_access_matrix_v73"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260901_access_matrix_v73"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"
@@ -31,6 +32,11 @@ app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"
 override_whitelisted_methods = {
     "frappe.desk.desktop.get_desktop_page": "cdc_theme.api.custom_get_desktop_page"
 }
+
+before_request = [
+    "cdc_theme.access_control.enforce_cdc_request_access",
+    "cdc_theme.access_control.block_preview_mutations",
+]
 
 permission_query_conditions = {
     "Warehouse": "cdc_theme.permissions.warehouse_query",
@@ -62,6 +68,13 @@ fixtures = [
 
 # Eventos de documento — notificacoes Mattermost por armazem
 doc_events = {
+    "*": {
+        "before_insert": "cdc_theme.access_control.block_preview_document_write",
+        "before_save": "cdc_theme.access_control.block_preview_document_write",
+        "before_submit": "cdc_theme.access_control.block_preview_document_write",
+        "before_cancel": "cdc_theme.access_control.block_preview_document_write",
+        "on_trash": "cdc_theme.access_control.block_preview_document_write",
+    },
     "Stock Entry": {
         "on_submit": "cdc_theme.api.notify_stock_entry_mattermost",
         "on_update_after_submit": "cdc_theme.api.notify_stock_entry_mattermost",

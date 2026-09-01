@@ -544,6 +544,11 @@
                         <div><h2>Visão geral de usuários</h2><p>Indicadores e acessos cadastrados no NextERP.</p></div>
                         ${managementActions}
                     </div>
+                    ${canManageUsers ? `<div class="cdc-users-tabs" role="tablist" aria-label="Gestão de usuários e permissões">
+                        <button type="button" class="is-active" role="tab" aria-selected="true" data-cdc-users-tab="users">Usuários</button>
+                        <button type="button" role="tab" aria-selected="false" data-cdc-users-tab="permissions">Perfis e permissões</button>
+                    </div>` : ''}
+                    <div class="cdc-users-primary-content" data-cdc-users-pane="users">
                     <div class="cdc-linked-filters" aria-label="Filtros de usuários">
                         <label><span>Projeto</span><select id="cdc-users-project-filter">${projectOptionsHTML}</select></label>
                         <label><span>Armazém</span><select id="cdc-users-warehouse-filter">${warehouseOptionsHTML}</select></label>
@@ -567,7 +572,13 @@
                             </table>
                         </div>
                     </div>
+                    </div>
+                    ${canManageUsers ? '<div id="cdc-access-admin-root" data-cdc-users-pane="permissions" hidden></div>' : ''}
                     <div class="cdc-users-shortcuts-label"><h3>Seus atalhos</h3><p>Acessos administrativos e configurações de permissão.</p></div>`;
+
+                if (canManageUsers && typeof window._cdc_init_access_admin === 'function') {
+                    window._cdc_init_access_admin(dashboard);
+                }
 
                 setupCDCSortableTable(dashboard, '.cdc-users-table-scroll-top', '.cdc-users-table-scroll', '.cdc-users-table');
 
@@ -736,7 +747,7 @@
             },
             error: function() {
                 provider.dataset.loading = '0';
-                provider.innerHTML = '<div class="cdc-analytics-error"><strong>Acesso negado ou serviço indisponível.</strong><span>É necessário possuir papel de gestor e permissão de leitura dos dados de estoque.</span><button type="button" class="btn btn-sm btn-default" data-cdc-analytics-refresh>Tentar novamente</button></div>';
+                provider.innerHTML = '<div class="cdc-analytics-error"><strong>Acesso negado ou serviço indisponível.</strong><span>É necessário possuir acesso à página e permissão nativa de leitura dos dados de estoque.</span><button type="button" class="btn btn-sm btn-default" data-cdc-analytics-refresh>Tentar novamente</button></div>';
                 bindAnalyticsProviderControls(provider);
             }
         });
@@ -2252,22 +2263,78 @@
         return isCommonCDCWorkspaceUser();
     }
 
+    function effectiveCDCContext() {
+        return window._cdc_access_context && window._cdc_access_context.pages
+            ? window._cdc_access_context : null;
+    }
+
+    function cdcPageKeyFromRouteOrLabel(value) {
+        var normalized = String(value || '').toLowerCase().normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+        var context = effectiveCDCContext();
+        var routeMatches = [];
+        if (context && context.catalog && Array.isArray(context.catalog.pages)) {
+            context.catalog.pages.forEach(function (page) {
+                [page.route].concat(page.route_aliases || []).filter(Boolean).forEach(function (route) {
+                    var routeValue = String(route).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    if (normalized.indexOf(routeValue) !== -1) routeMatches.push({key: page.key, length: routeValue.length});
+                });
+            });
+        }
+        if (routeMatches.length) {
+            routeMatches.sort(function (a, b) { return b.length - a.length; });
+            return routeMatches[0].key;
+        }
+        var mappings = {
+            'cdc estoque': 'stock', 'cdc-estoque': 'stock',
+            'cdc usuarios': 'users', 'cdc-usuarios': 'users',
+            'cdc grupos': 'groups', 'cdc-grupos': 'groups',
+            'cdc itens': 'items', 'cdc-itens': 'items',
+            'cdc armazem': 'warehouses', 'cdc-armazem': 'warehouses',
+            'cdc relatorios': 'reports', 'cdc-relatorios': 'reports',
+            'cdc integracoes': 'integrations', 'cdc-integracoes': 'integrations',
+            'cdc pendencias': 'pending', 'cdc-pendencias': 'pending',
+            'cdc monitoramento': 'monitoring', 'cdc-monitoramento': 'monitoring',
+            'cdc testes': 'tests', 'cdc-testes': 'tests',
+            'cdc admin': 'admin', 'cdc-admin': 'admin',
+            'cdc treinamento': 'training', 'cdc-treinamento': 'training'
+        };
+        var direct = Object.keys(mappings).find(function (token) { return normalized.indexOf(token) !== -1; });
+        return direct ? mappings[direct] : '';
+    }
+
+    function firstAllowedCDCPath(context) {
+        var pages = (context.catalog && context.catalog.pages) || [];
+        var page = pages.find(function (item) {
+            return context.pages[item.key] && context.pages[item.key].allowed;
+        });
+        return page ? page.route : '/app';
+    }
+
     function enforceRestrictedStockWorkspaceRoute() {
-        if (isCDCSystemManager()) return false;
         var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        var context = effectiveCDCContext();
+        if (context) {
+            var pageKey = cdcPageKeyFromRouteOrLabel(pathname);
+            if (!pageKey || (context.pages[pageKey] && context.pages[pageKey].allowed)) return false;
+            window.location.replace(firstAllowedCDCPath(context));
+            return true;
+        }
+        if (isCDCSystemManager()) return false;
         var allowedPattern = isCDCOperationalManager()
             ? /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|integracoes|pendencias|treinamento)(?:\/|$)/
             : /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|pendencias|treinamento)(?:\/|$)/;
         if (!/^\/app\/cdc-/.test(pathname) || allowedPattern.test(pathname)) return false;
-        if (window.frappe && frappe.set_route) frappe.set_route('Workspaces', 'CDC Estoque');
-        else window.location.replace('/app/cdc-estoque');
-        return true;
+        // A decisao assincrona pode conter uma excecao individual. O backend
+        // protege a rota enquanto o contexto efetivo ainda esta carregando.
+        return false;
     }
 
     // SANITIZAÇÃO DINÂMICA DA SIDEBAR: mantém somente as áreas CDC aprovadas
     function sanitizeSidebarWorkspaces() {
         var restrictedStockUser = isRestrictedStockWorkspaceUser();
+        var context = effectiveCDCContext();
         var allowedList = restrictedStockUser
             ? ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios', 'cdc pendencias', 'cdc treinamento']
             : ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
@@ -2279,6 +2346,14 @@
             var primaryLabel = labelText.split(' dup')[0].trim();
             var href = decodeURIComponent((el.querySelector('a') || el).getAttribute('href') || '')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (context) {
+                var effectiveKey = cdcPageKeyFromRouteOrLabel(primaryLabel + ' ' + href);
+                if (effectiveKey) {
+                    var effectiveAllowed = Boolean(context.pages[effectiveKey] && context.pages[effectiveKey].allowed);
+                    el.classList.toggle('cdc-workspace-hidden', !effectiveAllowed);
+                    return;
+                }
+            }
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
                 /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|relatorios|integracoes|pendencias|monitoramento|testes|admin|treinamento)(\/|$)/.test(href);
             if (restrictedStockUser) {
@@ -2297,6 +2372,12 @@
             el.classList.toggle('cdc-workspace-hidden', labelText && !isAllowed);
         });
     }
+
+    window._cdc_apply_effective_access = function(context) {
+        window._cdc_access_context = context;
+        sanitizeSidebarWorkspaces();
+        enforceRestrictedStockWorkspaceRoute();
+    };
 
     function syncCDCBrandLogos() {
         var logoUrl = '/assets/cdc_theme/images/cdc_logo.png';

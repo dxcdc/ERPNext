@@ -8,6 +8,8 @@ import unicodedata
 import frappe
 from frappe.utils import add_days, add_months, date_diff, get_datetime, get_first_day, getdate, now_datetime, today
 
+from cdc_theme.access_control import PAGE_CATALOG, evaluate_access, get_preview_context
+
 
 _CDC_RBAC_AUDIT_TOKEN = object()
 CDC_STOCK_RESTRICTED_ROLE = "CDC Estoque Restrito"
@@ -31,6 +33,11 @@ CDC_COMMON_WORKSPACES = frozenset({
 def _require_system_manager():
     """Restringe operacoes administrativas mesmo para usuarios autenticados."""
     frappe.only_for("System Manager")
+    if get_preview_context():
+        frappe.throw(
+            "Função administrativa indisponível durante a pré-visualização.",
+            frappe.PermissionError,
+        )
 
 
 def _require_read_permission(doctype):
@@ -56,29 +63,39 @@ def _require_stock_dashboard_access(additional_roles=None):
         )
 
 
-def _require_stock_reports_access():
+def _require_cdc_page_access(page_key, action="view"):
+    """Aplica a decisao CDC e preserva o escopo para as consultas subsequentes."""
+    if getattr(frappe.flags, "cdc_rbac_audit_token", None) is _CDC_RBAC_AUDIT_TOKEN:
+        return None
+    decision = evaluate_access(page_key, action)
+    if not decision["allowed"]:
+        frappe.throw(
+            "Página ou ação indisponível para o acesso atual.",
+            frappe.PermissionError,
+        )
+    frappe.flags.cdc_access_decision = decision
+    return decision
+
+
+def _require_stock_reports_access(action="view"):
     """Autoriza relatórios sem ampliar as permissões documentais ou de armazém."""
     if getattr(frappe.flags, "cdc_rbac_audit_token", None) is _CDC_RBAC_AUDIT_TOKEN:
         return
-    roles = set(frappe.get_roles(frappe.session.user))
-    if not roles.intersection(CDC_STOCK_REPORT_ROLES):
-        frappe.throw(
-            "Relatórios de estoque indisponíveis para o perfil atual.",
-            frappe.PermissionError,
-        )
+    return _require_cdc_page_access("reports", action)
 
 
-def _require_common_cdc_access():
+def _require_common_cdc_access(page_key="stock", action="view"):
     """Autoriza as áreas operacionais comuns sem liberar funções administrativas."""
-    roles = set(frappe.get_roles(frappe.session.user))
-    if not roles.intersection(CDC_COMMON_ACCESS_ROLES):
-        frappe.throw(
-            "Área CDC indisponível para o perfil atual.",
-            frappe.PermissionError,
-        )
+    return _require_cdc_page_access(page_key, action)
 
 
 def _has_unrestricted_cdc_scope(user=None):
+    current_request_user = user is None or user == frappe.session.user
+    if current_request_user and get_preview_context():
+        return False
+    decision = getattr(frappe.flags, "cdc_access_decision", None)
+    if user is None and decision and set(decision.get("warehouses") or ()) != set(decision.get("native_warehouses") or ()):
+        return False
     roles = set(frappe.get_roles(user or frappe.session.user))
     return bool(roles.intersection(CDC_UNRESTRICTED_SCOPE_ROLES))
 
@@ -92,10 +109,10 @@ def _allowed_cdc_workspaces():
     roles = set(frappe.get_roles(frappe.session.user))
     if "System Manager" in roles:
         return None
-    allowed = set(CDC_COMMON_WORKSPACES)
-    if roles.intersection({"Stock Manager", "Gestor de Estoque"}):
-        allowed.add(CDC_INTEGRATIONS_WORKSPACE)
-    return allowed
+    return {
+        page["workspace"] for key, page in PAGE_CATALOG.items()
+        if evaluate_access(key, "view")["allowed"]
+    }
 
 
 def configure_restricted_stock_user(user):
@@ -127,6 +144,10 @@ def configure_restricted_stock_user(user):
 
 def _explicit_leaf_warehouses(user=None):
     """Expande vínculos Warehouse diretos ou de grupo sem conceder escopo implícito."""
+    current_request_user = user is None or user == frappe.session.user
+    preview = get_preview_context() if current_request_user else None
+    if preview:
+        return set(preview.get("warehouse_scope") or ())
     user = user or frappe.session.user
     linked = set(frappe.get_all(
         "User Permission",
@@ -162,6 +183,9 @@ def _explicit_leaf_warehouses(user=None):
 
 def _permitted_leaf_warehouses():
     """Gestores usam RBAC nativo; usuários comuns exigem vínculo Warehouse explícito."""
+    decision = getattr(frappe.flags, "cdc_access_decision", None)
+    if decision:
+        return set(decision.get("warehouses") or ())
     if not _has_unrestricted_cdc_scope():
         return _explicit_leaf_warehouses()
     return set(frappe.get_list(
@@ -271,10 +295,14 @@ def custom_get_desktop_page(page):
 
     lower_name = str(name).lower().strip()
     allowed_workspaces = _allowed_cdc_workspaces()
+    fallback_workspace = next((
+        page["workspace"] for page in PAGE_CATALOG.values()
+        if allowed_workspaces is None or page["workspace"] in allowed_workspaces
+    ), CDC_STOCK_WORKSPACE)
     if lower_name in slug_map:
         target_name = slug_map[lower_name]
         if allowed_workspaces is not None and target_name not in allowed_workspaces:
-            target_name = CDC_STOCK_WORKSPACE
+            target_name = fallback_workspace
         if isinstance(p_dict, dict):
             p_dict["name"] = target_name
             page = json.dumps(p_dict)
@@ -285,7 +313,7 @@ def custom_get_desktop_page(page):
         and lower_name.startswith("cdc ")
         and str(name).strip() not in allowed_workspaces
     ):
-        page = json.dumps({"name": CDC_STOCK_WORKSPACE})
+        page = json.dumps({"name": fallback_workspace})
 
     from frappe.desk.desktop import get_desktop_page
     return get_desktop_page(page)
@@ -1158,7 +1186,7 @@ def _catalog_filter_context(selected_project=None, selected_warehouse=None):
 
 def _analytics_require_access(contract):
     """Mantém o provedor analítico restrito e sob as permissões nativas do ERP."""
-    _require_stock_dashboard_access()
+    _require_cdc_page_access("integrations", "view")
     required = {"Warehouse", "Bin", contract["doctype"]}
     if contract["doctype"] == "Item Group":
         required.add("Item")
@@ -1529,7 +1557,7 @@ def get_catalog_management_dashboard_data(
     if not dashboard:
         frappe.throw("Painel gerencial inválido.", frappe.ValidationError)
 
-    _require_common_cdc_access()
+    _require_common_cdc_access(dashboard)
     for doctype in ("Item Group", "Item", "Warehouse", "Bin", "Stock Ledger Entry"):
         _require_read_permission(doctype)
 
@@ -1993,16 +2021,17 @@ def get_catalog_management_dashboard_data(
 @frappe.whitelist()
 def get_users_dashboard_data(selected_project=None, selected_warehouse=None):
     """Retorna indicadores e dados de usuários respeitando as permissões do Frappe."""
-    _require_common_cdc_access()
+    _require_common_cdc_access("users")
 
     selected_project, selected_warehouse, filter_options = _normalize_dashboard_filters(
         selected_project, selected_warehouse,
     )
     user_filters = {"user_type": "System User"}
-    current_user = frappe.session.user
-    current_roles = set(frappe.get_roles(current_user))
-    can_manage_users = "System Manager" in current_roles
-    unrestricted_user_view = bool(current_roles.intersection({
+    preview = get_preview_context()
+    current_user = preview.get("user") if preview else frappe.session.user
+    current_roles = set(preview.get("roles") or ()) if preview else set(frappe.get_roles(current_user))
+    can_manage_users = not preview and "System Manager" in current_roles
+    unrestricted_user_view = not preview and bool(current_roles.intersection({
         "System Manager", "Stock Manager", "Gestor de Estoque",
     }))
     current_scope = _permitted_leaf_warehouses()
@@ -2030,7 +2059,7 @@ def get_users_dashboard_data(selected_project=None, selected_warehouse=None):
         current_matches = (
             selected_project == "All" and selected_warehouse == "All"
         ) or bool(_explicit_leaf_warehouses(current_user).intersection(filter_scope))
-        if current_user != "Guest" and (unrestricted_user_view or current_matches):
+        if current_user and current_user != "Guest" and (unrestricted_user_view or current_matches):
             permitted_users.add(current_user)
         user_filters["name"] = ["in", sorted(permitted_users)]
 
@@ -2063,7 +2092,7 @@ def get_users_dashboard_data(selected_project=None, selected_warehouse=None):
 def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None):
     """Lista o espelho local de pedidos ONGSYS ainda aguardando conclusão."""
     doctype = "CDC ONGSYS Pending Order"
-    _require_common_cdc_access()
+    _require_common_cdc_access("pending")
     unrestricted = _has_unrestricted_cdc_scope()
     if unrestricted and not frappe.has_permission(doctype, "read"):
         frappe.throw("Sem permissão para visualizar pendências ONGSYS", frappe.PermissionError)
@@ -2166,7 +2195,7 @@ def get_project_weekly_occurrences(
     Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
     entry_type: 'receipt' (Entrada) ou 'issue' (Saída). Padrão: 'receipt'.
     """
-    _require_common_cdc_access()
+    _require_common_cdc_access("stock")
     _require_read_permission("Stock Entry")
     if not period or period == 'undefined':
         period = 'quarter'
@@ -2493,7 +2522,7 @@ def get_stock_dashboard_data(
     """
     Retorna métricas dinâmicas para o Painel Executivo do Estoque.
     """
-    _require_common_cdc_access()
+    _require_common_cdc_access("stock")
     _require_read_permission("Stock Entry")
     _require_read_permission("Warehouse")
     if not selected_unit or str(selected_unit).strip() in ['null', 'undefined', 'All', 'Todos os Armazéns'] or 'Todos os Armazéns' in str(selected_unit):
@@ -4025,7 +4054,7 @@ def get_ongsys_monitoring_dashboard(selected_project="All", selected_warehouse="
 @frappe.whitelist()
 def get_item_list_dashboard_data(selected_project=None, selected_warehouse=None):
     """Resume e delimita a lista de Item por projeto/armazém permitido."""
-    _require_common_cdc_access()
+    _require_common_cdc_access("items")
     _require_read_permission("Item")
     _require_read_permission("Item Group")
     project, warehouse, options, scoped_warehouses, scope_active = _catalog_filter_context(
@@ -4094,7 +4123,7 @@ def get_item_list_dashboard_data(selected_project=None, selected_warehouse=None)
 @frappe.whitelist()
 def get_item_group_dashboard_data(selected_project=None, selected_warehouse=None):
     """Resume e delimita Item Group por projeto/armazém permitido."""
-    _require_common_cdc_access()
+    _require_common_cdc_access("groups")
     _require_read_permission("Item Group")
     _require_read_permission("Item")
     project, warehouse, options, scoped_warehouses, scope_active = _catalog_filter_context(
@@ -4178,7 +4207,7 @@ def get_warehouse_list_dashboard_data(
     selected_project=None,
 ):
     """Resume a lista nativa de Warehouse dentro do contexto permitido ao usuário."""
-    _require_common_cdc_access()
+    _require_common_cdc_access("warehouses")
     _require_read_permission("Warehouse")
     permitted_names = _permitted_warehouse_tree_names()
     rows = frappe.get_all(
@@ -4297,7 +4326,7 @@ def get_stock_document_dashboard_data(
     if document_type not in definitions:
         frappe.throw("Tipo de documento de estoque inválido.", frappe.ValidationError)
 
-    _require_common_cdc_access()
+    _require_common_cdc_access("stock")
     _require_read_permission(document_type)
     definition = definitions[document_type]
     movement_field = definition["movement_field"]
@@ -4437,6 +4466,7 @@ def get_stock_document_dashboard_data(
 @frappe.whitelist()
 def get_stock_report_filter_options(report_key=None):
     """Retorna somente opções visíveis para os relatórios CDC de inventário."""
+    _require_cdc_page_access("reports", "view")
     if report_key not in {"inventory-ledger", "stock-balance"}:
         frappe.throw("Relatório de estoque inválido.", frappe.ValidationError)
     _require_read_permission("Stock Ledger Entry")
