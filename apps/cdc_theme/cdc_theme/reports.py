@@ -13,7 +13,7 @@ from cdc_theme.api import (
     CDC_PROJECTS,
     _permitted_leaf_warehouses,
     _require_read_permission,
-    _require_stock_dashboard_access,
+    _require_stock_reports_access,
     _warehouse_project,
 )
 
@@ -35,8 +35,50 @@ def _parse_list(value):
     return list(dict.fromkeys(str(item).strip() for item in value if str(item).strip()))
 
 
-def _warehouse_context():
+def _report_permitted_leaf_warehouses():
+    """Mantém Stock User fechado aos Warehouse vinculados por User Permission."""
     permitted = _permitted_leaf_warehouses()
+    roles = set(frappe.get_roles(frappe.session.user))
+    managers = {"System Manager", "Stock Manager", "Gestor de Estoque"}
+    if "Stock User" not in roles or roles.intersection(managers):
+        return permitted
+
+    linked = set(frappe.get_all(
+        "User Permission",
+        filters={
+            "user": frappe.session.user,
+            "allow": "Warehouse",
+        },
+        pluck="for_value",
+    ))
+    if not linked:
+        return set()
+
+    warehouses = frappe.get_all(
+        "Warehouse",
+        fields=["name", "is_group", "lft", "rgt"],
+        filters={"name": ["in", list(linked)]},
+    )
+    linked_leaves = set()
+    for warehouse in warehouses:
+        if not int(warehouse.is_group or 0):
+            linked_leaves.add(warehouse.name)
+            continue
+        descendants = frappe.get_all(
+            "Warehouse",
+            filters={
+                "is_group": 0,
+                "lft": [">", warehouse.lft],
+                "rgt": ["<", warehouse.rgt],
+            },
+            pluck="name",
+        )
+        linked_leaves.update(descendants)
+    return permitted.intersection(linked_leaves)
+
+
+def _warehouse_context():
+    permitted = _report_permitted_leaf_warehouses()
     rows = frappe.get_list(
         "Warehouse",
         fields=[
@@ -219,12 +261,12 @@ def _summary(rows, selected, start, end):
 
 
 def _build_report(scope_mode, warehouses, group, project, from_date, to_date, movement_type):
-    _require_stock_dashboard_access()
+    _require_stock_reports_access()
     _require_read_permission("Warehouse")
     _require_read_permission("Stock Entry")
     start, end = _validate_period(from_date, to_date)
     selected, _leaves, _groups = _resolve_scope(scope_mode, warehouses, group, project)
-    permitted = _permitted_leaf_warehouses()
+    permitted = _report_permitted_leaf_warehouses()
     raw_rows = _report_query(selected, start, end)
     if len(raw_rows) > REPORT_MAX_ROWS:
         frappe.throw(
@@ -237,7 +279,7 @@ def _build_report(scope_mode, warehouses, group, project, from_date, to_date, mo
 
 @frappe.whitelist()
 def get_stock_movement_report_options():
-    _require_stock_dashboard_access()
+    _require_stock_reports_access()
     _require_read_permission("Warehouse")
     _require_read_permission("Stock Entry")
     leaves, groups, _permitted = _warehouse_context()

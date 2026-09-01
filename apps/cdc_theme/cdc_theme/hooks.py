@@ -9,7 +9,7 @@ app_version = "1.0.0"
 # Global Assets Inclusions
 app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_cdc_reports_v70"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260831_restricted_stock_v69",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260831_reports_access_v71",
     "/assets/cdc_theme/js/cdc_pending.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_tests.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_management.js?v=20260829_attention_help_v60",
@@ -18,11 +18,11 @@ app_include_js = [
     "/assets/cdc_theme/js/cdc_warehouse.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_stock_routes.js?v=20260831_stock_warehouse_memory_v68",
     "/assets/cdc_theme/js/cdc_admin.js?v=20260829_attention_help_v60",
-    "/assets/cdc_theme/js/cdc_reports.js?v=20260831_cdc_reports_v70",
+    "/assets/cdc_theme/js/cdc_reports.js?v=20260831_reports_loading_v71",
 ]
 
 web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_cdc_reports_v70"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260831_restricted_stock_v69"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260831_reports_access_v71"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"

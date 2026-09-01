@@ -13,6 +13,10 @@ _CDC_RBAC_AUDIT_TOKEN = object()
 CDC_STOCK_RESTRICTED_ROLE = "CDC Estoque Restrito"
 CDC_STOCK_WORKSPACE = "CDC Estoque"
 CDC_REPORTS_WORKSPACE = "CDC Relatórios"
+CDC_STOCK_REPORT_ROLES = frozenset({
+    "System Manager", "Stock Manager", "Gestor de Estoque",
+    CDC_STOCK_RESTRICTED_ROLE, "Stock User",
+})
 
 
 def _require_system_manager():
@@ -42,6 +46,18 @@ def _require_stock_dashboard_access(additional_roles=None):
     if not roles.intersection(allowed_roles):
         frappe.throw(
             "Painel consolidado restrito a gestores de estoque.",
+            frappe.PermissionError,
+        )
+
+
+def _require_stock_reports_access():
+    """Autoriza relatórios sem ampliar as permissões documentais ou de armazém."""
+    if getattr(frappe.flags, "cdc_rbac_audit_token", None) is _CDC_RBAC_AUDIT_TOKEN:
+        return
+    roles = set(frappe.get_roles(frappe.session.user))
+    if not roles.intersection(CDC_STOCK_REPORT_ROLES):
+        frappe.throw(
+            "Relatórios de estoque indisponíveis para o perfil atual.",
             frappe.PermissionError,
         )
 

@@ -17,6 +17,9 @@ def load_reports():
     frappe.ValidationError = type("ValidationError", (Exception,), {})
     frappe.PermissionError = type("PermissionError", (Exception,), {})
     frappe.throw = lambda message, error=None: (_ for _ in ()).throw((error or Exception)(message))
+    frappe.session = types.SimpleNamespace(user="stock.user@example.com")
+    frappe.get_roles = lambda user=None: ["System Manager"]
+    frappe.get_all = lambda *args, **kwargs: []
     frappe.utils = types.ModuleType("frappe.utils")
     frappe.utils.flt = lambda value, precision=6: round(float(value or 0), precision)
     frappe.utils.getdate = lambda value=None: value if isinstance(value, date) else date.fromisoformat(str(value))
@@ -26,7 +29,7 @@ def load_reports():
     api.CDC_PROJECTS = ("Projeto Cais", "Institucional / Geral")
     api._permitted_leaf_warehouses = lambda: {"A - C", "B - C"}
     api._require_read_permission = lambda doctype: None
-    api._require_stock_dashboard_access = lambda: None
+    api._require_stock_reports_access = lambda: None
     api._warehouse_project = lambda warehouse: "Projeto Cais" if "CAIS" in warehouse else "Institucional / Geral"
     package = types.ModuleType("cdc_theme")
     package.__path__ = []
@@ -88,6 +91,29 @@ class CDCReportsTest(unittest.TestCase):
         self.assertEqual(1, len(result))
         self.assertEqual("", result[0]["source_warehouse"])
         self.assertEqual("A - C", result[0]["target_warehouse"])
+
+    def test_stock_user_scope_requires_linked_warehouse(self):
+        original_roles = self.reports.frappe.get_roles
+        original_get_all = self.reports.frappe.get_all
+        original_permitted = self.reports._permitted_leaf_warehouses
+        try:
+            self.reports.frappe.get_roles = lambda user=None: ["Stock User"]
+            self.reports._permitted_leaf_warehouses = lambda: {"A - C", "B - C"}
+
+            def get_all(doctype, **kwargs):
+                if doctype == "User Permission":
+                    return ["A - C"]
+                return [types.SimpleNamespace(name="A - C", is_group=0, lft=2, rgt=3)]
+
+            self.reports.frappe.get_all = get_all
+            self.assertEqual({"A - C"}, self.reports._report_permitted_leaf_warehouses())
+
+            self.reports.frappe.get_all = lambda *args, **kwargs: []
+            self.assertEqual(set(), self.reports._report_permitted_leaf_warehouses())
+        finally:
+            self.reports.frappe.get_roles = original_roles
+            self.reports.frappe.get_all = original_get_all
+            self.reports._permitted_leaf_warehouses = original_permitted
 
     def test_csv_and_xlsx_use_the_same_rows(self):
         rows = self.reports._movement_rows(

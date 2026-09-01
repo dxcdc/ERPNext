@@ -3,6 +3,10 @@
 
     var timers = [];
     var optionsCache = null;
+    var optionsLoading = false;
+    var optionsRequestSerial = 0;
+    var optionsTimeout = null;
+    var OPTIONS_TIMEOUT_MS = 15000;
 
     function normalize(value) {
         return decodeURIComponent(String(value || '')).toLowerCase().normalize('NFD')
@@ -30,10 +34,79 @@
     }
 
     function removeDashboard() {
+        optionsRequestSerial += 1;
+        optionsLoading = false;
+        if (optionsTimeout) clearTimeout(optionsTimeout);
+        optionsTimeout = null;
         document.querySelectorAll('#cdc-reports-dashboard').forEach(function(node) { node.remove(); });
         document.querySelectorAll('.layout-main-section, .workspace-page-content').forEach(function(body) {
             body.classList.remove('cdc-custom-reports-active');
         });
+    }
+
+    function renderLoading(dashboard) {
+        dashboard.dataset.loaded = '0';
+        dashboard.dataset.loading = '1';
+        dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando central de relatórios...</div>';
+    }
+
+    function renderFailure(message) {
+        var current = claimDashboard();
+        if (!current || !isReportsRoute()) return;
+        current.dashboard.dataset.loaded = '0';
+        current.dashboard.dataset.loading = '0';
+        current.dashboard.innerHTML = `<div class="cdc-monitoring-state is-error"><strong>${escapeHTML(message)}</strong><br>
+            <button type="button" class="btn btn-sm btn-default" data-cdc-reports-retry>Tentar novamente</button></div>`;
+        var retry = current.dashboard.querySelector('[data-cdc-reports-retry]');
+        if (retry) retry.addEventListener('click', function() {
+            optionsCache = null;
+            render();
+        });
+    }
+
+    function finishOptionsRequest(serial) {
+        if (serial !== optionsRequestSerial) return false;
+        optionsLoading = false;
+        if (optionsTimeout) clearTimeout(optionsTimeout);
+        optionsTimeout = null;
+        return true;
+    }
+
+    function requestOptions(claim) {
+        if (optionsLoading) return;
+        optionsLoading = true;
+        var serial = ++optionsRequestSerial;
+        renderLoading(claim.dashboard);
+        optionsTimeout = setTimeout(function() {
+            if (serial !== optionsRequestSerial) return;
+            optionsRequestSerial += 1;
+            optionsLoading = false;
+            optionsTimeout = null;
+            renderFailure('A consulta demorou mais que o esperado. Verifique a conexão e tente novamente.');
+        }, OPTIONS_TIMEOUT_MS);
+
+        frappe.call({method: 'cdc_theme.reports.get_stock_movement_report_options', callback: function(response) {
+            if (!finishOptionsRequest(serial) || !isReportsRoute()) return;
+            var current = claimDashboard();
+            if (!current) return;
+            optionsCache = response && response.message;
+            if (!optionsCache) {
+                renderFailure('Não foi possível carregar os relatórios.');
+                return;
+            }
+            current.dashboard.innerHTML = buildShell(optionsCache);
+            current.dashboard.dataset.loaded = '1';
+            current.dashboard.dataset.loading = '0';
+            bind(current.dashboard);
+        }, error: function(xhr) {
+            if (!finishOptionsRequest(serial) || !isReportsRoute()) return;
+            var response = xhr && xhr.responseJSON ? xhr.responseJSON : {};
+            var denied = (xhr && xhr.status === 403) || response.exc_type === 'PermissionError' ||
+                String(response.exception || '').indexOf('PermissionError') !== -1;
+            renderFailure(denied
+                ? 'Seu perfil não possui acesso aos relatórios de estoque.'
+                : 'Falha ao consultar os relatórios permitidos.');
+        }});
     }
 
     function isoDate(date) {
@@ -216,17 +289,18 @@
         if (!claim) return;
         claim.body.classList.add('cdc-custom-reports-active');
         if (claim.dashboard.dataset.loaded === '1') return;
-        claim.dashboard.innerHTML = '<div class="cdc-monitoring-state">Carregando central de relatórios...</div>';
-        frappe.call({method: 'cdc_theme.reports.get_stock_movement_report_options', callback: function(response) {
-            if (!isReportsRoute()) return;
-            var current = claimDashboard();
-            if (!current) return;
-            optionsCache = response && response.message;
-            if (!optionsCache) { current.dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Não foi possível carregar os relatórios.</div>'; return; }
-            current.dashboard.innerHTML = buildShell(optionsCache);
-            current.dashboard.dataset.loaded = '1';
-            bind(current.dashboard);
-        }, error: function() { claim.dashboard.innerHTML = '<div class="cdc-monitoring-state is-error">Falha ao consultar os relatórios permitidos.</div>'; }});
+        if (optionsCache) {
+            claim.dashboard.innerHTML = buildShell(optionsCache);
+            claim.dashboard.dataset.loaded = '1';
+            claim.dashboard.dataset.loading = '0';
+            bind(claim.dashboard);
+            return;
+        }
+        if (optionsLoading) {
+            if (claim.dashboard.dataset.loading !== '1') renderLoading(claim.dashboard);
+            return;
+        }
+        requestOptions(claim);
     }
 
     function schedule() {

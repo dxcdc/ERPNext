@@ -41,6 +41,8 @@ class StaticSafetyTest(unittest.TestCase):
         reports_js = (ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_reports.js").read_text()
         hooks_source = (ROOT / "apps/cdc_theme/cdc_theme/hooks.py").read_text()
         self.assertIn('CDC_REPORTS_WORKSPACE = "CDC Relatórios"', api_source)
+        self.assertIn('CDC_STOCK_REPORT_ROLES = frozenset({', api_source)
+        self.assertIn('"Stock User"', api_source)
         self.assertIn('_ensure_cdc_workspace(CDC_REPORTS_WORKSPACE, "chart", 6.0)', api_source)
         self.assertIn("_permitted_leaf_warehouses", reports_source)
         self.assertIn('se.docstatus = 1', reports_source)
@@ -50,7 +52,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('def preview_stock_movement_report(', reports_source)
         self.assertIn('def download_stock_movement_report(', reports_source)
         self.assertIn('window.location.href = \'/api/method/cdc_theme.reports.download_stock_movement_report?', reports_js)
-        self.assertIn('cdc_reports.js?v=20260831_cdc_reports_v70', hooks_source)
+        self.assertIn('cdc_reports.js?v=20260831_reports_loading_v71', hooks_source)
 
     def test_ongsys_admin_mapping_and_resilient_importer_are_guarded(self):
         api_source = API_PY.read_text()

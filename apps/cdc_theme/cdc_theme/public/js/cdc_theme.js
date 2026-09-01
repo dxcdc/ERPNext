@@ -82,6 +82,13 @@
         } catch (err) {}
     }
 
+    function canUseStockReports() {
+        var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
+        return ['System Manager', 'Stock Manager', 'Gestor de Estoque', 'CDC Estoque Restrito', 'Stock User']
+            .some(function(role) { return roles.indexOf(role) !== -1; });
+    }
+    window._cdc_can_use_stock_reports = canUseStockReports;
+
     function getCDCBreadcrumbHTML(section, detail) {
         var sections = [
             {label: 'Estoque', href: '/app/cdc-estoque'},
@@ -97,7 +104,9 @@
             {label: 'Admin', href: '/app/cdc-admin'},
             {label: 'Treinamento', href: '/app/cdc-treinamento'}
         ];
+        sections = sections.filter(function(item) { return item.label !== 'Relatórios' || canUseStockReports(); });
         var current = sections.find(function(item) { return item.label === section; });
+        if (!current) return '';
         var quickLinks = sections.map(function(item) {
             return `<a href="${item.href}" class="cdc-breadcrumb-menu-link ${item.label === section ? 'is-active' : ''}">${item.label}</a>`;
         }).join('');
@@ -2246,6 +2255,8 @@
             if (restrictedStockUser) {
                 isAllowed = ['cdc estoque', 'cdc relatorios'].indexOf(primaryLabel) !== -1 || /^\/app\/cdc-(?:estoque|relatorios)(?:\/|$)/.test(href);
             }
+            var isReportsWorkspace = primaryLabel === 'cdc relatorios' || /^\/app\/cdc-relatorios(?:\/|$)/.test(href);
+            if (isReportsWorkspace && !canUseStockReports()) isAllowed = false;
             var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
                 /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
             if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
@@ -2402,6 +2413,9 @@
             'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios',
             'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc treinamento'
         ];
+        if (!canUseStockReports()) {
+            requiredTokens = requiredTokens.filter(function(token) { return token !== 'cdc relatorios'; });
+        }
 
         if (window.frappe && Array.isArray(frappe.user_roles) && frappe.user_roles.indexOf('System Manager') !== -1) {
             requiredTokens.push('cdc testes');
@@ -3926,7 +3940,7 @@
                                 <p class="cdc-monitoring-sub">Indicadores e filtros aplicados à lista oficial do ERPNext</p>
                             </div>
                             <div class="cdc-warehouse-header-actions">
-                                <button class="btn btn-sm btn-primary" id="cdc-btn-warehouse-report">Exportar movimentações</button>
+                                ${canUseStockReports() ? '<button class="btn btn-sm btn-primary" id="cdc-btn-warehouse-report">Exportar movimentações</button>' : ''}
                                 <button class="btn btn-sm btn-default" id="cdc-btn-refresh-warehouses">🔄 Atualizar contexto</button>
                             </div>
                         </div>
@@ -3960,7 +3974,8 @@
                 var statusSelect = dashboard.querySelector('#cdc-warehouse-status');
                 var kindSelect = dashboard.querySelector('#cdc-warehouse-kind');
                 var parentSelect = dashboard.querySelector('#cdc-warehouse-parent');
-                dashboard.querySelector('#cdc-btn-warehouse-report').addEventListener('click', function() {
+                var warehouseReportButton = dashboard.querySelector('#cdc-btn-warehouse-report');
+                if (warehouseReportButton) warehouseReportButton.addEventListener('click', function() {
                     var prefill = {};
                     if (parentSelect && parentSelect.value) prefill.group = parentSelect.value;
                     else if (warehouseSelectedProject && warehouseSelectedProject !== 'All') prefill.project = warehouseSelectedProject;
