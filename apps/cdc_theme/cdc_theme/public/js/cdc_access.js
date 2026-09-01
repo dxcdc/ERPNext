@@ -112,6 +112,10 @@
             + '<div><span class="cdc-access-state is-exception">Exceção</span><small>Regra específica para o usuário ou perfil.</small></div>'
             + '<div><span class="cdc-access-state is-denied">Sem acesso</span><small>A página não está disponível.</small></div>'
             + '<div><span class="cdc-access-state is-admin">Administrador</span><small>Acesso administrativo completo.</small></div></div>'
+            + '<div class="cdc-access-help-profile"><h5>Perfil, funções e escopo: qual é a diferença?</h5>'
+            + '<p><strong>Sem perfil atribuído</strong> não significa que o usuário esteja sem acesso. Ele pode possuir funções concedidas diretamente, exceções individuais e armazéns vinculados. O perfil é um modelo padronizado que reúne funções.</p>'
+            + '<p>Recomenda-se atribuir um perfil quando o usuário desempenhar uma função recorrente, como consulta, operação de estoque ou gestão. Isso facilita a manutenção e reduz diferenças entre pessoas que exercem a mesma atividade.</p>'
+            + '<p>Antes de alterar o perfil, confira as funções que serão adicionadas ou removidas. Utilize <strong>Ver como ficaria</strong> para simular o perfil proposto em modo somente leitura, sem acessar a conta da pessoa.</p></div>'
             + '<div class="cdc-access-help-warning"><strong>Importante:</strong> liberar uma página não amplia os armazéns do usuário. Os dados continuam restritos aos armazéns aos quais ele está vinculado.</div>'
             + '</section>'
             + '<div class="cdc-access-subtabs" role="tablist">'
@@ -226,8 +230,14 @@
                 return '<td><button type="button" class="cdc-access-cell" data-cdc-access-user="' + escapeHTML(user.name) + '" data-cdc-access-page="' + escapeHTML(page.key) + '">'
                     + sourceLabel(cell) + '<small>' + Number(cell && cell.warehouse_count || 0) + ' armazém(ns)</small></button></td>';
             }).join('');
+            var profileLabel = user.is_native_admin ? 'Conta administrativa nativa' : (user.role_profile || 'Não atribuído');
+            var profileAction = user.can_assign_profile
+                ? '<button type="button" class="btn btn-xs btn-default" data-cdc-role-profile-user="' + escapeHTML(user.name) + '">' + (user.role_profile ? 'Revisar perfil' : 'Definir perfil') + '</button>'
+                : (user.is_native_admin ? '<small>Não utiliza perfil comum</small>' : '');
             return '<tr><th><strong>' + escapeHTML(user.full_name) + '</strong><small>' + escapeHTML(user.email) + '</small></th>'
-                + '<td><span>' + escapeHTML(user.role_profile || 'Sem perfil') + '</span><small>' + Number(user.warehouse_count || 0) + ' armazém(ns)</small></td>' + cells + '</tr>';
+                + '<td><div class="cdc-access-profile-summary"><strong>' + escapeHTML(profileLabel) + '</strong>'
+                + '<small>' + Number((user.assigned_roles || []).length) + ' função(ões) atribuída(s)</small>'
+                + '<small>' + Number(user.warehouse_count || 0) + ' armazém(ns)</small>' + profileAction + '</div></td>' + cells + '</tr>';
         }).join('') || '<tr><td colspan="' + (pages.length + 2) + '">Nenhum usuário encontrado.</td></tr>';
         content.innerHTML = '<div class="cdc-access-legend"><span class="cdc-access-state is-native">Perfil</span><span class="cdc-access-state is-exception">Exceção</span><span class="cdc-access-state is-denied">Sem acesso</span><span class="cdc-access-state is-admin">Administrador</span></div>'
             + '<div class="cdc-access-top-scroll" data-cdc-access-top-scroll aria-label="Rolagem horizontal superior da matriz" tabindex="0"><div data-cdc-access-top-scroll-content></div></div>'
@@ -236,6 +246,11 @@
         content.querySelectorAll('[data-cdc-access-user]').forEach(function (button) {
             button.addEventListener('click', function () {
                 openExceptionDialog(state, {subject_type: 'User', user: button.dataset.cdcAccessUser, page_key: button.dataset.cdcAccessPage});
+            });
+        });
+        content.querySelectorAll('[data-cdc-role-profile-user]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                openRoleProfileDialog(state, button.dataset.cdcRoleProfileUser);
             });
         });
     }
@@ -284,6 +299,93 @@
 
     function selected(value, expected) { return String(value || '') === String(expected || '') ? ' selected' : ''; }
     function checked(value) { return value ? ' checked' : ''; }
+
+    function roleChips(roles, emptyLabel) {
+        if (!(roles || []).length) return '<span class="cdc-access-role-empty">' + escapeHTML(emptyLabel || 'Nenhuma') + '</span>';
+        return roles.map(function (role) { return '<span class="cdc-access-role-chip">' + escapeHTML(role) + '</span>'; }).join('');
+    }
+
+    function openRoleProfileDialog(state, userName) {
+        call('cdc_theme.access_api.get_role_profile_assignment_options', {user: userName}).then(function (options) {
+            var profiles = (options.profiles || []).map(function (profile) {
+                return '<option value="' + escapeHTML(profile.name) + '"' + selected(options.current_profile, profile.name) + '>'
+                    + escapeHTML(profile.name + (profile.suggested ? ' — sugerido' : '')) + '</option>';
+            }).join('');
+            var suggestion = options.suggested_profile
+                ? '<div class="cdc-access-profile-suggestion"><strong>Sugestão:</strong> ' + escapeHTML(options.suggested_profile) + '<span>Baseada na semelhança com as funções atuais; nunca será aplicada automaticamente.</span></div>'
+                : '<div class="cdc-access-profile-suggestion is-neutral"><strong>Sem sugestão automática.</strong><span>Escolha um perfil e revise todas as mudanças.</span></div>';
+            var dialog = document.createElement('dialog');
+            dialog.className = 'cdc-access-dialog cdc-access-profile-dialog';
+            dialog.innerHTML = '<form method="dialog" data-cdc-role-profile-form>'
+                + '<div class="cdc-access-dialog-heading"><div><h3>Definir perfil de função</h3><p>' + escapeHTML(options.full_name) + ' · ' + escapeHTML(options.user) + '</p></div><button value="cancel" aria-label="Fechar">×</button></div>'
+                + '<div class="cdc-access-profile-current"><div><span>Perfil atual</span><strong>' + escapeHTML(options.current_profile || 'Não atribuído') + '</strong></div>'
+                + '<div><span>Funções atuais</span><strong>' + Number((options.current_roles || []).length) + '</strong></div>'
+                + '<div><span>Escopo atual</span><strong>' + Number(options.warehouse_count || 0) + ' armazém(ns)</strong></div></div>'
+                + suggestion
+                + '<label class="cdc-access-profile-select"><span>Novo perfil</span><select name="role_profile" required><option value="">Selecione</option>' + profiles + '</select></label>'
+                + '<div class="cdc-access-profile-comparison" data-cdc-profile-comparison><p>Selecione um perfil para comparar as funções.</p></div>'
+                + '<label class="cdc-access-reason"><span>Justificativa</span><textarea name="justification" rows="3" required minlength="8" placeholder="Explique por que este perfil deve ser atribuído"></textarea></label>'
+                + '<label class="cdc-access-profile-confirm"><input type="checkbox" name="confirmed" required> Revisei as funções adicionadas e removidas e confirmo esta alteração.</label>'
+                + '<div class="cdc-access-profile-scope-warning"><strong>Os vínculos de armazém não serão modificados.</strong> O servidor cancelará a operação se detectar qualquer alteração nesse escopo.</div>'
+                + '<div class="cdc-access-dialog-actions"><button value="cancel" class="btn btn-default">Cancelar</button><button type="submit" value="preview" formnovalidate class="btn btn-default">Ver como ficaria</button><button type="submit" value="save" class="btn btn-primary">Aplicar perfil</button></div></form>';
+            document.body.appendChild(dialog);
+            var form = dialog.querySelector('[data-cdc-role-profile-form]');
+            var comparisons = {};
+            (options.profiles || []).forEach(function (profile) { comparisons[profile.name] = profile; });
+            function updateComparison() {
+                var comparison = comparisons[form.elements.role_profile.value];
+                var target = dialog.querySelector('[data-cdc-profile-comparison]');
+                if (!comparison) {
+                    target.innerHTML = '<p>Selecione um perfil para comparar as funções.</p>';
+                    form.querySelector('button[value="save"]').disabled = true;
+                    return;
+                }
+                var scopeNotice = comparison.warehouse_scope_preserved
+                    ? '<div class="cdc-access-profile-scope-result is-preserved"><strong>Escopo preservado</strong><span>' + Number(comparison.resulting_warehouse_count || 0) + ' armazém(ns)</span></div>'
+                    : '<div class="cdc-access-profile-scope-result is-changed"><strong>Este perfil alteraria o escopo</strong><span>Resultado: ' + Number(comparison.resulting_warehouse_count || 0) + ' armazém(ns). É possível simular, mas não aplicar por esta matriz.</span></div>';
+                target.innerHTML = '<div class="cdc-access-profile-match"><strong>' + Number(comparison.match_percent || 0) + '% de correspondência</strong><span>' + Number(comparison.match_count || 0) + ' função(ões) em comum</span></div>'
+                    + '<div><h5>Serão adicionadas</h5><div class="cdc-access-role-list is-added">' + roleChips(comparison.added_roles, 'Nenhuma função') + '</div></div>'
+                    + '<div><h5>Serão removidas</h5><div class="cdc-access-role-list is-removed">' + roleChips(comparison.removed_roles, 'Nenhuma função') + '</div></div>' + scopeNotice;
+                form.querySelector('button[value="save"]').disabled = !comparison.warehouse_scope_preserved;
+            }
+            form.elements.role_profile.addEventListener('change', updateComparison);
+            form.addEventListener('submit', function (event) {
+                if (event.submitter && event.submitter.value === 'cancel') return;
+                event.preventDefault();
+                var profile = form.elements.role_profile.value;
+                if (!profile) {
+                    frappe.msgprint('Selecione um perfil de função.');
+                    return;
+                }
+                var comparison = comparisons[profile];
+                if (event.submitter && event.submitter.value === 'preview') {
+                    call('cdc_theme.access_api.start_role_profile_assignment_preview', {user: options.user, role_profile: profile}).then(function () {
+                        dialog.close();
+                        window.location.reload();
+                    });
+                    return;
+                }
+                if (!comparison.warehouse_scope_preserved) {
+                    frappe.msgprint('Este perfil alteraria o escopo efetivo de armazéns. Utilize a pré-visualização e ajuste o perfil ou os vínculos separadamente.');
+                    return;
+                }
+                call('cdc_theme.access_api.assign_role_profile', {
+                    user: options.user,
+                    role_profile: profile,
+                    justification: form.elements.justification.value,
+                    confirmed: form.elements.confirmed.checked ? 1 : 0
+                }).then(function () {
+                    dialog.close();
+                    state.loaded = false;
+                    loadData(state);
+                    frappe.show_alert({message: 'Perfil atribuído e escopo de armazéns preservado.', indicator: 'green'});
+                });
+            });
+            dialog.addEventListener('close', function () { dialog.remove(); });
+            updateComparison();
+            dialog.showModal();
+        });
+    }
 
     function openExceptionDialog(state, item) {
         item = Object.assign({subject_type: 'User', effect: 'Allow', all_actions: false, all_warehouses: true, enabled: true, actions: ['view'], warehouses: []}, item || {});
@@ -427,7 +529,11 @@
         if (!context.preview) return;
         var banner = document.createElement('aside');
         banner.className = 'cdc-access-preview-banner';
-        banner.innerHTML = '<div><strong>Modo de pré-visualização:</strong> ' + escapeHTML(context.preview.target)
+        var previewLabel = context.preview.target;
+        if (context.preview.target_type === 'User Role Profile') {
+            previewLabel += ' · perfil proposto: ' + context.preview.role_profile;
+        }
+        banner.innerHTML = '<div><strong>Modo de pré-visualização:</strong> ' + escapeHTML(previewLabel)
             + ' <span>Somente leitura · ' + Number((context.preview.warehouse_scope || []).length) + ' armazém(ns)</span></div>'
             + '<button type="button" class="btn btn-sm btn-default" data-cdc-preview-end>Encerrar pré-visualização</button>';
         document.body.appendChild(banner);

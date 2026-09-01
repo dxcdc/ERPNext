@@ -241,6 +241,35 @@ class AccessCatalogTest(unittest.TestCase):
         self.assertEqual("Consulta", ended["target"])
         self.assertIsNone(access.get_preview_context())
 
+    def test_proposed_user_profile_preview_uses_real_user_warehouse_scope(self):
+        access = load_access_control(roles={
+            "current@example.com": {"System Manager"},
+        })
+        access.frappe.db.exists = lambda doctype, name: (
+            (doctype == "User" and name == "operator@example.com")
+            or (doctype == "Role Profile" and name == "Operação")
+        )
+
+        def get_all(doctype, **kwargs):
+            if doctype == "Has Role":
+                return ["Consulta", "Operador"]
+            if doctype == "User Permission":
+                return ["A - C"]
+            if doctype == "Warehouse":
+                return [{"name": "A - C", "is_group": 0, "lft": 1, "rgt": 2}]
+            return []
+
+        access.frappe.get_all = get_all
+        context = access.start_preview(
+            "User Role Profile", "operator@example.com",
+            proposed_role_profile="Operação",
+        )
+        self.assertEqual("operator@example.com", context["user"])
+        self.assertEqual("Operação", context["role_profile"])
+        self.assertEqual(["Consulta", "Operador"], context["roles"])
+        self.assertEqual(["A - C"], context["warehouse_scope"])
+        self.assertTrue(context["read_only"])
+
 
 if __name__ == "__main__":
     unittest.main()

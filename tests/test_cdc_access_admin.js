@@ -28,6 +28,17 @@ assert.match(access, /liberar uma página não amplia os armazéns do usuário/,
 assert.match(access, /data-cdc-access-top-scroll/, 'matriz deve oferecer rolagem horizontal superior');
 assert.match(access, /bindSynchronizedMatrixScroll/, 'as duas barras horizontais devem permanecer sincronizadas');
 assert.match(access, /aria-expanded/, 'ajuda expansível deve expor seu estado para tecnologias assistivas');
+assert.match(access, /Perfil, funções e escopo: qual é a diferença/, 'ajuda deve diferenciar perfil, funções e armazéns');
+assert.match(access, /data-cdc-role-profile-user/, 'usuário elegível deve oferecer definição de perfil');
+assert.match(access, /Ver como ficaria/, 'modal deve permitir simular o perfil proposto');
+assert.match(access, /funções adicionadas e removidas/, 'confirmação deve explicitar o impacto da troca');
+assert.match(api, /def get_role_profile_assignment_options\(user\):/);
+assert.match(api, /def start_role_profile_assignment_preview\(user, role_profile\):/);
+assert.match(api, /def assign_role_profile\(user, role_profile, justification, confirmed=0\):/);
+assert.match(api, /warehouse_permissions_preserved/, 'atribuição deve registrar preservação do escopo');
+assert.match(api, /resulting_scope != previous_scope/, 'atribuição deve bloquear mudança do escopo efetivo');
+assert.match(access, /É possível simular, mas não aplicar por esta matriz/, 'interface deve explicar perfil incompatível com o escopo');
+assert.match(api, /PROTECTED_PROFILE_USERS = \{"Administrator", "Guest"\}/);
 assert.match(access, /get_current_access_context/, 'controle global deve consultar o acesso efetivo');
 assert.match(access, /Pré-visualizar acesso/);
 assert.match(access, /Somente leitura/);
@@ -39,7 +50,7 @@ assert.match(control, /native_scope/, 'avaliador deve intersectar com escopo nat
 assert.match(control, /def start_preview\(/);
 assert.match(control, /def block_preview_mutations\(/);
 assert.match(control, /def block_preview_document_write\(/);
-assert.match(hooks, /cdc_access\.js\?v=20260901_access_help_v74/);
+assert.match(hooks, /cdc_access\.js\?v=20260901_profile_guidance_v75/);
 assert.match(hooks, /cdc_theme\.access_control\.enforce_cdc_request_access/);
 assert.match(hooks, /cdc_theme\.access_control\.block_preview_mutations/);
 assert.match(theme, /window\._cdc_apply_effective_access/);

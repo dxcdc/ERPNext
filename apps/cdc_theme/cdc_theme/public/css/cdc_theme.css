@@ -389,6 +389,18 @@
     line-height: 1.35;
 }
 
+.cdc-access-help-profile {
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: var(--card-bg, #fff);
+}
+
+.cdc-access-help-profile h5 { margin: 0 0 9px; font-weight: 800; }
+.cdc-access-help-profile p { margin: 0 0 8px; line-height: 1.5; }
+.cdc-access-help-profile p:last-child { margin-bottom: 0; }
+
 .cdc-access-help-warning {
     margin-top: 12px;
     padding: 10px 12px;
@@ -532,6 +544,16 @@
     font-size: 11px;
 }
 
+.cdc-access-profile-summary {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cdc-access-profile-summary > strong { line-height: 1.25; }
+.cdc-access-profile-summary .btn { margin-top: 6px; }
+
 .cdc-access-cell {
     width: 100%;
     min-width: 105px;
@@ -620,6 +642,104 @@
 .cdc-access-checkboxes.is-disabled { opacity: .45; pointer-events: none; }
 .cdc-access-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
+.cdc-access-profile-current {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.cdc-access-profile-current > div {
+    padding: 11px;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 8px;
+    background: var(--subtle-fg, #f8fafc);
+}
+
+.cdc-access-profile-current span,
+.cdc-access-profile-select > span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-muted, #6b7280);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.cdc-access-profile-current strong { display: block; line-height: 1.35; }
+
+.cdc-access-profile-suggestion {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e3a8a;
+}
+
+.cdc-access-profile-suggestion.is-neutral { border-color: #d1d5db; background: #f9fafb; color: #374151; }
+.cdc-access-profile-suggestion span { color: inherit; font-size: 12px; }
+
+.cdc-access-profile-select { display: block; margin-bottom: 14px; }
+.cdc-access-profile-select select { width: 100%; min-height: 38px; }
+
+.cdc-access-profile-comparison {
+    display: grid;
+    grid-template-columns: .8fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid var(--border-color, #d8dce2);
+    border-radius: 9px;
+}
+
+.cdc-access-profile-comparison > p { grid-column: 1 / -1; margin: 0; color: var(--text-muted, #6b7280); }
+.cdc-access-profile-comparison h5 { margin: 0 0 7px; font-size: 12px; font-weight: 800; }
+.cdc-access-profile-match { display: flex; flex-direction: column; gap: 4px; }
+.cdc-access-profile-match span { color: var(--text-muted, #6b7280); font-size: 12px; }
+
+.cdc-access-profile-scope-result {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 9px 10px;
+    border-radius: 7px;
+}
+.cdc-access-profile-scope-result span { font-size: 12px; }
+.cdc-access-profile-scope-result.is-preserved { background: #f0fdf4; color: #166534; }
+.cdc-access-profile-scope-result.is-changed { background: #fff7ed; color: #9a3412; }
+
+.cdc-access-role-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.cdc-access-role-chip,
+.cdc-access-role-empty {
+    display: inline-flex;
+    border-radius: 999px;
+    padding: 3px 7px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+.cdc-access-role-chip { background: #e5e7eb; color: #374151; }
+.cdc-access-role-list.is-added .cdc-access-role-chip { background: #dcfce7; color: #166534; }
+.cdc-access-role-list.is-removed .cdc-access-role-chip { background: #fee2e2; color: #991b1b; }
+.cdc-access-role-empty { background: #f3f4f6; color: #6b7280; }
+
+.cdc-access-profile-confirm { display: flex; align-items: flex-start; gap: 7px; margin-top: 12px; }
+.cdc-access-profile-confirm input { margin-top: 3px; }
+.cdc-access-profile-scope-warning {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-left: 4px solid #16a34a;
+    border-radius: 6px;
+    background: #f0fdf4;
+    color: #166534;
+}
+
 .cdc-access-preview-control {
     position: fixed;
     z-index: 1040;
@@ -671,6 +791,9 @@
     .cdc-access-heading-actions .btn { flex: 1 1 auto; }
     .cdc-access-help { padding: 14px; }
     .cdc-access-help-legend { grid-template-columns: 1fr; }
+    .cdc-access-profile-current,
+    .cdc-access-profile-comparison { grid-template-columns: 1fr; }
+    .cdc-access-profile-dialog .cdc-access-dialog-actions { align-items: stretch; flex-direction: column; }
     .cdc-access-filters,
     .cdc-access-form-grid { grid-template-columns: 1fr; }
 }

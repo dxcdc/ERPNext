@@ -368,7 +368,7 @@ def get_preview_context():
     return context
 
 
-def start_preview(target_type, target, warehouses=None):
+def start_preview(target_type, target, warehouses=None, proposed_role_profile=None):
     require_system_manager(allow_preview=True)
     target_type = str(target_type or "").strip()
     target = str(target or "").strip()
@@ -378,6 +378,16 @@ def start_preview(target_type, target, warehouses=None):
             frappe.throw("Usuário não encontrado.", frappe.DoesNotExistError)
         roles = roles_for_user(target)
         role_profile = role_profile_for_user(target)
+        scope = native_warehouse_scope(target, roles)
+        preview_user = target
+    elif target_type == "User Role Profile":
+        if not frappe.db.exists("User", target):
+            frappe.throw("Usuário não encontrado.", frappe.DoesNotExistError)
+        proposed_role_profile = str(proposed_role_profile or "").strip()
+        if not proposed_role_profile or not frappe.db.exists("Role Profile", proposed_role_profile):
+            frappe.throw("Perfil/cargo não encontrado.", frappe.DoesNotExistError)
+        roles = roles_for_profile(proposed_role_profile)
+        role_profile = proposed_role_profile
         scope = native_warehouse_scope(target, roles)
         preview_user = target
     elif target_type == "Role Profile":
