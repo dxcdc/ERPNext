@@ -82,9 +82,24 @@
         } catch (err) {}
     }
 
+    function isCDCSystemManager() {
+        var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
+        return roles.indexOf('System Manager') !== -1;
+    }
+
+    function isCDCOperationalManager() {
+        var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
+        return ['Stock Manager', 'Gestor de Estoque'].some(function(role) { return roles.indexOf(role) !== -1; });
+    }
+
+    function isCommonCDCWorkspaceUser() {
+        var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
+        return roles.length > 0 && !isCDCSystemManager() && !isCDCOperationalManager();
+    }
+
     function canUseStockReports() {
         var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
-        return ['System Manager', 'Stock Manager', 'Gestor de Estoque', 'CDC Estoque Restrito', 'Stock User']
+        return ['System Manager', 'Stock Manager', 'Gestor de Estoque', 'CDC Estoque Restrito', 'Stock User', 'Operador', 'Consulta']
             .some(function(role) { return roles.indexOf(role) !== -1; });
     }
     window._cdc_can_use_stock_reports = canUseStockReports;
@@ -104,7 +119,12 @@
             {label: 'Admin', href: '/app/cdc-admin'},
             {label: 'Treinamento', href: '/app/cdc-treinamento'}
         ];
-        sections = sections.filter(function(item) { return item.label !== 'Relatórios' || canUseStockReports(); });
+        var administrativeSections = ['Integrações', 'Monitoramento', 'Testes', 'Admin'];
+        sections = sections.filter(function(item) {
+            if (isCommonCDCWorkspaceUser() && administrativeSections.indexOf(item.label) !== -1) return false;
+            if (!isCDCSystemManager() && ['Monitoramento', 'Testes', 'Admin'].indexOf(item.label) !== -1) return false;
+            return item.label !== 'Relatórios' || canUseStockReports();
+        });
         var current = sections.find(function(item) { return item.label === section; });
         if (!current) return '';
         var quickLinks = sections.map(function(item) {
@@ -476,6 +496,7 @@
 
                 var summary = r.message.summary || {};
                 var users = r.message.users || [];
+                var canManageUsers = r.message.can_manage_users === true;
                 var filters = r.message.filters || {};
                 currentUsersProject = filters.selected_project || 'All';
                 currentUsersWarehouse = filters.selected_warehouse || 'All';
@@ -497,25 +518,31 @@
                     var statusClass = user.enabled ? 'is-enabled' : 'is-disabled';
                     var statusLabel = user.enabled ? 'Ativo' : 'Desativado';
                     var lastAccess = user.last_active || user.last_login || '—';
+                    var userName = canManageUsers
+                        ? `<a class="cdc-user-name" href="/app/user/${encodeURIComponent(user.name)}">${escapeCDC(user.full_name || user.name)}</a>`
+                        : `<strong class="cdc-user-name">${escapeCDC(user.full_name || user.name)}</strong>`;
                     return `
                         <tr data-search="${escapeCDC([user.full_name, user.email, user.user_type, user.role_profile_name].join(' ').toLowerCase())}">
-                            <td data-sort="${escapeCDC(user.full_name || user.name)}"><a class="cdc-user-name" href="/app/user/${encodeURIComponent(user.name)}">${escapeCDC(user.full_name || user.name)}</a></td>
+                            <td data-sort="${escapeCDC(user.full_name || user.name)}">${userName}</td>
                             <td data-sort="${escapeCDC(user.email)}">${escapeCDC(user.email)}</td>
                             <td data-sort="${escapeCDC(user.user_type)}">${escapeCDC(user.user_type)}</td>
                             <td data-sort="${escapeCDC(user.role_profile_name)}">${escapeCDC(user.role_profile_name)}</td>
                             <td data-sort="${statusLabel}"><span class="cdc-user-status ${statusClass}">${statusLabel}</span></td>
                             <td data-sort="${escapeCDC(lastAccess)}">${escapeCDC(lastAccess)}</td>
                         </tr>`;
-                }).join('');
+                }).join('') || '<tr><td colspan="6">Nenhum usuário encontrado no seu escopo atual.</td></tr>';
+
+                var managementActions = canManageUsers ? `
+                    <div class="cdc-users-heading-actions">
+                        <a class="btn btn-default cdc-users-link-employee-button" href="/app/user-permission">Vincular funcionário</a>
+                        <a class="btn btn-primary cdc-users-create-button" href="/app/user/new-user-byeuadqsvz">Cadastrar novo usuário</a>
+                    </div>` : '';
 
                 dashboard.innerHTML = `
                     ${getCDCBreadcrumbHTML('Usuários')}
                     <div class="cdc-users-heading">
                         <div><h2>Visão geral de usuários</h2><p>Indicadores e acessos cadastrados no NextERP.</p></div>
-                        <div class="cdc-users-heading-actions">
-                            <a class="btn btn-default cdc-users-link-employee-button" href="/app/user-permission">Vincular funcionário</a>
-                            <a class="btn btn-primary cdc-users-create-button" href="/app/user/new-user-byeuadqsvz">Cadastrar novo usuário</a>
-                        </div>
+                        ${managementActions}
                     </div>
                     <div class="cdc-linked-filters" aria-label="Filtros de usuários">
                         <label><span>Projeto</span><select id="cdc-users-project-filter">${projectOptionsHTML}</select></label>
@@ -2222,15 +2249,17 @@
     });
 
     function isRestrictedStockWorkspaceUser() {
-        var roles = window.frappe && Array.isArray(frappe.user_roles) ? frappe.user_roles : [];
-        return roles.indexOf('CDC Estoque Restrito') !== -1 && roles.indexOf('System Manager') === -1;
+        return isCommonCDCWorkspaceUser();
     }
 
     function enforceRestrictedStockWorkspaceRoute() {
-        if (!isRestrictedStockWorkspaceUser()) return false;
+        if (isCDCSystemManager()) return false;
         var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        if (!/^\/app\/cdc-/.test(pathname) || /^\/app\/cdc-(?:estoque|relatorios)(?:\/|$)/.test(pathname)) return false;
+        var allowedPattern = isCDCOperationalManager()
+            ? /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|integracoes|pendencias|treinamento)(?:\/|$)/
+            : /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|pendencias|treinamento)(?:\/|$)/;
+        if (!/^\/app\/cdc-/.test(pathname) || allowedPattern.test(pathname)) return false;
         if (window.frappe && frappe.set_route) frappe.set_route('Workspaces', 'CDC Estoque');
         else window.location.replace('/app/cdc-estoque');
         return true;
@@ -2240,7 +2269,7 @@
     function sanitizeSidebarWorkspaces() {
         var restrictedStockUser = isRestrictedStockWorkspaceUser();
         var allowedList = restrictedStockUser
-            ? ['cdc estoque', 'cdc relatorios']
+            ? ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios', 'cdc pendencias', 'cdc treinamento']
             : ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios', 'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc testes', 'cdc admin', 'cdc treinamento'];
 
         var sidebarLinks = document.querySelectorAll('.desk-sidebar .standard-sidebar-item');
@@ -2253,13 +2282,16 @@
             var isAllowed = allowedList.indexOf(primaryLabel) !== -1 ||
                 /^\/app\/cdc-(estoque|usuarios|grupos|itens|armazem|relatorios|integracoes|pendencias|monitoramento|testes|admin|treinamento)(\/|$)/.test(href);
             if (restrictedStockUser) {
-                isAllowed = ['cdc estoque', 'cdc relatorios'].indexOf(primaryLabel) !== -1 || /^\/app\/cdc-(?:estoque|relatorios)(?:\/|$)/.test(href);
+                isAllowed = ['cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios', 'cdc pendencias', 'cdc treinamento'].indexOf(primaryLabel) !== -1 ||
+                    /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|pendencias|treinamento)(?:\/|$)/.test(href);
             }
             var isReportsWorkspace = primaryLabel === 'cdc relatorios' || /^\/app\/cdc-relatorios(?:\/|$)/.test(href);
             if (isReportsWorkspace && !canUseStockReports()) isAllowed = false;
-            var isRestrictedWorkspace = primaryLabel === 'cdc admin' || primaryLabel === 'cdc testes' ||
-                /^\/app\/cdc-(admin|testes)(\/|$)/.test(href);
-            if (isRestrictedWorkspace && (!window.frappe || (frappe.user_roles || []).indexOf('System Manager') === -1)) {
+            var isSystemWorkspace = ['cdc monitoramento', 'cdc testes', 'cdc admin'].indexOf(primaryLabel) !== -1 ||
+                /^\/app\/cdc-(monitoramento|testes|admin)(\/|$)/.test(href);
+            var isIntegrationsWorkspace = primaryLabel === 'cdc integracoes' || /^\/app\/cdc-integracoes(?:\/|$)/.test(href);
+            if ((isSystemWorkspace && !isCDCSystemManager()) ||
+                (isIntegrationsWorkspace && !isCDCSystemManager() && !isCDCOperationalManager())) {
                 isAllowed = false;
             }
             el.classList.toggle('cdc-workspace-hidden', labelText && !isAllowed);
@@ -2409,7 +2441,13 @@
             return false;
         }
 
-        var requiredTokens = isRestrictedStockWorkspaceUser() ? ['cdc estoque', 'cdc relatorios'] : [
+        var requiredTokens = isRestrictedStockWorkspaceUser() ? [
+            'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem',
+            'cdc relatorios', 'cdc pendencias', 'cdc treinamento'
+        ] : isCDCOperationalManager() ? [
+            'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem',
+            'cdc relatorios', 'cdc integracoes', 'cdc pendencias', 'cdc treinamento'
+        ] : [
             'cdc estoque', 'cdc usuarios', 'cdc grupos', 'cdc itens', 'cdc armazem', 'cdc relatorios',
             'cdc integracoes', 'cdc pendencias', 'cdc monitoramento', 'cdc treinamento'
         ];

@@ -15,6 +15,7 @@ STOCK_ROUTES_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_stock_routes.js
 ADMIN_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_admin.js"
 MANAGEMENT_JS = ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_management.js"
 API_PY = ROOT / "apps/cdc_theme/cdc_theme/api.py"
+PERMISSIONS_PY = ROOT / "apps/cdc_theme/cdc_theme/permissions.py"
 COMPOSE_YML = ROOT / "docker-compose.yml"
 TERRAFORM_VARIABLES = ROOT / "terraform/variables.tf"
 TERRAFORM_TELEMETRY = ROOT / "terraform/telemetry.tf"
@@ -30,10 +31,11 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('"Gestor de Estoque"', api_source)
         self.assertIn('def configure_restricted_stock_user(user):', api_source)
         self.assertIn('user_doc.default_workspace = CDC_STOCK_WORKSPACE', api_source)
-        self.assertIn('if _is_restricted_stock_workspace_user()', api_source)
-        self.assertIn('lower_name != CDC_REPORTS_WORKSPACE.lower()', api_source)
+        self.assertIn('allowed_workspaces = _allowed_cdc_workspaces()', api_source)
+        self.assertIn('target_name not in allowed_workspaces', api_source)
         self.assertIn("function enforceRestrictedStockWorkspaceRoute()", theme_source)
-        self.assertIn("? ['cdc estoque', 'cdc relatorios']", theme_source)
+        for workspace in ("cdc usuarios", "cdc grupos", "cdc itens", "cdc armazem", "cdc pendencias", "cdc treinamento"):
+            self.assertIn(workspace, theme_source)
 
     def test_cdc_reports_workspace_has_one_rbac_scoped_data_contract(self):
         api_source = API_PY.read_text()
@@ -41,7 +43,7 @@ class StaticSafetyTest(unittest.TestCase):
         reports_js = (ROOT / "apps/cdc_theme/cdc_theme/public/js/cdc_reports.js").read_text()
         hooks_source = (ROOT / "apps/cdc_theme/cdc_theme/hooks.py").read_text()
         self.assertIn('CDC_REPORTS_WORKSPACE = "CDC Relatórios"', api_source)
-        self.assertIn('CDC_STOCK_REPORT_ROLES = frozenset({', api_source)
+        self.assertIn('CDC_STOCK_REPORT_ROLES = CDC_COMMON_ACCESS_ROLES', api_source)
         self.assertIn('"Stock User"', api_source)
         self.assertIn('_ensure_cdc_workspace(CDC_REPORTS_WORKSPACE, "chart", 6.0)', api_source)
         self.assertIn("_permitted_leaf_warehouses", reports_source)
@@ -185,8 +187,7 @@ class StaticSafetyTest(unittest.TestCase):
         )
         context_body = ast.get_source_segment(api_source, context_function)
         stock_body = ast.get_source_segment(api_source, stock_function)
-        self.assertIn('frappe.get_list(', context_body)
-        self.assertNotIn('frappe.get_all(', context_body)
+        self.assertIn('_permitted_leaf_warehouses()', context_body)
         self.assertIn('"Warehouse"', context_body)
         self.assertIn('"Bin"', stock_body)
         self.assertIn('"actual_qty": [">", 0]', stock_body)
@@ -242,9 +243,23 @@ class StaticSafetyTest(unittest.TestCase):
         )
         endpoint_source = ast.get_source_segment(api_source, endpoint)
         self.assertIn('_require_read_permission("Warehouse")', endpoint_source)
-        self.assertIn('frappe.get_list(', endpoint_source)
-        self.assertNotIn('frappe.get_all(', endpoint_source)
+        self.assertIn('_permitted_warehouse_tree_names()', endpoint_source)
+        self.assertIn('rows = [row for row in rows if row.name in permitted_names]', endpoint_source)
         self.assertIn('"scope"', endpoint_source)
+
+    def test_common_scope_protects_native_routes_and_empty_links(self):
+        api_source = API_PY.read_text()
+        permissions_source = PERMISSIONS_PY.read_text()
+        hooks_source = (ROOT / "apps/cdc_theme/cdc_theme/hooks.py").read_text()
+        self.assertIn('return _explicit_leaf_warehouses()', api_source)
+        self.assertIn('if not linked:\n        return set()', api_source)
+        self.assertIn('def stock_entry_query(user=None):', permissions_source)
+        self.assertIn('def user_query(user=None):', permissions_source)
+        self.assertIn('def warehouse_query(user=None):', permissions_source)
+        self.assertIn('def deny_common_query(user=None):', permissions_source)
+        for doctype in ("Warehouse", "User", "Stock Entry", "Bin", "Stock Ledger Entry", "CDC ONGSYS Pending Order"):
+            self.assertIn(f'"{doctype}"', hooks_source)
+        self.assertIn('cdc_theme.js?v=20260831_common_scope_v72', hooks_source)
 
     def test_stock_routes_preserve_native_components_and_permission_scoped_data(self):
         source = STOCK_ROUTES_JS.read_text()

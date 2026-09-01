@@ -9,10 +9,12 @@ const source = fs.readFileSync(
     'utf8'
 );
 
+const helperStart = source.indexOf('function isCDCSystemManager()');
+const helperEnd = source.indexOf('function getCDCBreadcrumbHTML', helperStart);
 const start = source.indexOf('function isRestrictedStockWorkspaceUser()');
 const end = source.indexOf('// SANITIZAÇÃO DINÂMICA DA SIDEBAR', start);
-assert.ok(start >= 0 && end > start, 'guardas do workspace restrito não encontrados');
-const guardSource = source.slice(start, end);
+assert.ok(helperStart >= 0 && helperEnd > helperStart && start >= 0 && end > start, 'guardas do workspace restrito não encontrados');
+const guardSource = source.slice(helperStart, helperEnd) + source.slice(start, end);
 
 function evaluateGuard(roles, pathname) {
     const routes = [];
@@ -43,11 +45,26 @@ assert.equal(stock.guard.enforceRestrictedStockWorkspaceRoute(), false, 'rota de
 const reports = evaluateGuard(['CDC Estoque Restrito'], '/app/cdc-relatorios');
 assert.equal(reports.guard.enforceRestrictedStockWorkspaceRoute(), false, 'rota de relatórios deve permanecer acessível');
 
+for (const route of ['/app/cdc-usuarios', '/app/cdc-grupos', '/app/cdc-itens', '/app/cdc-armazem', '/app/cdc-pendencias', '/app/cdc-treinamento']) {
+    const common = evaluateGuard(['Consulta', 'Operador'], route);
+    assert.equal(common.guard.enforceRestrictedStockWorkspaceRoute(), false, `${route} deve permanecer acessível`);
+}
+
+for (const route of ['/app/cdc-integracoes', '/app/cdc-monitoramento', '/app/cdc-testes', '/app/cdc-admin']) {
+    const common = evaluateGuard(['Consulta', 'Operador'], route);
+    assert.equal(common.guard.enforceRestrictedStockWorkspaceRoute(), true, `${route} deve ser redirecionada`);
+}
+
 const manager = evaluateGuard(['CDC Estoque Restrito', 'System Manager'], '/app/cdc-monitoramento');
 assert.equal(manager.guard.isRestrictedStockWorkspaceUser(), false, 'System Manager não deve ser restringido');
 assert.equal(manager.guard.enforceRestrictedStockWorkspaceRoute(), false);
 
-assert.match(source, /restrictedStockUser\s*\? \['cdc estoque', 'cdc relatorios'\]/, 'sidebar restrita deve manter estoque e relatórios');
-assert.match(source, /isRestrictedStockWorkspaceUser\(\) \? \['cdc estoque', 'cdc relatorios'\]/, 'cache não deve restaurar workspaces proibidos');
+const stockManagerIntegration = evaluateGuard(['Stock Manager'], '/app/cdc-integracoes');
+assert.equal(stockManagerIntegration.guard.enforceRestrictedStockWorkspaceRoute(), false, 'gestor operacional deve manter Integrações');
+const stockManagerMonitoring = evaluateGuard(['Stock Manager'], '/app/cdc-monitoramento');
+assert.equal(stockManagerMonitoring.guard.enforceRestrictedStockWorkspaceRoute(), true, 'Monitoramento permanece sistêmico');
+
+assert.match(source, /restrictedStockUser\s*\? \[\s*'cdc estoque', 'cdc usuarios', 'cdc grupos'/, 'sidebar comum deve manter as oito áreas operacionais');
+assert.match(source, /isRestrictedStockWorkspaceUser\(\) \? \[\s*'cdc estoque', 'cdc usuarios'/, 'cache deve preservar somente as áreas operacionais comuns');
 
 console.log('CDC restricted stock workspace test: OK');

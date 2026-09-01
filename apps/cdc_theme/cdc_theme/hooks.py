@@ -9,7 +9,7 @@ app_version = "1.0.0"
 # Global Assets Inclusions
 app_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_cdc_reports_v70"
 app_include_js = [
-    "/assets/cdc_theme/js/cdc_theme.js?v=20260831_reports_access_v71",
+    "/assets/cdc_theme/js/cdc_theme.js?v=20260831_common_scope_v72",
     "/assets/cdc_theme/js/cdc_pending.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_tests.js?v=20260829_attention_help_v60",
     "/assets/cdc_theme/js/cdc_management.js?v=20260829_attention_help_v60",
@@ -22,7 +22,7 @@ app_include_js = [
 ]
 
 web_include_css = "/assets/cdc_theme/css/cdc_theme.css?v=20260831_cdc_reports_v70"
-web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260831_reports_access_v71"
+web_include_js = "/assets/cdc_theme/js/cdc_theme.js?v=20260831_common_scope_v72"
 
 favicon = "/assets/cdc_theme/images/favicon.png"
 app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"
@@ -30,6 +30,26 @@ app_logo_url = "/assets/cdc_theme/images/cdc_logo.png"
 
 override_whitelisted_methods = {
     "frappe.desk.desktop.get_desktop_page": "cdc_theme.api.custom_get_desktop_page"
+}
+
+permission_query_conditions = {
+    "Warehouse": "cdc_theme.permissions.warehouse_query",
+    "User": "cdc_theme.permissions.user_query",
+    "Stock Entry": "cdc_theme.permissions.stock_entry_query",
+    "Bin": "cdc_theme.permissions.bin_query",
+    "Stock Ledger Entry": "cdc_theme.permissions.stock_ledger_entry_query",
+    "CDC ONGSYS Pending Order": "cdc_theme.permissions.deny_common_query",
+    "User Permission": "cdc_theme.permissions.deny_common_query",
+}
+
+has_permission = {
+    "Warehouse": "cdc_theme.permissions.warehouse_has_permission",
+    "User": "cdc_theme.permissions.user_has_permission",
+    "Stock Entry": "cdc_theme.permissions.stock_entry_has_permission",
+    "Bin": "cdc_theme.permissions.bin_has_permission",
+    "Stock Ledger Entry": "cdc_theme.permissions.stock_ledger_entry_has_permission",
+    "CDC ONGSYS Pending Order": "cdc_theme.permissions.deny_common_has_permission",
+    "User Permission": "cdc_theme.permissions.deny_common_has_permission",
 }
 
 # Fixtures — DocTypes customizados para exportacao/importacao. A fixture de
