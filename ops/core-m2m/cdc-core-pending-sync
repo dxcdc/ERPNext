@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $# -ne 0 ]]; then
+  echo 'Este executor nao aceita argumentos.' >&2
+  exit 64
+fi
+umask 077
+exec 9>/run/lock/cdc-core-pending-sync.lock
+flock -n -E 75 9
+exec 8>/opt/nexterp/code/extractor/.run_job.lock
+flock -w 60 -E 75 8
+# Reutiliza somente uma coleta completa concluida nos ultimos 45 minutos.
+if ! docker exec cdc-core-app python -c 'import os,sys; os.environ.setdefault("DJANGO_SETTINGS_MODULE","config.settings"); import django; django.setup(); from django.utils import timezone; from apps.integrations.models import OngsysOrderFeed; f=OngsysOrderFeed.objects.select_related("published").filter(name="orders").first(); p=f.published if f else None; sys.exit(0 if p and p.status=="ready" and p.completed_at and 0 <= (timezone.now()-p.completed_at).total_seconds() < 2700 else 1)'; then
+  docker exec cdc-core-app python manage.py sync_ongsys_orders --resume --max-pages 100
+fi
+cd /opt/nexterp/code/extractor
+exec /opt/nexterp/code/extractor/venv/bin/python /opt/nexterp/code/extractor/sync_core_pending.py

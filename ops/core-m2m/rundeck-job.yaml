@@ -1,0 +1,25 @@
+- name: Sincronizar pedidos Core para pendencias NextERP
+  uuid: e7e1db9b-6463-4c06-8fbd-259c96c8df65
+  group: CDC/Integracoes
+  description: Coleta pedidos no Core e aplica somente a versao completa via M2M no NextERP. Segredos permanecem no arquivo protegido da VPS.
+  executionEnabled: true
+  loglevel: INFO
+  multipleExecutions: false
+  nodeFilterEditable: false
+  scheduleEnabled: false
+  timeZone: America/Recife
+  schedule:
+    time:
+      hour: '*'
+      minute: '40'
+      seconds: '0'
+    month: '*'
+    year: '*'
+    weekday:
+      day: '*'
+  sequence:
+    commands:
+      - description: Executar coleta e aplicacao pelo Ansible
+        exec: ansible-playbook --inventory /etc/rundeck/cdc-automatiza/production.ini /etc/rundeck/cdc-automatiza/core-pending.yml
+    keepgoing: false
+    strategy: node-first

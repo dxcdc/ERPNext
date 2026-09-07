@@ -1,0 +1,16 @@
+---
+- name: Atualizar pendencias do NextERP pelo feed persistente do Core
+  hosts: production_vps
+  gather_facts: false
+  tasks:
+    - name: Coletar e aplicar a versao completa pelo executor protegido
+      ansible.builtin.command:
+        argv:
+          - sudo
+          - /usr/local/sbin/cdc-core-pending-sync
+      register: core_pending_result
+      changed_when: "'Core: applied;' in core_pending_result.stdout"
+
+    - name: Exibir somente o resumo operacional
+      ansible.builtin.debug:
+        var: core_pending_result.stdout_lines
