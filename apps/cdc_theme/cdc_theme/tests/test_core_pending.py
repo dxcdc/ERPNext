@@ -62,3 +62,12 @@ class CorePendingDatabaseTests(unittest.TestCase):
         frappe.set_user("Guest")
         with self.assertRaises(frappe.PermissionError):
             apply_snapshot(self.snapshot([self.order(1)]))
+
+    def test_pending_sync_preserves_stock_import_checkpoint(self):
+        state = frappe.get_single("CDC ONGSYS Sync State")
+        state.last_success_at = "2026-09-01 08:00:00"
+        state.save()
+        frappe.db.commit()
+        apply_snapshot(self.snapshot([self.order(1)]))
+        state.reload()
+        self.assertEqual(str(state.last_success_at), "2026-09-01 08:00:00")

@@ -112,7 +112,6 @@ def apply_snapshot(snapshot):
         state.core_snapshot = snapshot_id
         state.core_observed_at = observed
         state.core_applied_at = frappe.utils.now_datetime()
-        state.last_success_at = observed
         state.save()
         frappe.db.commit()
         return {"status": "applied", "snapshot": snapshot_id, "updated": touched}
