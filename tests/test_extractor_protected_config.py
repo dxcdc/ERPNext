@@ -14,6 +14,12 @@ from common import Common  # noqa: E402
 
 
 class ExtractorProtectedConfigTests(unittest.TestCase):
+    def test_core_reader_does_not_require_ongsys_credential(self):
+        with patch("common._read_env_file", return_value={}), patch.dict(os.environ, {}, clear=True):
+            with patch("builtins.open", side_effect=FileNotFoundError):
+                common = Common(require_ongsys=False)
+        self.assertFalse(common.ONGSYS_USER)
+
     def test_protected_env_takes_precedence_over_legacy_json(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

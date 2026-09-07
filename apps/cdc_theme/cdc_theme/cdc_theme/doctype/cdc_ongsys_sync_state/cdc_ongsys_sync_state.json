@@ -24,7 +24,10 @@
   "discovery_matches",
   "discovery_strategy",
   "discovery_direct_orders",
-  "discovery_error"
+  "discovery_error",
+  "core_snapshot",
+  "core_observed_at",
+  "core_applied_at"
  ],
  "fields": [
   {
@@ -135,6 +138,24 @@
    "fieldname": "discovery_error",
    "fieldtype": "Small Text",
    "label": "Último erro da descoberta"
+  },
+  {
+   "fieldname": "core_snapshot",
+   "fieldtype": "Data",
+   "label": "Versão de pedidos do Core",
+   "read_only": 1
+  },
+  {
+   "fieldname": "core_observed_at",
+   "fieldtype": "Datetime",
+   "label": "Coleta completa do Core",
+   "read_only": 1
+  },
+  {
+   "fieldname": "core_applied_at",
+   "fieldtype": "Datetime",
+   "label": "Aplicação da coleta no NextERP",
+   "read_only": 1
   }
  ],
  "issingle": 1,

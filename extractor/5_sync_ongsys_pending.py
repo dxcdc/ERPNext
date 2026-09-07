@@ -192,6 +192,13 @@ def save_pending_orders(api: Common, orders: List[Dict[str, Any]], full_sync: bo
 
 
 def sync_pending_orders(force_full: bool = False) -> None:
+    selection = Common(require_ongsys=False).PENDING_SOURCE
+    if selection == "core":
+        from sync_core_pending import sync_core_pending
+        sync_core_pending()
+        return
+    if selection != "ongsys":
+        raise RuntimeError("ONGSYS_PENDING_SOURCE deve ser core ou ongsys.")
     api = Common()
     state, state_resource = get_state(api)
     last_page = discover_last_page(api, int(state.get("last_page") or 0))

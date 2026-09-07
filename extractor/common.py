@@ -54,7 +54,7 @@ class Common:
     ONGSYS_READ_TIMEOUT: int = 120
     ONGSYS_RETRIES: int = 3
 
-    def __init__(self) -> None:
+    def __init__(self, *, require_ongsys: bool = True) -> None:
         # O arquivo JSON e apenas uma ponte legada. Segredos novos devem vir do
         # ambiente ou do arquivo root-only administrado pelo Rundeck.
         try:
@@ -80,11 +80,12 @@ class Common:
         self.ERP_URL: str = (setting("ERPNext_URL") or "").rstrip("/")
         self.API_KEY: Optional[str] = setting("ERPNext_API_KEY")
         self.API_SECRET: Optional[str] = setting("ERPNext_API_SECRET")
+        self.PENDING_SOURCE: str = setting("ONGSYS_PENDING_SOURCE") or "ongsys"
 
         self.ONGSYS_URL: str = (setting("ONGSYS_URL_BASE") or "").rstrip("/")
         self.ONGSYS_USER: Optional[str] = setting("ONGSYS_USERNAME")
         self.ONGSYS_PASS: Optional[str] = setting("ONGSYS_PASSWORD")
-        if not all((self.ONGSYS_URL, self.ONGSYS_USER, self.ONGSYS_PASS)):
+        if require_ongsys and not all((self.ONGSYS_URL, self.ONGSYS_USER, self.ONGSYS_PASS)):
             raise RuntimeError("Credencial OngSys incompleta no cofre protegido.")
 
         # Cabeçalhos para ERPNext (mantidos)
