@@ -6,7 +6,7 @@
   loglevel: INFO
   multipleExecutions: false
   nodeFilterEditable: false
-  scheduleEnabled: false
+  scheduleEnabled: true
   timeZone: America/Recife
   schedule:
     time:

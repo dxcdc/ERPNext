@@ -1,35 +1,67 @@
 # Pedidos do Core para o NextERP
 
-Situação em 07/09/2026: integração ajustada e validada localmente; consumo em produção ainda não ativado.
+Situação em 07/09/2026: seis etapas concluídas na VPS CDC. Integração publicada, dados conferidos e recorrência ativa no Rundeck.
 
-## Contrato e origem
+## Fluxo em produção
 
-O NextERP consome `GET /api/v1/ongsys/pedidos/feed/`, autenticado pela identidade M2M própria, com escopo `pedidos:read`. A rota `/api/v1/ongsys/pedidos/` serve consultas do modelo nativo e tem outro contrato.
+ONGSYS → PostgreSQL do Core → `GET /api/v1/ongsys/pedidos/feed/` → pendências persistentes do NextERP.
 
-A coleta do Core publica o modelo `OngsysPedido` e o feed versionado na mesma transação após validar paginação, identificadores e total informado pela origem. Reutiliza os mesmos payloads; não faz outra varredura HTTP para preencher o modelo nativo. A busca pontual permanece disponível e não publica uma versão completa.
+A coleta atualiza `OngsysPedido` e publica o feed versionado na mesma transação, somente depois de validar as páginas, identificadores e total informado pela origem. Reutiliza os payloads da mesma varredura. Uma falha preserva a versão publicada e permite retomar o checkpoint. A busca pontual não é tratada como coleta completa.
 
-O consumidor mantém o identificador da versão entre páginas e só envia dados ao NextERP depois de receber a carga inteira. Uma falha preserva a última versão publicada. Pedido ausente não é cancelado automaticamente. O total e a ausência de duplicações validam a coleta, mas não garantem um instante único na origem se a ONGSYS alterar registros durante a paginação.
+A rota `/api/v1/ongsys/pedidos/` continua disponível para consultas do modelo nativo, com outro contrato. O consumidor NextERP usa a rota `/feed/`, mantém a versão entre páginas e só aplica a carga inteira. Ausência de pedido não significa cancelamento. A atualização não cria movimentações de estoque nem altera o checkpoint da importação de estoque.
 
-## Coleta e retomada
+O total e a ausência de duplicações validam a cobertura da coleta, mas não garantem um instante único na origem se a ONGSYS alterar registros durante a paginação.
 
-No ambiente do Core, `python manage.py sync_ongsys_orders --resume` inicia ou retoma uma coleta. `--max-pages` limita o trabalho daquela execução: atingir o orçamento antes do fim retorna erro explícito, sem publicar dados parciais. Uma nova execução com `--resume` retoma o checkpoint e verifica novamente a última página. Se essa fronteira mudou, é necessário investigar e usar `--restart` para iniciar outra coleta.
+## Cargas e aplicação validadas
 
-`sync_pedidos()` usa o mesmo coletor para varreduras paginadas. Uma execução limitada não deve ser interpretada como sincronização completa. O painel de tarefas registra a interrupção; o comando específico acima permite concluir a coleta sem o orçamento curto do painel.
+- 3.147 pedidos coletados e persistidos no Core.
+- Versão `b1271fa1-b6e9-421b-b230-cecb51cb9a70`, concluída em 07/09/2026 às 17:25:53, horário de Recife.
+- 243 pedidos pendentes aplicados no NextERP; a base anterior de pendências estava vazia.
+- API autenticada da tela respondeu HTTP 200 e retornou 243 pendências.
+- Consulta da versão já consumida retornou `not_modified=true`.
+- Segunda coleta concluída às 22:11:49 de 07/09/2026, horário de Recife: versão `7257fa23-9dcb-4e7b-9194-c39008221396`, novamente com 3.147 pedidos e 243 pendências.
+- Comparação após a aplicação: zero inclusões restantes, fechamentos, ausências ou divergências de estado, itens, quantidades e centros de custo.
+- Chave exclusiva de pedidos recebeu HTTP 403 ao consultar contas a pagar.
 
-## Ativação operacional restante
+## Identidade e configuração
 
-1. Publicar os ajustes do Core e do NextERP, preservando as atualizações recentes de cada aplicação e uma cópia recuperável da versão anterior.
-2. Cadastrar a identidade NextERP no M2M existente, guardar o segredo pelo fluxo do OpenBao e configurar `CORE_BASE_URL` e `CORE_NEXTERP_M2M_KEY` no arquivo protegido do extrator. Não registrar valores de credenciais no Git, comandos ou relatórios.
-3. Concluir a primeira coleta e confirmar versão publicada, total e horário real de conclusão. Os 101 pedidos observados na análise não comprovam cobertura completa da origem.
-4. Executar `extractor/compare_core_pending.py` para comparar o feed com as pendências existentes, sem escrita. Examinar fechamentos explícitos e ausências não resolvidas.
-5. Publicar os campos do estado de sincronização no NextERP e habilitar `core_ongsys_pending_enabled` no site de destino. Configurar `ONGSYS_PENDING_SOURCE=core` e executar `extractor/sync_core_pending.py`.
-6. Confirmar o recibo de aplicação, os dados persistidos e uma segunda execução sem novas gravações. Configurar a recorrência no orquestrador existente, evitando concorrência com a importação direta das mesmas pendências.
+O cliente M2M `nexterp` tem escopo `pedidos:read`. O Core guarda o hash da chave; os valores `CORE_BASE_URL`, `CORE_NEXTERP_M2M_KEY` e `ONGSYS_PENDING_SOURCE=core` estão no arquivo protegido `/etc/cdc/secrets/nexterp-extractor.env` da VPS. O site `frontend` possui `core_ongsys_pending_enabled=1`.
 
-Não reaproveitar chaves de outras aplicações. Os aliases de escopo existentes no Core também permitem leitura de pedidos para `cadastros:read`; essa política merece revisão própria e não foi alterada nesta integração.
+O OpenBao está disponível, mas sua integração com o Core estava desabilitada. A chave foi instalada no arquivo protegido existente; não foi habilitada a custódia no OpenBao. Não incluir valores de credenciais em comandos, documentação ou Git. Os aliases de escopo existentes no Core também permitem leitura de pedidos para `cadastros:read`; essa política não foi alterada.
 
-## Validação realizada
+## Operação e recorrência
 
-- 53 testes de integrações do Core passaram em PostgreSQL descartável, incluindo publicação conjunta, retomada, falha de gravação com rollback e autenticação do feed.
-- 10 testes do consumidor/sincronização Core no NextERP passaram, incluindo a rota atual, mudança de versão e rejeição de carga parcial.
-- `makemigrations --check --dry-run` não identificou mudanças de esquema no Core; verificações de diff passaram.
-- Estas verificações não constituem validação autenticada de ponta a ponta na VPS. Identidade M2M operacional, primeira carga publicada, aplicação e recorrência ainda precisam ser concluídas.
+O executor `/usr/local/sbin/cdc-core-pending-sync` não aceita argumentos. Seu código está em `ops/core-m2m/`. Ele usa um lock próprio e o lock compartilhado com o extrator NextERP, reutiliza uma versão concluída há menos de 45 minutos ou coleta uma nova, e aplica o feed pelo cliente M2M. Uma execução concorrente retorna código 75.
+
+Job preparado no Rundeck:
+
+- Projeto: `cdc-automatiza`.
+- Grupo: `CDC/Integracoes`.
+- Nome: `Sincronizar pedidos Core para pendencias NextERP`.
+- ID: `e7e1db9b-6463-4c06-8fbd-259c96c8df65`.
+- Horário configurado: a cada hora, no minuto 40, fuso `America/Recife`.
+- Agenda: habilitada e confirmada pela API do Rundeck.
+- Execução final 99: `succeeded`, em 07/09/2026 às 22:12:30. Ansible: `ok=2`, `changed=0`, `failed=0`. O consumidor reconheceu a versão já aplicada e não efetuou novas gravações.
+
+A primeira execução de teste pelo Rundeck, número 95, foi bloqueada com código 75 porque outra execução já atualizava a coleta. O controle impediu a sobreposição. Após a liberação do executor, a execução 99 confirmou o fluxo sem concorrência.
+
+As operações de importação e agendamento usam a [API oficial do Rundeck](https://docs.rundeck.com/docs/api/). Não há outro timer novo concorrendo com esse job.
+
+## Retomada e recuperação
+
+No Core, `python manage.py sync_ongsys_orders --resume --max-pages 100` inicia ou retoma uma coleta. Atingir o orçamento antes do fim retorna erro explícito e não publica dados parciais. A retomada verifica novamente a última página. Se a fronteira mudou, investigar antes de iniciar outra coleta com `--restart`.
+
+O job geral executa pedidos depois das outras entidades para que uma interrupção por orçamento não impeça as demais atualizações.
+
+Backups anteriores à ativação estão em `/var/backups/cdc-core/20260907-m2m-release/`. O backup Core foi restaurado em banco temporário e conferido; o backup NextERP de 07/09 às 17:01 teve integridade gzip e SHA-256 verificados. Não foi realizado novo ensaio de restauração desse arquivo NextERP nesta etapa.
+
+Os contêineres anteriores `cdc-core-before-m2m` e `cdc-core-m2m-v1` foram preservados parados. Para suspender a integração, desabilitar a agenda no Rundeck e o sinalizador `core_ongsys_pending_enabled` no site. Não restaurar bancos automaticamente: a reversão de código e a suspensão da agenda preservam os pedidos já coletados.
+
+## Validação técnica
+
+- 53 testes das integrações Core passaram antes da publicação.
+- Após a proteção do job geral, os 16 testes específicos de coleta/feed passaram em PostgreSQL descartável.
+- 10 testes do consumidor/sincronização Core passaram no NextERP.
+- 5 testes passaram no site Frappe descartável, incluindo rollback, idempotência, permissões e preservação do checkpoint de estoque.
+- Sem migração adicional de esquema no Core; campos de controle publicados por migração no NextERP.
+- Leitura da tela validada pela API autenticada; não houve inspeção visual com sessão de navegador.
