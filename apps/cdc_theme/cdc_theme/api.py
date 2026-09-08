@@ -2089,9 +2089,29 @@ def get_users_dashboard_data(selected_project=None, selected_warehouse=None):
     }
 
 
+_ONGSYS_ORDER_STAGES = (
+    (1, "Requisição criada", "Em elaboração ou aguardando envio"),
+    (2, "Em aprovação", "Aguardando validação das lideranças"),
+    (3, "Em cotação", "Pesquisa de preços pelo setor de compras"),
+    (4, "Cotação em aprovação", "Proposta e fornecedor aguardando aprovação"),
+    (5, "Ordem de compra emitida", "Aguardando entrega e conferência"),
+    (6, "Recebido e encerrado", "Concluídos nos últimos 30 dias"),
+)
+
+
+def _ongsys_order_stage(order):
+    try:
+        stage = int(order.current_stage or 0)
+    except (TypeError, ValueError):
+        stage = 0
+    if stage in range(1, 7):
+        return stage
+    return 6 if _normalized_mapping_label(order.status).lower() == "ordem finalizada" else 5
+
+
 @frappe.whitelist()
-def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None):
-    """Lista o espelho local de pedidos ONGSYS ainda aguardando conclusão."""
+def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None, selected_stage=None):
+    """Lista pedidos ONGSYS e agrega etapas dentro do escopo efetivo do usuário."""
     doctype = "CDC ONGSYS Pending Order"
     _require_common_cdc_access("pending")
     unrestricted = _has_unrestricted_cdc_scope()
@@ -2102,31 +2122,59 @@ def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None):
     selected_project, selected_warehouse, filter_options = _normalize_dashboard_filters(
         selected_project, selected_warehouse,
     )
-    orders = frappe.get_all(
+    stage_filter = str(selected_stage or "All")
+    if stage_filter != "All":
+        try:
+            stage_filter = int(stage_filter)
+        except (TypeError, ValueError):
+            frappe.throw("Etapa de pedido inválida.", frappe.ValidationError)
+        if stage_filter not in range(1, 7):
+            frappe.throw("Etapa de pedido inválida.", frappe.ValidationError)
+
+    all_orders = frappe.get_all(
         doctype,
-        filters={"active": 1},
         fields=[
             "name", "ongsys_order_id", "title", "status", "order_type",
             "order_date", "last_status_at", "items_count", "total_quantity",
-            "cost_centers", "last_synced_at",
+            "cost_centers", "active", "current_stage", "stage_updated_at", "last_synced_at",
         ],
         order_by="order_date asc, creation asc",
-        limit_page_length=500,
+        limit_page_length=0,
     )
 
-    filtered_orders = []
-    for order in orders:
+    scoped_orders = []
+    for order in all_orders:
         project, warehouse = _pending_order_location(order.cost_centers, order.title)
         order["project"] = project
         order["warehouse"] = warehouse or "Não identificado"
+        order["current_stage"] = _ongsys_order_stage(order)
         if not unrestricted and warehouse not in permitted_warehouses:
             continue
         if selected_project != "All" and project != selected_project:
             continue
         if selected_warehouse != "All" and warehouse != selected_warehouse:
             continue
-        filtered_orders.append(order)
-    orders = filtered_orders
+        scoped_orders.append(order)
+
+    completed_since = add_days(now_datetime(), -30)
+    pending_orders = [order for order in scoped_orders if order.active]
+    recent_completed = [
+        order for order in scoped_orders
+        if not order.active and order.current_stage == 6 and order.last_status_at
+        and get_datetime(order.last_status_at) >= completed_since
+    ]
+    stage_counts = {stage: 0 for stage, _, _ in _ONGSYS_ORDER_STAGES}
+    for order in pending_orders:
+        if order.current_stage in range(1, 6):
+            stage_counts[order.current_stage] += 1
+    stage_counts[6] = len(recent_completed)
+
+    if stage_filter == "All":
+        orders = pending_orders
+    elif stage_filter == 6:
+        orders = recent_completed
+    else:
+        orders = [order for order in pending_orders if order.current_stage == stage_filter]
 
     status_counts = {}
     for order in orders:
@@ -2134,7 +2182,7 @@ def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None):
         status_counts[status] = status_counts.get(status, 0) + 1
 
     last_sync_val = max(
-        (order.last_synced_at for order in orders if order.get("last_synced_at")),
+        (order.last_synced_at for order in scoped_orders if order.get("last_synced_at")),
         default=None,
     )
     if last_sync_val:
@@ -2145,13 +2193,24 @@ def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None):
     return {
         "summary": {
             "total": len(orders),
+            "pending_total": len(pending_orders),
             "statuses": status_counts,
             "items": sum(order.items_count or 0 for order in orders),
             "quantity": sum(order.total_quantity or 0 for order in orders),
+            "stages": [
+                {"stage": stage, "name": name, "description": description, "count": stage_counts[stage]}
+                for stage, name, description in _ONGSYS_ORDER_STAGES
+            ],
         },
         "last_synced_at": formatted_sync,
         "orders": orders,
-        "filters": {"projects": filter_options, "selected_project": selected_project, "selected_warehouse": selected_warehouse},
+        "filters": {
+            "projects": filter_options,
+            "selected_project": selected_project,
+            "selected_warehouse": selected_warehouse,
+            "selected_stage": stage_filter,
+            "completed_period_days": 30,
+        },
     }
 
 

@@ -1011,6 +1011,26 @@
 .cdc-pending-metrics article { padding: 18px; background: #fff; border: 1px solid var(--cdc-border-color); border-radius: var(--cdc-radius-md); box-shadow: var(--cdc-shadow-subtle); }
 .cdc-pending-metrics span { display: block; color: var(--cdc-text-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .cdc-pending-metrics strong { display: block; margin-top: 7px; font-size: 28px; line-height: 1; }
+.cdc-pending-stages { margin: 0 0 20px; }
+.cdc-pending-stages-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.cdc-pending-stages-heading h3 { margin: 0; color: var(--cdc-text-dark); font-size: 16px; font-weight: 800; }
+.cdc-pending-stages-heading p { margin: 4px 0 0; color: var(--cdc-text-muted); font-size: 12px; }
+.cdc-pending-stage-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.cdc-pending-stage-card { min-width: 0; min-height: 150px; padding: 14px; border: 1px solid var(--cdc-border-color); border-top: 4px solid #94a3b8; border-radius: var(--cdc-radius-md); color: var(--cdc-text-dark); background: #fff; box-shadow: var(--cdc-shadow-subtle); text-align: left; cursor: pointer; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.cdc-pending-stage-card:nth-child(2) { border-top-color: #3b82f6; }
+.cdc-pending-stage-card:nth-child(3) { border-top-color: #8b5cf6; }
+.cdc-pending-stage-card:nth-child(4) { border-top-color: #f59e0b; }
+.cdc-pending-stage-card:nth-child(5) { border-top-color: #f97316; }
+.cdc-pending-stage-card:nth-child(6) { border-top-color: #10b981; }
+.cdc-pending-stage-card:hover { transform: translateY(-2px); border-color: #93c5fd; box-shadow: 0 8px 22px rgba(15, 23, 42, .1); }
+.cdc-pending-stage-card:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
+.cdc-pending-stage-card.is-selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 2px rgba(37, 99, 235, .16); }
+.cdc-pending-stage-number, .cdc-pending-stage-name, .cdc-pending-stage-card small { display: block; }
+.cdc-pending-stage-number { color: var(--cdc-text-muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.cdc-pending-stage-card strong { display: block; margin: 9px 0 7px; font-size: 28px; line-height: 1; }
+.cdc-pending-stage-name { min-height: 34px; font-size: 12px; font-weight: 800; line-height: 1.35; }
+.cdc-pending-stage-card small { margin-top: 7px; color: var(--cdc-text-muted); font-size: 10px; line-height: 1.35; }
+.cdc-pending-stage-pill { display: inline-flex; padding: 3px 8px; color: #1d4ed8; background: #dbeafe; border-radius: 999px; font-size: 10px; font-weight: 800; }
 .cdc-pending-table-card { overflow: hidden; background: #fff; border: 1px solid var(--cdc-border-color); border-radius: var(--cdc-radius-md); box-shadow: var(--cdc-shadow-subtle); }
 .cdc-pending-table-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--cdc-border-color); }
 #cdc-pending-search { width: min(380px, 100%); height: 36px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; outline: none; }
@@ -1037,10 +1057,15 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
 #cdc-stock-page-navigator small { color: inherit; font-size: 11px; white-space: nowrap; }
 
 @media (max-width: 700px) {
-  .cdc-pending-heading, .cdc-pending-table-header { align-items: stretch; flex-direction: column; }
+  .cdc-pending-heading, .cdc-pending-table-header, .cdc-pending-stages-heading { align-items: stretch; flex-direction: column; }
   .cdc-pending-heading small { white-space: normal; }
   .cdc-pending-metrics { grid-template-columns: 1fr; }
+  .cdc-pending-stage-grid { grid-template-columns: 1fr; }
   #cdc-pending-search { width: 100%; }
+}
+
+@media (min-width: 701px) and (max-width: 1180px) {
+  .cdc-pending-stage-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* Evita que padding e borda aumentem a largura dos componentes */

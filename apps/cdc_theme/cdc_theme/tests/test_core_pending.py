@@ -3,6 +3,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import frappe
+from cdc_theme.api import get_ongsys_pending_orders
 from cdc_theme.core_pending import apply_snapshot
 
 
@@ -23,9 +24,13 @@ class CorePendingDatabaseTests(unittest.TestCase):
         return {"snapshot": str(uuid4()), "complete": True, "total": len(rows),
                 "observed_through": f"2026-09-{day:02d}T12:00:00+00:00", "data": rows}
 
-    def order(self, number, status="Ordem gerada"):
+    def order(self, number, status="Ordem gerada", stage=None, cost_center="test"):
+        if stage is None:
+            stage = 6 if status == "Ordem finalizada" else 5
         return {"idPedido": str(number), "tipoPedido": "Produto", "statusPedido": status,
-                "dataPedido": "2026-09-07", "itensPedido": [{"quantidade": "2", "centroCusto": "test"}], "logs": []}
+                "dataPedido": "2026-09-07", "etapaAtual": stage,
+                "etapaAtualizadaEm": frappe.utils.now_datetime().isoformat(),
+                "itensPedido": [{"quantidade": "2", "centroCusto": cost_center}], "logs": []}
 
     def test_closure_absence_and_idempotency(self):
         first = self.snapshot([self.order(1), self.order(2)])
@@ -34,6 +39,44 @@ class CorePendingDatabaseTests(unittest.TestCase):
         apply_snapshot(self.snapshot([self.order(1, "Ordem finalizada")], day=8))
         self.assertEqual(frappe.db.get_value("CDC ONGSYS Pending Order", "1", "active"), 0)
         self.assertEqual(frappe.db.get_value("CDC ONGSYS Pending Order", "2", "active"), 1)
+
+    def test_finalized_order_is_persisted_for_scoped_stage_six_counts(self):
+        result = apply_snapshot(self.snapshot([self.order(1, "Ordem finalizada")]))
+        self.assertEqual(result["updated"], 1)
+        row = frappe.db.get_value(
+            "CDC ONGSYS Pending Order", "1", ["active", "current_stage"], as_dict=True,
+        )
+        self.assertEqual(row.active, 0)
+        self.assertEqual(row.current_stage, 6)
+
+    def test_same_snapshot_backfills_rows_missing_stage_data(self):
+        snapshot = self.snapshot([self.order(1), self.order(2, "Ordem finalizada")])
+        apply_snapshot(snapshot)
+        frappe.db.set_value("CDC ONGSYS Pending Order", "1", "current_stage", 0)
+        frappe.delete_doc("CDC ONGSYS Pending Order", "2")
+        result = apply_snapshot(snapshot)
+        self.assertEqual(result["updated"], 2)
+        self.assertEqual(frappe.db.count("CDC ONGSYS Pending Order"), 2)
+        self.assertEqual(frappe.db.get_value("CDC ONGSYS Pending Order", "1", "current_stage"), 5)
+
+    def test_stage_counts_are_calculated_after_user_warehouse_scope(self):
+        snapshot = self.snapshot([
+            self.order(1, stage=4, cost_center="3.01.100.001"),
+            self.order(2, stage=5, cost_center="3.01.100.001"),
+            self.order(3, "Ordem finalizada", stage=6, cost_center="3.01.100.001"),
+            self.order(4, stage=2, cost_center="3.02.100.001"),
+        ])
+        apply_snapshot(snapshot)
+        with patch("cdc_theme.api._require_common_cdc_access"), \
+             patch("cdc_theme.api._has_unrestricted_cdc_scope", return_value=False), \
+             patch("cdc_theme.api._permitted_leaf_warehouses", return_value={"CAB ATITUDE - ANT - C"}), \
+             patch("cdc_theme.api._normalize_dashboard_filters", return_value=("All", "All", [])):
+            pending = get_ongsys_pending_orders(selected_stage="All")
+            completed = get_ongsys_pending_orders(selected_stage="6")
+        counts = {row["stage"]: row["count"] for row in pending["summary"]["stages"]}
+        self.assertEqual(counts, {1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 1})
+        self.assertEqual({row.ongsys_order_id for row in pending["orders"]}, {"1", "2"})
+        self.assertEqual([row.ongsys_order_id for row in completed["orders"]], ["3"])
 
     def test_mid_write_failure_rolls_back_every_order_and_checkpoint(self):
         original = frappe.new_doc

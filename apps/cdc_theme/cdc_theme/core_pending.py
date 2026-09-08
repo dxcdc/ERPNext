@@ -54,13 +54,28 @@ def _payload(order, observed):
     except (InvalidOperation, KeyError, TypeError):
         frappe.throw("Quantidade inválida no pedido do Core.")
     dates = [_date(row.get("data")) for row in order.get("logs", [])]
+    normalized_status = _normalized(status)
+    raw_stage = order.get("etapaAtual")
+    if raw_stage is None:
+        raw_stage = 6 if normalized_status == "ordem finalizada" else 5
+    try:
+        current_stage = int(raw_stage)
+    except (TypeError, ValueError):
+        frappe.throw("Etapa atual inválida no pedido do Core.")
+    if current_stage not in range(1, 7):
+        frappe.throw("Etapa atual inválida no pedido do Core.")
+    stage_updated_at = _date(order.get("etapaAtualizadaEm"))
+    last_status_at = stage_updated_at or max(
+        (date for date in dates if date), default=_date(order.get("dataPedido")),
+    )
     return {
         "ongsys_order_id": str(order["idPedido"]), "title": order.get("titulo") or f"Pedido {order['idPedido']}",
         "status": status, "order_type": kind, "order_date": _date(order.get("dataPedido")),
-        "last_status_at": max((date for date in dates if date), default=_date(order.get("dataPedido"))),
+        "current_stage": current_stage, "stage_updated_at": stage_updated_at,
+        "last_status_at": last_status_at,
         "items_count": len(items), "total_quantity": float(quantity),
         "cost_centers": ", ".join(sorted({str(row["centroCusto"]).strip() for row in items if row.get("centroCusto")})),
-        "active": int(_normalized(status) != "ordem finalizada" and "cancel" not in _normalized(status)),
+        "active": int(normalized_status != "ordem finalizada" and "cancel" not in normalized_status),
         "last_synced_at": observed,
     }
 
@@ -95,15 +110,22 @@ def apply_snapshot(snapshot):
     frappe.db.savepoint("core_pending_apply")
     try:
         state = frappe.get_single("CDC ONGSYS Sync State")
-        if state.core_snapshot == snapshot_id:
-            return {"status": "already_applied", "snapshot": snapshot_id}
-        if state.core_observed_at and _date(state.core_observed_at) >= observed:
+        same_snapshot = state.core_snapshot == snapshot_id
+        if same_snapshot:
+            payload_ids = [payload["ongsys_order_id"] for payload in payloads]
+            existing = frappe.get_all(
+                "CDC ONGSYS Pending Order",
+                filters={"ongsys_order_id": ["in", payload_ids]},
+                fields=["ongsys_order_id", "current_stage"],
+                limit_page_length=0,
+            )
+            if len(existing) == len(payloads) and all(row.current_stage for row in existing):
+                return {"status": "already_applied", "snapshot": snapshot_id}
+        elif state.core_observed_at and _date(state.core_observed_at) >= observed:
             frappe.throw("Coleta anterior à versão já aplicada; nenhuma alteração realizada.")
         touched = 0
         for payload in payloads:
             name = frappe.db.get_value("CDC ONGSYS Pending Order", {"ongsys_order_id": payload["ongsys_order_id"]}, "name")
-            if not name and not payload["active"]:
-                continue
             doc = frappe.get_doc("CDC ONGSYS Pending Order", name) if name else frappe.new_doc("CDC ONGSYS Pending Order")
             doc.update(payload)
             doc.save()

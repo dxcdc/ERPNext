@@ -8,6 +8,8 @@
   "ongsys_order_id",
   "title",
   "status",
+  "current_stage",
+  "stage_updated_at",
   "order_type",
   "order_date",
   "last_status_at",
@@ -38,6 +40,17 @@
    "in_list_view": 1,
    "label": "Estado no ONGSYS",
    "reqd": 1
+  },
+  {
+   "fieldname": "current_stage",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Etapa atual"
+  },
+  {
+   "fieldname": "stage_updated_at",
+   "fieldtype": "Datetime",
+   "label": "Atualização da etapa"
   },
   {
    "default": "Produto",

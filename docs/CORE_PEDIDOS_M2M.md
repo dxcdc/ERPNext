@@ -26,6 +26,8 @@ A coleta atualiza `OngsysPedido` e publica o feed versionado na mesma transaçã
 
 A rota `/api/v1/ongsys/pedidos/` continua disponível para consultas do modelo nativo, com outro contrato. O consumidor NextERP usa a rota `/feed/`, mantém a versão entre páginas e só aplica a carga inteira. Ausência de pedido não significa cancelamento. A atualização não cria movimentações de estoque nem altera o checkpoint da importação de estoque.
 
+O feed também informa a etapa atual do workflow sem expor autor ou comentário. O NextERP persiste esse valor e calcula os cards das etapas depois de aplicar o escopo efetivo de projeto e armazém do usuário. Etapas 1 a 5 representam pendências atuais; a etapa 6 mostra pedidos recebidos e encerrados nos últimos 30 dias. O último evento cronológico prevalece, inclusive quando um pedido retorna a uma etapa anterior.
+
 O total e a ausência de duplicações validam a cobertura da coleta, mas não garantem um instante único na origem se a ONGSYS alterar registros durante a paginação.
 
 ## Cargas e aplicação validadas
@@ -83,3 +85,4 @@ Os contêineres anteriores `cdc-core-before-m2m` e `cdc-core-m2m-v1` foram prese
 - 5 testes passaram no site Frappe descartável, incluindo rollback, idempotência, permissões e preservação do checkpoint de estoque.
 - Sem migração adicional de esquema no Core; campos de controle publicados por migração no NextERP.
 - Leitura da tela validada pela API autenticada; não houve inspeção visual com sessão de navegador.
+- Em 08/09/2026, 17 testes do feed Core, 8 testes Frappe de persistência/escopo, 30 testes estáticos e a verificação JavaScript dos cards passaram antes da publicação das etapas 1 a 6.

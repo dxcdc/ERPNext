@@ -6,6 +6,7 @@
     var routeGeneration = 0;
     var selectedProject = sessionStorage.getItem('cdc_pending_project') || 'All';
     var selectedWarehouse = sessionStorage.getItem('cdc_pending_warehouse') || 'All';
+    var selectedStage = sessionStorage.getItem('cdc_pending_stage') || 'All';
 
     function normalizeRoute(value) {
         return decodeURIComponent(String(value || ''))
@@ -188,7 +189,8 @@
             method: 'cdc_theme.api.get_ongsys_pending_orders',
             args: {
                 selected_project: selectedProject,
-                selected_warehouse: selectedWarehouse
+                selected_warehouse: selectedWarehouse,
+                selected_stage: selectedStage
             },
             callback: function(response) {
                 loading = false;
@@ -210,6 +212,18 @@
                 var filters = data.filters || {};
                 selectedProject = filters.selected_project || 'All';
                 selectedWarehouse = filters.selected_warehouse || 'All';
+                selectedStage = filters.selected_stage === undefined ? 'All' : String(filters.selected_stage);
+                var stageCards = summary.stages || [];
+                var stageCardsHTML = stageCards.map(function(stage) {
+                    var value = String(stage.stage);
+                    var selected = selectedStage === value;
+                    return `<button type="button" class="cdc-pending-stage-card${selected ? ' is-selected' : ''}" data-stage="${escapeHTML(value)}" aria-pressed="${selected ? 'true' : 'false'}">
+                        <span class="cdc-pending-stage-number">Etapa ${escapeHTML(value)}</span>
+                        <strong>${escapeHTML(stage.count || 0)}</strong>
+                        <span class="cdc-pending-stage-name">${escapeHTML(stage.name)}</span>
+                        <small>${escapeHTML(stage.description)}</small>
+                    </button>`;
+                }).join('');
                 var projectOptions = filters.projects || [];
                 var visibleWarehouses = [];
                 projectOptions.forEach(function(option) {
@@ -224,10 +238,11 @@
                     return `<option value="${escapeHTML(warehouse)}" ${warehouse === selectedWarehouse ? 'selected' : ''}>${escapeHTML(warehouse.replace(' - C', ''))}</option>`;
                 }).join('');
                 var rows = orders.map(function(order) {
-                    return `<tr data-search="${escapeHTML([order.ongsys_order_id, order.title, order.status, order.project, order.warehouse, order.cost_centers].join(' ').toLowerCase())}">
+                    return `<tr data-stage="${escapeHTML(order.current_stage)}" data-search="${escapeHTML([order.ongsys_order_id, order.title, order.status, order.current_stage, order.project, order.warehouse, order.cost_centers].join(' ').toLowerCase())}">
                         <td data-sort="${escapeHTML(order.ongsys_order_id)}"><strong>#${escapeHTML(order.ongsys_order_id)}</strong></td>
                         <td data-sort="${escapeHTML(order.title)}">${escapeHTML(order.title)}</td>
                         <td data-sort="${escapeHTML(order.status)}"><span class="cdc-pending-status">${escapeHTML(order.status)}</span></td>
+                        <td data-sort="${escapeHTML(order.current_stage)}"><span class="cdc-pending-stage-pill">Etapa ${escapeHTML(order.current_stage)}</span></td>
                         <td data-sort="${escapeHTML(order.order_date)}">${escapeHTML(order.order_date)}</td>
                         <td data-sort="${ageDaysValue(order.order_date)}">${ageInDays(order.order_date)}</td>
                         <td data-sort="${escapeHTML(order.items_count)}">${escapeHTML(order.items_count)}</td>
@@ -237,6 +252,12 @@
                 }).join('');
 
                 var scheduleNotice = getScheduleNotice();
+                var tableTitle = selectedStage === '6' ? 'Recebidos e encerrados' : 'Aguardando conclusão';
+                var tableDescription = selectedStage === '6'
+                    ? 'Pedidos concluídos nos últimos 30 dias dentro do seu escopo de acesso.'
+                    : (selectedStage === 'All'
+                        ? 'Cancelados e ordens finalizadas não aparecem nesta lista.'
+                        : 'Exibindo somente os pedidos pendentes da etapa selecionada.');
 
                 dashboard.dataset.loaded = '1';
                 try {
@@ -283,19 +304,38 @@
                         <label><span>Armazém</span><select id="cdc-pending-warehouse-filter">${warehouseOptionsHTML}</select></label>
                     </div>
                     <div class="cdc-pending-metrics">
-                        <article><span>Pedidos pendentes</span><strong>${summary.total || 0}</strong></article>
+                        <article><span>${selectedStage === 'All' ? 'Pedidos pendentes' : 'Pedidos exibidos'}</span><strong>${summary.total || 0}</strong></article>
                         <article><span>Itens envolvidos</span><strong>${summary.items || 0}</strong></article>
-                        <article><span>Quantidade aguardando</span><strong>${summary.quantity || 0}</strong></article>
+                        <article><span>${selectedStage === '6' ? 'Quantidade concluída' : 'Quantidade aguardando'}</span><strong>${summary.quantity || 0}</strong></article>
                     </div>
+                    <section class="cdc-pending-stages" aria-labelledby="cdc-pending-stages-title">
+                        <div class="cdc-pending-stages-heading">
+                            <div><h3 id="cdc-pending-stages-title">Etapas dos pedidos</h3><p>Totais calculados somente sobre projetos e armazéns que você pode consultar.</p></div>
+                            <button type="button" class="btn btn-xs btn-default" id="cdc-pending-stage-all" aria-pressed="${selectedStage === 'All' ? 'true' : 'false'}">Todas as pendências (${escapeHTML(summary.pending_total || 0)})</button>
+                        </div>
+                        <div class="cdc-pending-stage-grid">${stageCardsHTML}</div>
+                    </section>
                     <div class="cdc-pending-table-card">
-                        <div class="cdc-pending-table-header"><div><h3>Aguardando conclusão</h3><p>Cancelados e ordens finalizadas não aparecem nesta lista.</p></div><input id="cdc-pending-search" type="search" aria-label="Buscar pedidos pendentes" placeholder="Buscar ID, título, estado ou centro de custo"></div>
+                        <div class="cdc-pending-table-header"><div><h3>${tableTitle}</h3><p>${tableDescription}</p></div><input id="cdc-pending-search" type="search" aria-label="Buscar pedidos" placeholder="Buscar ID, título, etapa, estado ou centro de custo"></div>
                         <div class="cdc-table-scroll-top cdc-pending-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
-                        <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="cdc-pending-empty">Nenhuma pendência encontrada para os filtros selecionados.</td></tr>'}</tbody></table></div>
+                        <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="number">Etapa <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="8">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${rows || '<tr><td colspan="9" class="cdc-pending-empty">Nenhum pedido encontrado para os filtros selecionados.</td></tr>'}</tbody></table></div>
                     </div>
                     ${getDiagnosticPanelHTML('API REST Conectada com Êxito (HTTP 200 OK)', false)}
                 `;
 
                 bindDiagnosticActions(dashboard);
+
+                function selectStage(value) {
+                    selectedStage = String(value);
+                    sessionStorage.setItem('cdc_pending_stage', selectedStage);
+                    dashboard.dataset.loaded = '0';
+                    render();
+                }
+                dashboard.querySelectorAll('.cdc-pending-stage-card').forEach(function(card) {
+                    card.addEventListener('click', function() { selectStage(this.dataset.stage); });
+                });
+                var allStagesBtn = dashboard.querySelector('#cdc-pending-stage-all');
+                if (allStagesBtn) allStagesBtn.addEventListener('click', function() { selectStage('All'); });
 
                 // Atualiza apenas o espelho persistido; a interface não simula execução externa.
                 var verifyNowBtn = document.getElementById('cdc-btn-pending-verify-now');
