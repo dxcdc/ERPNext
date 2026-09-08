@@ -2248,23 +2248,45 @@ def _project_warehouse_clause(field, selected_project):
 
 @frappe.whitelist()
 def get_project_weekly_occurrences(
-    period='quarter', selected_unit=None, entry_type='receipt', selected_project=None,
+    period='quarter', selected_unit=None, entry_type='all', selected_project=None,
     from_date=None, to_date=None,
 ):
     """
     Retorna ocorrências de movimentação de armazém agrupadas por Projeto / Programa.
-    entry_type: 'receipt' (Entrada) ou 'issue' (Saída). Padrão: 'receipt'.
+    entry_type: 'all' (Todos), 'receipt' (Entrada) ou 'issue' (Saída).
     """
     _require_common_cdc_access("stock")
     _require_read_permission("Stock Entry")
     if not period or period == 'undefined':
         period = 'quarter'
-    if not entry_type or entry_type == 'undefined':
-        entry_type = 'receipt'
+    if entry_type not in {'all', 'receipt', 'issue'}:
+        entry_type = 'all'
 
-    is_issue = (entry_type == 'issue')
-    purpose_val = 'Material Issue' if is_issue else 'Material Receipt'
-    wh_field = "se.from_warehouse" if is_issue else "se.to_warehouse"
+    is_issue = entry_type == 'issue'
+    source_warehouse = """COALESCE(
+        NULLIF(se.from_warehouse, ''),
+        (SELECT NULLIF(MAX(occurrence_sed.s_warehouse), '')
+         FROM `tabStock Entry Detail` occurrence_sed WHERE occurrence_sed.parent = se.name),
+        ''
+    )"""
+    target_warehouse = """COALESCE(
+        NULLIF(se.to_warehouse, ''),
+        (SELECT NULLIF(MAX(occurrence_sed.t_warehouse), '')
+         FROM `tabStock Entry Detail` occurrence_sed WHERE occurrence_sed.parent = se.name),
+        ''
+    )"""
+    if entry_type == 'issue':
+        wh_field = source_warehouse
+        purpose_condition = "se.purpose = 'Material Issue'"
+    elif entry_type == 'receipt':
+        wh_field = target_warehouse
+        purpose_condition = "se.purpose = 'Material Receipt'"
+    else:
+        wh_field = f"""CASE
+            WHEN se.purpose = 'Material Issue' THEN {source_warehouse}
+            ELSE COALESCE(NULLIF({target_warehouse}, ''), NULLIF({source_warehouse}, ''), '')
+        END"""
+        purpose_condition = "se.purpose IN ('Material Receipt', 'Material Issue', 'Material Transfer')"
 
     selected_unit = (selected_unit or "All").strip()
     where_unit = f" AND {_warehouse_permission_sql(wh_field)}"
@@ -2273,15 +2295,7 @@ def get_project_weekly_occurrences(
         where_unit += f" AND {project_clause}"
     elif selected_unit != 'All':
         selected_unit_sql = frappe.db.escape(selected_unit)
-        detail_warehouse_field = "s_warehouse" if is_issue else "t_warehouse"
-        where_unit += f""" AND (
-            {wh_field} = {selected_unit_sql}
-            OR EXISTS (
-                SELECT 1 FROM `tabStock Entry Detail` occurrence_sed
-                WHERE occurrence_sed.parent = se.name
-                  AND occurrence_sed.{detail_warehouse_field} = {selected_unit_sql}
-            )
-        )"""
+        where_unit += f" AND {wh_field} = {selected_unit_sql}"
 
     projects_list = [
         "Projeto Atitude II.I",
@@ -2332,11 +2346,11 @@ def get_project_weekly_occurrences(
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 AND se.purpose = %s
+            WHERE se.docstatus = 1 AND {purpose_condition}
               AND se.posting_date BETWEEN %s AND %s {where_unit}
             GROUP BY period_key, label_ref, projeto
             ORDER BY period_key ASC
-        """, (purpose_val, range_start, range_end), as_dict=True)
+        """, (range_start, range_end), as_dict=True)
 
         labels = []
         label_by_key = {}
@@ -2393,7 +2407,7 @@ def get_project_weekly_occurrences(
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 AND se.purpose = '{purpose_val}' {where_date} {where_unit}
+            WHERE se.docstatus = 1 AND {purpose_condition} {where_date} {where_unit}
             GROUP BY sem_num, projeto
         """
         rows = frappe.db.sql(query, as_dict=True)
@@ -2450,7 +2464,7 @@ def get_project_weekly_occurrences(
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 AND se.purpose = '{purpose_val}' {where_date} {where_unit}
+            WHERE se.docstatus = 1 AND {purpose_condition} {where_date} {where_unit}
             GROUP BY mes_num, sem_num, projeto
             ORDER BY mes_num ASC, sem_num ASC
         """
@@ -2524,7 +2538,7 @@ def get_project_weekly_occurrences(
                 END as projeto,
                 COUNT(DISTINCT se.name) as total_ocorrencias
             FROM `tabStock Entry` se
-            WHERE se.docstatus = 1 AND se.purpose = '{purpose_val}' {where_date} {where_unit}
+            WHERE se.docstatus = 1 AND {purpose_condition} {where_date} {where_unit}
             GROUP BY period_key, projeto
             ORDER BY MIN(se.posting_date) ASC
         """
@@ -2576,7 +2590,7 @@ def get_project_weekly_occurrences(
 
 @frappe.whitelist()
 def get_stock_dashboard_data(
-    selected_unit=None, period='quarter', entry_type='receipt', selected_project=None,
+    selected_unit=None, period='quarter', entry_type='all', selected_project=None,
     table_type='all', from_date=None, to_date=None,
 ):
     """

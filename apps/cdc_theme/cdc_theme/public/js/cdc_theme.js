@@ -4,12 +4,27 @@
     var SYSTEM_ASSET_VERSION = 'v2.9.0-20260727_1218-INTEGRACOES-FIX';
 
     // RESTAURAÇÃO DE FILTROS E ESTADO VIA SESSION STORAGE (F5 / REFRESH)
+    function stockDateISO(date) {
+        var year = date.getFullYear();
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        var day = String(date.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    }
+
+    function defaultStockDateRange() {
+        var end = new Date();
+        var start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 89);
+        return [stockDateISO(start), stockDateISO(end)];
+    }
+
     var currentSelectedUnit = sessionStorage.getItem('cdc_unit') || 'All';
-    var currentSelectedPeriod = sessionStorage.getItem('cdc_period') || 'quarter';
+    var currentSelectedPeriod = sessionStorage.getItem('cdc_period') || 'custom';
     var currentStockFromDate = sessionStorage.getItem('cdc_stock_from_date') || '';
     var currentStockToDate = sessionStorage.getItem('cdc_stock_to_date') || '';
     if (currentSelectedPeriod === 'custom' && (!currentStockFromDate || !currentStockToDate)) {
-        currentSelectedPeriod = 'quarter';
+        var initialStockRange = defaultStockDateRange();
+        currentStockFromDate = initialStockRange[0];
+        currentStockToDate = initialStockRange[1];
     }
     var currentOccurrencesType = sessionStorage.getItem('cdc_occ_type') || 'all';
     var currentTableTypeFilter = sessionStorage.getItem('cdc_table_type') || 'all';
