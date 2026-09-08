@@ -146,7 +146,7 @@
         ];
         var administrativeSections = ['Integrações', 'Monitoramento', 'Testes', 'Admin'];
         sections = sections.filter(function(item) {
-            if (isCommonCDCWorkspaceUser() && administrativeSections.indexOf(item.label) !== -1) return false;
+            if (!isCDCSystemManager() && administrativeSections.indexOf(item.label) !== -1) return false;
             if (!isCDCSystemManager() && ['Monitoramento', 'Testes', 'Admin'].indexOf(item.label) !== -1) return false;
             return item.label !== 'Relatórios' || canUseStockReports();
         });
@@ -2340,6 +2340,10 @@
         var pathname = decodeURIComponent(window.location.pathname || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         var context = effectiveCDCContext();
+        if (!isCDCSystemManager() && /^\/app\/cdc-integracoes(?:\/|$)/.test(pathname)) {
+            window.location.replace(context ? firstAllowedCDCPath(context) : '/app/cdc-estoque');
+            return true;
+        }
         if (context) {
             var pageKey = cdcPageKeyFromRouteOrLabel(pathname);
             if (!pageKey || (context.pages[pageKey] && context.pages[pageKey].allowed)) return false;
@@ -2347,9 +2351,7 @@
             return true;
         }
         if (isCDCSystemManager()) return false;
-        var allowedPattern = isCDCOperationalManager()
-            ? /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|integracoes|pendencias|treinamento)(?:\/|$)/
-            : /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|pendencias|treinamento)(?:\/|$)/;
+        var allowedPattern = /^\/app\/cdc-(?:estoque|usuarios|grupos|itens|armazem|relatorios|pendencias|treinamento)(?:\/|$)/;
         if (!/^\/app\/cdc-/.test(pathname) || allowedPattern.test(pathname)) return false;
         // A decisao assincrona pode conter uma excecao individual. O backend
         // protege a rota enquanto o contexto efetivo ainda esta carregando.
@@ -2391,7 +2393,7 @@
                 /^\/app\/cdc-(monitoramento|testes|admin)(\/|$)/.test(href);
             var isIntegrationsWorkspace = primaryLabel === 'cdc integracoes' || /^\/app\/cdc-integracoes(?:\/|$)/.test(href);
             if ((isSystemWorkspace && !isCDCSystemManager()) ||
-                (isIntegrationsWorkspace && !isCDCSystemManager() && !isCDCOperationalManager())) {
+                (isIntegrationsWorkspace && !isCDCSystemManager())) {
                 isAllowed = false;
             }
             el.classList.toggle('cdc-workspace-hidden', labelText && !isAllowed);

@@ -75,7 +75,10 @@ PAGE_CATALOG = OrderedDict((page["key"], page) for page in (
     _page("items", "Itens", "CDC Itens", "/app/cdc-itens", COMMON_ROLES, ("view", "export"), ("/app/item",)),
     _page("warehouses", "Armazéns", "CDC Armazém", "/app/cdc-armazem", COMMON_ROLES, ("view", "export"), ("/app/warehouse",)),
     _page("reports", "Relatórios", "CDC Relatórios", "/app/cdc-relatorios", COMMON_ROLES, ("view", "export"), ("/app/stock-entry/view/report",)),
-    _page("integrations", "Integrações", "CDC Integrações", "/app/cdc-integracoes", MANAGER_ROLES, ("view", "edit")),
+    _page(
+        "integrations", "Integrações", "CDC Integrações", "/app/cdc-integracoes",
+        (SYSTEM_MANAGER_ROLE,), ("view", "edit"), exception_grantable=False,
+    ),
     _page("pending", "Pendências", "CDC Pendências", "/app/cdc-pendencias", COMMON_ROLES),
     _page("monitoring", "Monitoramento", "CDC Monitoramento", "/app/cdc-monitoramento", (SYSTEM_MANAGER_ROLE,), exception_grantable=False),
     _page("tests", "Testes", "CDC Testes", "/app/cdc-testes", (SYSTEM_MANAGER_ROLE,), ("view", "submit"), exception_grantable=False),

@@ -1837,7 +1837,6 @@ def get_catalog_management_dashboard_data(
                 {"label": "Grupos utilizados", "value": used_groups, "description": "Com itens ativos", "status": "success", "focus": "used"},
                 {"label": "Grupos vazios", "value": empty_groups, "description": "Sem itens ativos", "status": "warning" if empty_groups else "success", "focus": "empty"},
                 {"label": "Grupos com estoque", "value": groups_with_stock, "description": "Saldo atual positivo", "status": "success", "focus": "with_stock"},
-                {"label": "Valor em estoque", "value": stock_value, "format": "currency", "description": "Nos armazéns permitidos", "status": "info", "focus": ""},
             ],
             "charts": [
                 {"title": "Itens ativos por grupo", "kind": "bar", "rows": [{"label": row["name"], "value": row["active_items"]} for row in sorted_by_items[:10]]},
@@ -1916,7 +1915,6 @@ def get_catalog_management_dashboard_data(
                 {"label": "Com estoque", "value": positive_items, "description": "Saldo atual positivo", "status": "success", "focus": "positive"},
                 {"label": "Sem estoque", "value": zero_items, "description": "Itens ativos com saldo zero", "status": "warning" if zero_items else "success", "focus": "zero"},
                 {"label": "Saldo negativo", "value": negative_items, "description": "Exigem conferência", "status": "danger" if negative_items else "success", "focus": "negative"},
-                {"label": "Valor em estoque", "value": stock_value, "format": "currency", "description": "Nos armazéns permitidos", "status": "info", "focus": ""},
             ],
             "charts": [
                 {"title": f"Entradas e saídas — {period} dias", "kind": "paired", "rows": movement_series},
@@ -1992,7 +1990,6 @@ def get_catalog_management_dashboard_data(
             {"label": "Armazéns ativos", "value": len(active_rows), "description": "Permitidos no contexto", "status": "info", "focus": "active"},
             {"label": "Com estoque", "value": with_stock, "description": "Saldo atual positivo", "status": "success", "focus": "with_stock"},
             {"label": "Quantidade total", "value": total_quantity, "format": "quantity", "description": "Soma dos saldos atuais", "status": "info", "focus": ""},
-            {"label": "Valor em estoque", "value": stock_value, "format": "currency", "description": "Nos armazéns permitidos", "status": "info", "focus": ""},
             {"label": "Armazéns críticos", "value": negative_warehouses, "description": "Com algum saldo negativo", "status": "danger" if negative_warehouses else "success", "focus": "negative"},
         ],
         "charts": [

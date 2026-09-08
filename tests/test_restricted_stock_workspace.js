@@ -72,12 +72,15 @@ assert.equal(manager.guard.isRestrictedStockWorkspaceUser(), false, 'System Mana
 assert.equal(manager.guard.enforceRestrictedStockWorkspaceRoute(), false);
 
 const stockManagerIntegration = evaluateGuard(['Stock Manager'], '/app/cdc-integracoes');
-assert.equal(stockManagerIntegration.guard.enforceRestrictedStockWorkspaceRoute(), false, 'gestor operacional deve manter Integrações');
+assert.equal(stockManagerIntegration.guard.enforceRestrictedStockWorkspaceRoute(), true, 'gestor de estoque deve ser redirecionado imediatamente');
+assert.deepEqual(stockManagerIntegration.routes, [['replace', '/app/cdc-estoque']]);
+const stockManagerIntegrationContext = evaluateGuard(['Stock Manager'], '/app/cdc-integracoes', accessContext());
+assert.equal(stockManagerIntegrationContext.guard.enforceRestrictedStockWorkspaceRoute(), true, 'gestor de estoque não deve visualizar Integrações');
 const stockManagerMonitoring = evaluateGuard(['Stock Manager'], '/app/cdc-monitoramento', accessContext({integrations: true}));
 assert.equal(stockManagerMonitoring.guard.enforceRestrictedStockWorkspaceRoute(), true, 'Monitoramento permanece sistêmico');
 
 const exceptionalIntegration = evaluateGuard(['Consulta'], '/app/cdc-integracoes', accessContext({integrations: true}));
-assert.equal(exceptionalIntegration.guard.enforceRestrictedStockWorkspaceRoute(), false, 'exceção individual deve preservar a página especial');
+assert.equal(exceptionalIntegration.guard.enforceRestrictedStockWorkspaceRoute(), true, 'Integrações permanece sistêmica mesmo com contexto legado permissivo');
 
 const pendingContext = evaluateGuard(['Consulta'], '/app/cdc-monitoramento');
 assert.equal(pendingContext.guard.enforceRestrictedStockWorkspaceRoute(), false, 'frontend deve aguardar o contexto efetivo sem negar uma possível exceção');

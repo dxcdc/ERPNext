@@ -76,6 +76,14 @@ class AccessCatalogTest(unittest.TestCase):
         self.assertFalse(access.baseline_allowed(roles, "integrations"))
         self.assertFalse(access.baseline_allowed(roles, "admin"))
 
+    def test_integrations_is_system_manager_only(self):
+        access = load_access_control()
+        for roles in ({"Gestor de Estoque"}, {"Stock Manager"}, {"Operador"}, {"Consulta"}):
+            with self.subTest(roles=roles):
+                self.assertFalse(access.baseline_allowed(roles, "integrations"))
+        self.assertTrue(access.baseline_allowed({"System Manager"}, "integrations"))
+        self.assertFalse(access.PAGE_CATALOG["integrations"]["exception_grantable"])
+
     def test_consulta_cannot_inherit_stock_writes(self):
         access = load_access_control()
         self.assertFalse(access.baseline_allowed({"Consulta"}, "stock", "create"))
@@ -129,17 +137,24 @@ class AccessCatalogTest(unittest.TestCase):
 
     def test_system_pages_do_not_accept_exception_grants(self):
         access = load_access_control()
-        self._configure_exceptions(access, [{
-            "name": "ALLOW-ADMIN", "subject_type": "User", "user": "current@example.com",
-            "role_profile": None, "page_key": "admin", "effect": "Allow",
-            "all_actions": 0, "all_warehouses": 1, "enabled": 1,
-            "valid_from": None, "valid_until": None, "modified": "2026-09-01",
-        }], [{"parent": "ALLOW-ADMIN", "action": "view"}], [])
-        decision = access.evaluate_access(
-            "admin", user="current@example.com", roles={"Consulta"},
-            role_profile="Consulta", warehouse_scope={"A - C"},
-        )
-        self.assertFalse(decision["allowed"])
+        exceptions = []
+        actions = []
+        for page_key in ("admin", "integrations"):
+            name = f"ALLOW-{page_key.upper()}"
+            exceptions.append({
+                "name": name, "subject_type": "User", "user": "current@example.com",
+                "role_profile": None, "page_key": page_key, "effect": "Allow",
+                "all_actions": 0, "all_warehouses": 1, "enabled": 1,
+                "valid_from": None, "valid_until": None, "modified": "2026-09-01",
+            })
+            actions.append({"parent": name, "action": "view"})
+        self._configure_exceptions(access, exceptions, actions, [])
+        for page_key in ("admin", "integrations"):
+            decision = access.evaluate_access(
+                page_key, user="current@example.com", roles={"Consulta"},
+                role_profile="Consulta", warehouse_scope={"A - C"},
+            )
+            self.assertFalse(decision["allowed"], page_key)
 
     def test_system_manager_cannot_be_reduced_by_exception(self):
         access = load_access_control()
@@ -169,7 +184,7 @@ class AccessCatalogTest(unittest.TestCase):
         access = load_access_control()
         self._configure_exceptions(access, [{
             "name": "ALLOW-1", "subject_type": "User", "user": "current@example.com",
-            "role_profile": None, "page_key": "integrations", "effect": "Allow",
+            "role_profile": None, "page_key": "reports", "effect": "Allow",
             "all_actions": 0, "all_warehouses": 0, "enabled": 1,
             "valid_from": None, "valid_until": None, "modified": "2026-09-01",
         }], [{"parent": "ALLOW-1", "action": "view"}], [
@@ -177,7 +192,7 @@ class AccessCatalogTest(unittest.TestCase):
             {"parent": "ALLOW-1", "warehouse": "C - C"},
         ])
         decision = access.evaluate_access(
-            "integrations", user="current@example.com", roles={"Consulta"},
+            "reports", user="current@example.com", roles=set(),
             role_profile="Consulta", warehouse_scope={"A - C", "B - C"},
         )
         self.assertTrue(decision["allowed"])
