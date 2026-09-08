@@ -1483,19 +1483,56 @@ def _normalize_dashboard_filters(selected_project=None, selected_warehouse=None)
     return project, warehouse, options
 
 
-def _pending_order_location(cost_centers, title=None):
-    code = (cost_centers or "").split(",")[0].strip()
+def _active_pending_warehouse_map():
+    """Carrega uma vez os vínculos exatos e habilitados usados pela visão de pendências."""
+    doctype = "CDC ONGSYS Warehouse Mapping"
+    if not frappe.db.exists("DocType", doctype):
+        return {}
+    mappings = frappe.get_all(
+        doctype,
+        filters={"enabled": 1, "warehouse": ["!=", ""]},
+        fields=["cost_center_code", "warehouse"],
+        limit_page_length=0,
+    )
+    return {
+        str(row.cost_center_code or "").strip(): row.warehouse
+        for row in mappings if row.cost_center_code and row.warehouse
+    }
+
+
+def _legacy_pending_warehouse(code, title=None):
+    """Mantém destinos históricos que ainda não dependem do cadastro administrativo."""
     code_parts = code.split(".")
     city_map = {"01": "CAB", "02": "CAR", "03": "JAB", "04": "REC"}
     service_map = {"001": "ANT", "002": "BREVE", "003": "INT"}
     if code.startswith("2.17") or "CAIS" in (title or "").upper():
-        return "Projeto Cais", "CAIS OLINDA - C"
+        return "CAIS OLINDA - C"
     if len(code_parts) >= 4 and code_parts[0] == "3":
         city = city_map.get(code_parts[1])
         service = service_map.get(code_parts[-1])
         if city and service:
-            return "Projeto Atitude", f"{city} ATITUDE - {service} - C"
-    return "Institucional / Geral", None
+            return f"{city} ATITUDE - {service} - C"
+    return None
+
+
+def _pending_order_location(cost_centers, title=None, warehouse_map=None):
+    """Resolve todos os destinos do pedido sem inferir vínculos administrativos incertos."""
+    warehouse_map = warehouse_map or {}
+    codes = list(dict.fromkeys(
+        code.strip() for code in str(cost_centers or "").split(",") if code.strip()
+    ))
+    warehouses = []
+    for code in codes:
+        warehouse = warehouse_map.get(code) or _legacy_pending_warehouse(code, title)
+        if warehouse and warehouse not in warehouses:
+            warehouses.append(warehouse)
+    projects = list(dict.fromkeys(_warehouse_project(warehouse) for warehouse in warehouses))
+    if not warehouses:
+        return "Institucional / Geral", "Não identificado", [], []
+    if len(warehouses) == 1:
+        return projects[0], warehouses[0], warehouses, projects
+    project = projects[0] if len(projects) == 1 else "Múltiplos projetos"
+    return project, "Múltiplos armazéns", warehouses, projects
 
 
 def _catalog_management_period(value):
@@ -2139,17 +2176,24 @@ def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None, se
         limit_page_length=0,
     )
 
+    warehouse_map = _active_pending_warehouse_map()
     scoped_orders = []
     for order in all_orders:
-        project, warehouse = _pending_order_location(order.cost_centers, order.title)
+        project, warehouse, warehouses, projects = _pending_order_location(
+            order.cost_centers, order.title, warehouse_map,
+        )
         order["project"] = project
-        order["warehouse"] = warehouse or "Não identificado"
+        order["projects"] = projects
+        order["warehouse"] = warehouse
+        order["warehouses"] = warehouses
         order["current_stage"] = _ongsys_order_stage(order)
-        if not unrestricted and warehouse not in permitted_warehouses:
+        if not unrestricted and (
+            not warehouses or not set(warehouses).issubset(permitted_warehouses)
+        ):
             continue
-        if selected_project != "All" and project != selected_project:
+        if selected_project != "All" and selected_project not in projects:
             continue
-        if selected_warehouse != "All" and warehouse != selected_warehouse:
+        if selected_warehouse != "All" and selected_warehouse not in warehouses:
             continue
         scoped_orders.append(order)
 

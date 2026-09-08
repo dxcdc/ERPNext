@@ -7,6 +7,7 @@
     var selectedProject = sessionStorage.getItem('cdc_pending_project') || 'All';
     var selectedWarehouse = sessionStorage.getItem('cdc_pending_warehouse') || 'All';
     var selectedStage = sessionStorage.getItem('cdc_pending_stage') || 'All';
+    var scrollToResults = false;
 
     function normalizeRoute(value) {
         return decodeURIComponent(String(value || ''))
@@ -237,7 +238,7 @@
                 var warehouseOptionsHTML = '<option value="All">Todos os Armazéns</option>' + visibleWarehouses.map(function(warehouse) {
                     return `<option value="${escapeHTML(warehouse)}" ${warehouse === selectedWarehouse ? 'selected' : ''}>${escapeHTML(warehouse.replace(' - C', ''))}</option>`;
                 }).join('');
-                var rows = orders.map(function(order) {
+                function orderRow(order) {
                     return `<tr data-stage="${escapeHTML(order.current_stage)}" data-search="${escapeHTML([order.ongsys_order_id, order.title, order.status, order.current_stage, order.project, order.warehouse, order.cost_centers].join(' ').toLowerCase())}">
                         <td data-sort="${escapeHTML(order.ongsys_order_id)}"><strong>#${escapeHTML(order.ongsys_order_id)}</strong></td>
                         <td data-sort="${escapeHTML(order.title)}">${escapeHTML(order.title)}</td>
@@ -249,6 +250,39 @@
                         <td data-sort="${escapeHTML(order.total_quantity)}">${escapeHTML(order.total_quantity)}</td>
                         <td data-sort="${escapeHTML(order.cost_centers)}">${escapeHTML(order.cost_centers)}</td>
                     </tr>`;
+                }
+                var warehouseGroups = {};
+                orders.forEach(function(order) {
+                    var key = order.warehouse || 'Não identificado';
+                    if (!warehouseGroups[key]) warehouseGroups[key] = [];
+                    warehouseGroups[key].push(order);
+                });
+                var trailingGroups = {'Múltiplos armazéns': 1, 'Não identificado': 2};
+                var groupNames = Object.keys(warehouseGroups).sort(function(left, right) {
+                    var leftRank = trailingGroups[left] || 0;
+                    var rightRank = trailingGroups[right] || 0;
+                    if (leftRank !== rightRank) return leftRank - rightRank;
+                    return left.localeCompare(right, 'pt-BR');
+                });
+                var warehouseGroupsHTML = groupNames.map(function(warehouse) {
+                    var groupOrders = warehouseGroups[warehouse];
+                    var projects = [];
+                    groupOrders.forEach(function(order) {
+                        (order.projects && order.projects.length ? order.projects : [order.project]).forEach(function(project) {
+                            if (project && projects.indexOf(project) === -1) projects.push(project);
+                        });
+                    });
+                    var items = groupOrders.reduce(function(total, order) { return total + Number(order.items_count || 0); }, 0);
+                    var quantity = groupOrders.reduce(function(total, order) { return total + Number(order.total_quantity || 0); }, 0);
+                    var groupRows = groupOrders.map(orderRow).join('');
+                    return `<details class="cdc-pending-warehouse-group" data-warehouse-group="${escapeHTML(warehouse)}" open>
+                        <summary>
+                            <span><strong>${escapeHTML(warehouse)}</strong><small>${escapeHTML(projects.join(' · ') || 'Projeto não identificado')}</small></span>
+                            <span class="cdc-pending-warehouse-totals"><b>${escapeHTML(groupOrders.length)} pedido(s)</b><small>${escapeHTML(items)} item(ns) · ${escapeHTML(quantity)} unidade(s)</small></span>
+                        </summary>
+                        <div class="cdc-table-scroll-top cdc-pending-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
+                        <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="number">Etapa <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="8">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${groupRows}</tbody></table></div>
+                    </details>`;
                 }).join('');
 
                 var scheduleNotice = getScheduleNotice();
@@ -315,10 +349,9 @@
                         </div>
                         <div class="cdc-pending-stage-grid">${stageCardsHTML}</div>
                     </section>
-                    <div class="cdc-pending-table-card">
+                    <div class="cdc-pending-table-card" id="cdc-pending-results">
                         <div class="cdc-pending-table-header"><div><h3>${tableTitle}</h3><p>${tableDescription}</p></div><input id="cdc-pending-search" type="search" aria-label="Buscar pedidos" placeholder="Buscar ID, título, etapa, estado ou centro de custo"></div>
-                        <div class="cdc-table-scroll-top cdc-pending-table-scroll-top" aria-label="Rolagem horizontal superior"><div></div></div>
-                        <div class="cdc-pending-table-scroll"><table class="cdc-pending-table"><thead><tr><th data-sort-index="0" data-sort-type="number">Pedido <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="1">Título <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="2">Estado <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="3" data-sort-type="number">Etapa <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="4" data-sort-type="date">Data <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="5" data-sort-type="number">Espera <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="6" data-sort-type="number">Itens <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="7" data-sort-type="number">Quantidade <span class="cdc-sort-indicator">↕</span></th><th data-sort-index="8">Centros de custo <span class="cdc-sort-indicator">↕</span></th></tr></thead><tbody>${rows || '<tr><td colspan="9" class="cdc-pending-empty">Nenhum pedido encontrado para os filtros selecionados.</td></tr>'}</tbody></table></div>
+                        <div class="cdc-pending-warehouse-groups">${warehouseGroupsHTML || '<div class="cdc-pending-empty">Nenhum pedido encontrado para os filtros selecionados.</div>'}</div>
                     </div>
                     ${getDiagnosticPanelHTML('API REST Conectada com Êxito (HTTP 200 OK)', false)}
                 `;
@@ -327,6 +360,7 @@
 
                 function selectStage(value) {
                     selectedStage = String(value);
+                    scrollToResults = true;
                     sessionStorage.setItem('cdc_pending_stage', selectedStage);
                     dashboard.dataset.loaded = '0';
                     render();
@@ -351,13 +385,20 @@
                     });
                 }
                 if (typeof window._cdc_setup_sortable_table === 'function') {
-                    window._cdc_setup_sortable_table(dashboard, '.cdc-pending-table-scroll-top', '.cdc-pending-table-scroll', '.cdc-pending-table');
+                    dashboard.querySelectorAll('.cdc-pending-warehouse-group').forEach(function(group) {
+                        window._cdc_setup_sortable_table(group, '.cdc-pending-table-scroll-top', '.cdc-pending-table-scroll', '.cdc-pending-table');
+                    });
                 }
                 var search = document.getElementById('cdc-pending-search');
                 if (search) search.addEventListener('input', function() {
                     var term = this.value.trim().toLowerCase();
-                    dashboard.querySelectorAll('tbody tr[data-search]').forEach(function(row) {
-                        row.hidden = term && row.dataset.search.indexOf(term) === -1;
+                    dashboard.querySelectorAll('.cdc-pending-warehouse-group').forEach(function(group) {
+                        var visible = 0;
+                        group.querySelectorAll('tbody tr[data-search]').forEach(function(row) {
+                            row.hidden = Boolean(term && row.dataset.search.indexOf(term) === -1);
+                            if (!row.hidden) visible += 1;
+                        });
+                        group.hidden = visible === 0;
                     });
                 });
                 var projectFilter = document.getElementById('cdc-pending-project-filter');
@@ -376,6 +417,11 @@
                     dashboard.dataset.loaded = '0';
                     render();
                 });
+                if (scrollToResults) {
+                    scrollToResults = false;
+                    var results = dashboard.querySelector('#cdc-pending-results');
+                    if (results) results.scrollIntoView({behavior: 'smooth', block: 'start'});
+                }
                 if (observer) observer.disconnect();
             },
             error: function() { loading = false; }

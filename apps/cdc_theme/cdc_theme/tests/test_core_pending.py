@@ -3,7 +3,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import frappe
-from cdc_theme.api import get_ongsys_pending_orders
+from cdc_theme.api import _pending_order_location, get_ongsys_pending_orders
 from cdc_theme.core_pending import apply_snapshot
 
 
@@ -77,6 +77,25 @@ class CorePendingDatabaseTests(unittest.TestCase):
         self.assertEqual(counts, {1: 0, 2: 0, 3: 0, 4: 1, 5: 1, 6: 1})
         self.assertEqual({row.ongsys_order_id for row in pending["orders"]}, {"1", "2"})
         self.assertEqual([row.ongsys_order_id for row in completed["orders"]], ["3"])
+
+    def test_active_mapping_resolves_institutional_pending_order(self):
+        project, label, warehouses, projects = _pending_order_location(
+            "1.02.01.001", warehouse_map={"1.02.01.001": "INSTITUCIONAL - C"},
+        )
+        self.assertEqual(project, "Institucional / Geral")
+        self.assertEqual(label, "INSTITUCIONAL - C")
+        self.assertEqual(warehouses, ["INSTITUCIONAL - C"])
+        self.assertEqual(projects, ["Institucional / Geral"])
+
+    def test_multiple_cost_centers_are_resolved_without_duplicate_order(self):
+        project, label, warehouses, projects = _pending_order_location(
+            "1.02.01.001, 2.17.01.001, 1.02.01.001",
+            warehouse_map={"1.02.01.001": "INSTITUCIONAL - C"},
+        )
+        self.assertEqual(project, "Múltiplos projetos")
+        self.assertEqual(label, "Múltiplos armazéns")
+        self.assertEqual(warehouses, ["INSTITUCIONAL - C", "CAIS OLINDA - C"])
+        self.assertEqual(projects, ["Institucional / Geral", "Projeto Cais"])
 
     def test_mid_write_failure_rolls_back_every_order_and_checkpoint(self):
         original = frappe.new_doc

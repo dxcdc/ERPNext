@@ -129,6 +129,16 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('mapping.warehouse_status = "Desativado"', extractor)
         self.assertNotIn("_require_system_manager()", extractor)
 
+    def test_pending_mapping_candidates_are_review_only(self):
+        patch_source = (ROOT / "apps/cdc_theme/cdc_theme/patches/v1_0/register_pending_warehouse_mapping_candidates.py").read_text()
+        patches = (ROOT / "apps/cdc_theme/cdc_theme/patches.txt").read_text()
+        for code in ("2.06.01.001", "2.06.01.003", "2.07.01.001", "2.09.01.001", "2.11.01.001", "2.11.01.002"):
+            self.assertIn(code, patch_source)
+        self.assertIn('"status": "Revisão necessária"', patch_source)
+        self.assertIn('"enabled": 0', patch_source)
+        self.assertNotIn("Stock Entry", patch_source)
+        self.assertIn("register_pending_warehouse_mapping_candidates", patches)
+
     def test_ongsys_stock_import_service_remains_locked_for_manual_fallback(self):
         service = (ROOT / "deploy/systemd/cdc-ongsys-stock-import.service").read_text()
         timer = (ROOT / "deploy/systemd/cdc-ongsys-stock-import.timer").read_text()

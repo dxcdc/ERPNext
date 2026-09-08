@@ -1033,6 +1033,17 @@
 .cdc-pending-stage-pill { display: inline-flex; padding: 3px 8px; color: #1d4ed8; background: #dbeafe; border-radius: 999px; font-size: 10px; font-weight: 800; }
 .cdc-pending-table-card { overflow: hidden; background: #fff; border: 1px solid var(--cdc-border-color); border-radius: var(--cdc-radius-md); box-shadow: var(--cdc-shadow-subtle); }
 .cdc-pending-table-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--cdc-border-color); }
+.cdc-pending-warehouse-groups { display: grid; gap: 12px; padding: 14px; background: #f8fafc; }
+.cdc-pending-warehouse-group { overflow: hidden; border: 1px solid var(--cdc-border-color); border-radius: 10px; background: #fff; }
+.cdc-pending-warehouse-group[hidden] { display: none; }
+.cdc-pending-warehouse-group > summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; cursor: pointer; list-style-position: inside; }
+.cdc-pending-warehouse-group > summary:hover { background: #f8fafc; }
+.cdc-pending-warehouse-group > summary span { display: inline-flex; flex-direction: column; gap: 3px; }
+.cdc-pending-warehouse-group > summary strong { color: var(--cdc-text-dark); font-size: 13px; }
+.cdc-pending-warehouse-group > summary small { color: var(--cdc-text-muted); font-size: 10px; }
+.cdc-pending-warehouse-totals { margin-left: auto; text-align: right; }
+.cdc-pending-warehouse-totals b { color: #1d4ed8; font-size: 12px; }
+.cdc-pending-warehouse-group .cdc-pending-table-scroll { border-top: 1px solid var(--cdc-border-color); }
 #cdc-pending-search { width: min(380px, 100%); height: 36px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; outline: none; }
 #cdc-pending-search:focus { border-color: var(--cdc-accent); box-shadow: 0 0 0 2px rgba(36, 144, 239, .12); }
 .cdc-pending-table-scroll { max-height: 430px; overflow: auto; }
@@ -1062,6 +1073,8 @@ th[aria-sort="ascending"] .cdc-sort-indicator, th[aria-sort="descending"] .cdc-s
   .cdc-pending-metrics { grid-template-columns: 1fr; }
   .cdc-pending-stage-grid { grid-template-columns: 1fr; }
   #cdc-pending-search { width: 100%; }
+  .cdc-pending-warehouse-group > summary { align-items: flex-start; flex-direction: column; }
+  .cdc-pending-warehouse-totals { margin-left: 0; text-align: left; }
 }
 
 @media (min-width: 701px) and (max-width: 1180px) {
