@@ -1,0 +1,74 @@
+---
+- name: Habilitar a importacao horaria de estoque via Core M2M
+  hosts: cdc_production
+  gather_facts: false
+  become: false
+  serial: 1
+  pre_tasks:
+    - name: Exigir confirmacao explicita da ativacao
+      ansible.builtin.assert:
+        that:
+          - confirm_ongsys_stock_import | default('') == 'ENABLE-ONGSYS-STOCK-IMPORT'
+        fail_msg: Use -e confirm_ongsys_stock_import=ENABLE-ONGSYS-STOCK-IMPORT.
+
+  tasks:
+    - name: Adquirir bloqueio exclusivo de operacao
+      ansible.builtin.command:
+        argv: [mkdir, "{{ cdc_deploy_lock }}"]
+      register: stock_import_lock_result
+      changed_when: stock_import_lock_result.rc == 0
+      failed_when: false
+
+    - name: Recusar outra operacao mutavel em andamento
+      ansible.builtin.assert:
+        that: stock_import_lock_result.rc == 0
+        fail_msg: Outra operacao de backup, deploy ou rollback ja esta em andamento.
+
+    - name: Instalar e habilitar o timer protegido
+      block:
+        - name: Instalar a unidade do importador
+          ansible.builtin.copy:
+            src: "{{ playbook_dir }}/../../deploy/systemd/cdc-ongsys-stock-import.service"
+            dest: /etc/systemd/system/cdc-ongsys-stock-import.service
+            owner: root
+            group: root
+            mode: "0644"
+          notify: Recarregar systemd
+
+        - name: Instalar o timer do importador
+          ansible.builtin.copy:
+            src: "{{ playbook_dir }}/../../deploy/systemd/cdc-ongsys-stock-import.timer"
+            dest: /etc/systemd/system/cdc-ongsys-stock-import.timer
+            owner: root
+            group: root
+            mode: "0644"
+          notify: Recarregar systemd
+
+        - name: Aplicar unidades antes da ativacao
+          ansible.builtin.meta: flush_handlers
+
+        - name: Habilitar e iniciar o timer
+          ansible.builtin.systemd_service:
+            name: cdc-ongsys-stock-import.timer
+            enabled: true
+            state: started
+
+        - name: Confirmar timer habilitado e ativo
+          ansible.builtin.command:
+            argv: [systemctl, is-enabled, --quiet, cdc-ongsys-stock-import.timer]
+          changed_when: false
+
+        - name: Confirmar estado ativo do timer
+          ansible.builtin.command:
+            argv: [systemctl, is-active, --quiet, cdc-ongsys-stock-import.timer]
+          changed_when: false
+      always:
+        - name: Liberar bloqueio exclusivo de operacao
+          ansible.builtin.file:
+            path: "{{ cdc_deploy_lock }}"
+            state: absent
+
+  handlers:
+    - name: Recarregar systemd
+      ansible.builtin.systemd_service:
+        daemon_reload: true

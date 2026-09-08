@@ -1,8 +1,8 @@
 [Unit]
-Description=CDC ONGSYS finalized stock order import
+Description=CDC Core M2M finalized stock order import
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=/etc/cdc/secrets/ongsys.env
+ConditionPathExists=/etc/cdc/secrets/nexterp-extractor.env
 
 [Service]
 Type=oneshot
@@ -17,4 +17,3 @@ PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
 UMask=0077
-

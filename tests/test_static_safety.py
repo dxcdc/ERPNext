@@ -130,8 +130,9 @@ class StaticSafetyTest(unittest.TestCase):
     def test_ongsys_stock_import_has_single_locked_hourly_timer(self):
         service = (ROOT / "deploy/systemd/cdc-ongsys-stock-import.service").read_text()
         timer = (ROOT / "deploy/systemd/cdc-ongsys-stock-import.timer").read_text()
-        self.assertIn("ConditionPathExists=/etc/cdc/secrets/ongsys.env", service)
+        self.assertIn("ConditionPathExists=/etc/cdc/secrets/nexterp-extractor.env", service)
         self.assertIn("CDC_ONGSYS_ENV=/etc/cdc/secrets/ongsys.env", service)
+        self.assertIn("Core M2M", service)
         self.assertIn("/usr/bin/flock -E 0 -n", service)
         self.assertIn(".run_job.lock", service)
         self.assertIn("5_extrator_requisicoes_v2.py prod", service)

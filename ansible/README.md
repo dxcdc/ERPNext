@@ -75,3 +75,13 @@ ANSIBLE_HOME=.home .venv/bin/ansible-playbook playbooks/rollback.yml \
 `restore_database.yml` valida a autorizacao e o arquivo, mas termina bloqueado
 por projeto. A restauracao somente sera implementada depois de um ensaio em
 ambiente nao produtivo.
+
+## Ativacao do importador de estoque via Core
+
+Execute somente depois de reconciliar o backlog e comprovar uma segunda
+execucao idempotente do importador:
+
+```bash
+ANSIBLE_HOME=.home .venv/bin/ansible-playbook playbooks/enable_ongsys_stock_import.yml \
+  -e confirm_ongsys_stock_import=ENABLE-ONGSYS-STOCK-IMPORT
+```

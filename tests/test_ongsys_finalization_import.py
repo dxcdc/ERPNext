@@ -2,6 +2,7 @@ import importlib.util
 import json
 import sys
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -105,6 +106,21 @@ class OngsysFinalizationImportTest(unittest.TestCase):
         }]
         mappings = IMPORTER.load_warehouse_map(FakeMappingApi(rows))
         self.assertEqual(mappings["2.18.01.001"], "TRANSFORMACAO DIGITAL")
+
+    def test_institutional_alias_observed_in_core_is_mapped(self):
+        mappings = IMPORTER.load_warehouse_map()
+        self.assertEqual(mappings["1.02.01.001"], "INSTITUCIONAL")
+
+    def test_core_snapshot_can_select_one_order(self):
+        client = mock.Mock()
+        client.fetch_snapshot.return_value = {
+            "snapshot": "version-1", "total": 2,
+            "data": [{"idPedido": 3051}, {"idPedido": 3089}],
+        }
+        with mock.patch.object(IMPORTER, "CoreOrdersClient", return_value=client):
+            rows, snapshot = IMPORTER.fetch_core_snapshot(3051)
+        self.assertEqual(rows, [{"idPedido": 3051}])
+        self.assertEqual(snapshot["snapshot"], "version-1")
 
 
 if __name__ == "__main__":

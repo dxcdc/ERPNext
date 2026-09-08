@@ -4,12 +4,14 @@
 import argparse
 import csv
 import json
+import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 from common import Common, is_product_order
+from core_orders import CoreOrdersClient
 
 
 COMPANY_NAME = "CDC"
@@ -18,6 +20,8 @@ STATE_DOCTYPE = "CDC ONGSYS Sync State"
 FAST_WINDOW_PAGES = 3
 FULL_IMPORT_INTERVAL_HOURS = 24
 ORDER_MAX_AGE_DAYS = 30
+CORE_PAGE_SIZE = 200
+REQUIRED_WAREHOUSE_ALIASES = {"1.02.01.001": "INSTITUCIONAL"}
 
 
 def parse_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -92,6 +96,17 @@ def fetch_order(api: Common, order_id: int) -> Dict[str, Any]:
     return order
 
 
+def fetch_core_snapshot(order_id: Optional[int] = None):
+    """Lê o conjunto completo e versionado do Core sem acessar o OngSys diretamente."""
+    snapshot = CoreOrdersClient().fetch_snapshot()
+    orders = snapshot["data"]
+    if order_id is not None:
+        orders = [order for order in orders if str(order.get("idPedido")) == str(order_id)]
+        if not orders:
+            raise RuntimeError(f"Pedido {order_id} não retornado pelo Core")
+    return orders, snapshot
+
+
 def discover_last_page(api: Common, hint: int = 0) -> int:
     if hint > 0:
         page = hint
@@ -149,6 +164,7 @@ def load_warehouse_map(api: Optional[Common] = None) -> Dict[str, str]:
             str(row["centro_custo"]).strip(): str(row["armazem"]).strip()
             for row in rows
         }
+    mappings.update(REQUIRED_WAREHOUSE_ALIASES)
     if api:
         response = api.erp_request("GET", "api/method/cdc_theme.api.get_ongsys_warehouse_mappings_for_extractor")
         if response.status_code == 200:
@@ -307,12 +323,20 @@ def preflight_orders(api: Common, orders: List[Dict[str, Any]], warehouses: Dict
 
 
 def main(force_full: bool = False, dry_run: bool = False, order_id: Optional[int] = None) -> None:
-    api = Common()
+    settings = Common(require_ongsys=False)
+    source = settings.PENDING_SOURCE
+    if source not in {"core", "ongsys"}:
+        raise RuntimeError("ONGSYS_PENDING_SOURCE deve ser core ou ongsys.")
+    api = settings if source == "core" else Common()
     warehouses = load_warehouse_map(api)
     if order_id is not None:
-        orders = [fetch_order(api, order_id)]
+        orders = fetch_core_snapshot(order_id)[0] if source == "core" else [fetch_order(api, order_id)]
         checks = preflight_orders(api, orders, warehouses)
-        print(json.dumps({"mode": "dry-run" if dry_run else "controlled", "checks": checks}, ensure_ascii=False))
+        print(json.dumps({
+            "mode": "dry-run" if dry_run else "controlled",
+            "source": "Core M2M" if source == "core" else "ONGSYS",
+            "checks": checks,
+        }, ensure_ascii=False))
         if dry_run:
             return
         if not checks[0]["valid"] or not checks[0]["eligible"]:
@@ -324,16 +348,28 @@ def main(force_full: bool = False, dry_run: bool = False, order_id: Optional[int
         print(f"Importação controlada: {eligible} elegível, {created} criado e {skipped} existente")
         return
     state, state_resource = get_state(api)
-    last_page = discover_last_page(api, int(state.get("last_page") or 0))
-    if not last_page:
-        raise RuntimeError("ONGSYS não retornou páginas de pedidos")
-    full = should_run_full(state, force_full)
-    pages = list(range(1, last_page + 1)) if full else list(
-        range(max(1, last_page - FAST_WINDOW_PAGES + 1), last_page + 1)
-    )
-    orders = fetch_pages(api, pages)
+    if source == "core":
+        orders, snapshot = fetch_core_snapshot()
+        full = True
+        last_page = 0
+        pages_count = max(1, math.ceil(int(snapshot["total"]) / CORE_PAGE_SIZE))
+        source_label = "Core M2M"
+    else:
+        last_page = discover_last_page(api, int(state.get("last_page") or 0))
+        if not last_page:
+            raise RuntimeError("ONGSYS não retornou páginas de pedidos")
+        full = should_run_full(state, force_full)
+        pages = list(range(1, last_page + 1)) if full else list(
+            range(max(1, last_page - FAST_WINDOW_PAGES + 1), last_page + 1)
+        )
+        orders = fetch_pages(api, pages)
+        pages_count = len(pages)
+        source_label = "ONGSYS"
     if dry_run:
-        print(json.dumps({"mode": "dry-run", "checks": preflight_orders(api, orders, warehouses)}, ensure_ascii=False))
+        print(json.dumps({
+            "mode": "dry-run", "source": source_label,
+            "checks": preflight_orders(api, orders, warehouses),
+        }, ensure_ascii=False))
         return
     ensure_fiscal_year(api)
     created, skipped, eligible = import_orders(api, orders, warehouses)
@@ -341,15 +377,15 @@ def main(force_full: bool = False, dry_run: bool = False, order_id: Optional[int
     payload = {
         "last_page": last_page,
         "last_import_fast_at": now,
-        "last_import_mode": "Completa" if full else "Rápida",
-        "last_import_pages": len(pages),
+        "last_import_mode": source_label if source == "core" else ("Completa" if full else "Rápida"),
+        "last_import_pages": pages_count,
         "last_success_at": now,
     }
     if full:
         payload["last_import_full_at"] = now
     require_response(api.erp_request("PUT", state_resource, payload=payload), "Atualização do checkpoint", (200, 201))
     print(
-        f"Importação {'completa' if full else 'rápida'}: páginas {pages[0]}–{pages[-1]}, "
+        f"Importação via {source_label}: {pages_count} página(s), "
         f"{eligible} finalizados elegíveis, {created} criados e {skipped} já existentes"
     )
 
