@@ -1,0 +1,16 @@
+---
+- name: Importar entradas finalizadas do Core no NextERP
+  hosts: production_vps
+  gather_facts: false
+  tasks:
+    - name: Executar importador fechado e idempotente
+      ansible.builtin.command:
+        argv:
+          - sudo
+          - /usr/local/sbin/cdc-automation-core-stock-import
+      register: core_stock_result
+      changed_when: "'0 criados' not in core_stock_result.stdout"
+
+    - name: Exibir somente o resumo operacional
+      ansible.builtin.debug:
+        var: core_stock_result.stdout_lines

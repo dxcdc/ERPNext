@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $# -ne 0 ]]; then
+  echo 'Este executor nao aceita argumentos.' >&2
+  exit 64
+fi
+
+readonly PROJECT_DIR=/opt/nexterp/code
+readonly EXTRACTOR_DIR="${PROJECT_DIR}/extractor"
+readonly IMPORTER="${EXTRACTOR_DIR}/5_extrator_requisicoes_v2.py"
+readonly PYTHON="${EXTRACTOR_DIR}/venv/bin/python"
+readonly OPERATION_LOCK=/var/lock/cdc-nexterp-deploy.lock
+
+if [[ ! -x "$PYTHON" || ! -r "$IMPORTER" ]]; then
+  echo 'Importador de estoque via Core nao encontrado.' >&2
+  exit 66
+fi
+if systemctl is-active --quiet cdc-ongsys-stock-import.timer \
+   || systemctl is-enabled --quiet cdc-ongsys-stock-import.timer; then
+  echo 'Timer local ativo; desative-o antes de executar pelo Rundeck.' >&2
+  exit 69
+fi
+if ! mkdir "$OPERATION_LOCK"; then
+  echo 'Outra operacao mutavel esta em andamento.' >&2
+  exit 75
+fi
+trap 'rmdir "$OPERATION_LOCK"' EXIT
+
+cd "$EXTRACTOR_DIR"
+/usr/bin/flock -n -E 75 .run_job.lock "$PYTHON" "$IMPORTER"

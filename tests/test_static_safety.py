@@ -21,6 +21,8 @@ TERRAFORM_VARIABLES = ROOT / "terraform/variables.tf"
 TERRAFORM_TELEMETRY = ROOT / "terraform/telemetry.tf"
 TERRAFORM_MAIN = ROOT / "terraform/main.tf"
 TROUBLESHOOTING_DOC = ROOT / "docs/troubleshooting.md"
+CORE_STOCK_WRAPPER = ROOT / "ops/core-m2m/cdc-automation-core-stock-import"
+CORE_STOCK_RUNDECK_JOB = ROOT / "ops/core-m2m/rundeck-stock-job.yaml"
 
 
 class StaticSafetyTest(unittest.TestCase):
@@ -127,7 +129,7 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn('mapping.warehouse_status = "Desativado"', extractor)
         self.assertNotIn("_require_system_manager()", extractor)
 
-    def test_ongsys_stock_import_has_single_locked_hourly_timer(self):
+    def test_ongsys_stock_import_service_remains_locked_for_manual_fallback(self):
         service = (ROOT / "deploy/systemd/cdc-ongsys-stock-import.service").read_text()
         timer = (ROOT / "deploy/systemd/cdc-ongsys-stock-import.timer").read_text()
         self.assertIn("ConditionPathExists=/etc/cdc/secrets/nexterp-extractor.env", service)
@@ -138,6 +140,22 @@ class StaticSafetyTest(unittest.TestCase):
         self.assertIn("5_extrator_requisicoes_v2.py prod", service)
         self.assertIn("OnCalendar=hourly", timer)
         self.assertIn("Persistent=true", timer)
+
+    def test_rundeck_owns_stock_schedule_and_rejects_a_local_timer(self):
+        wrapper = CORE_STOCK_WRAPPER.read_text()
+        job = CORE_STOCK_RUNDECK_JOB.read_text()
+        self.assertTrue(CORE_STOCK_WRAPPER.stat().st_mode & 0o111)
+        self.assertIn("cdc-ongsys-stock-import.timer", wrapper)
+        self.assertIn("systemctl is-active --quiet", wrapper)
+        self.assertIn("systemctl is-enabled --quiet", wrapper)
+        self.assertIn("cdc-nexterp-deploy.lock", wrapper)
+        self.assertIn(".run_job.lock", wrapper)
+        self.assertIn("scheduleEnabled: false", job)
+        self.assertIn("minute: '50'", job)
+        self.assertIn("multipleExecutions: false", job)
+        self.assertFalse(
+            (ROOT / "ansible/playbooks/enable_ongsys_stock_import.yml").exists()
+        )
 
     def test_item_group_route_does_not_match_query_parameters(self):
         source = THEME_JS.read_text()

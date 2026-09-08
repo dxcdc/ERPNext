@@ -76,12 +76,9 @@ ANSIBLE_HOME=.home .venv/bin/ansible-playbook playbooks/rollback.yml \
 por projeto. A restauracao somente sera implementada depois de um ensaio em
 ambiente nao produtivo.
 
-## Ativacao do importador de estoque via Core
+## Importador de estoque via Core
 
-Execute somente depois de reconciliar o backlog e comprovar uma segunda
-execucao idempotente do importador:
-
-```bash
-ANSIBLE_HOME=.home .venv/bin/ansible-playbook playbooks/enable_ongsys_stock_import.yml \
-  -e confirm_ongsys_stock_import=ENABLE-ONGSYS-STOCK-IMPORT
-```
+O timer local permanece desabilitado. A recorrência pertence ao Rundeck e usa
+o executor fechado `cdc-automation-core-stock-import`, sem argumentos livres. O job deve
+rodar depois da atualização horária do snapshot e compartilhar os locks do
+deploy e do extrator.

@@ -1,0 +1,25 @@
+- name: Importar pedidos Core no estoque NextERP
+  uuid: 0ebc3e37-86c6-5fb6-b95d-52dbcb735090
+  group: CDC/Integracoes
+  description: Converte pedidos finalizados de produto do snapshot Core M2M em entradas idempotentes no NextERP.
+  executionEnabled: true
+  loglevel: INFO
+  multipleExecutions: false
+  nodeFilterEditable: false
+  scheduleEnabled: false
+  timeZone: America/Recife
+  schedule:
+    time:
+      hour: '*'
+      minute: '50'
+      seconds: '0'
+    month: '*'
+    year: '*'
+    weekday:
+      day: '*'
+  sequence:
+    commands:
+      - description: Importar entradas pelo executor protegido
+        exec: /opt/cdc-automatiza/current/scripts/run-playbook.sh import-core-stock
+    keepgoing: false
+    strategy: node-first
