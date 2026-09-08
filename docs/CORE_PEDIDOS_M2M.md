@@ -86,3 +86,6 @@ Os contêineres anteriores `cdc-core-before-m2m` e `cdc-core-m2m-v1` foram prese
 - Sem migração adicional de esquema no Core; campos de controle publicados por migração no NextERP.
 - Leitura da tela validada pela API autenticada; não houve inspeção visual com sessão de navegador.
 - Em 08/09/2026, 17 testes do feed Core, 8 testes Frappe de persistência/escopo, 30 testes estáticos e a verificação JavaScript dos cards passaram antes da publicação das etapas 1 a 6.
+- Em produção, o espelho contém 2.942 pedidos de produto: 15 pendentes na etapa 4, 228 pendentes na etapa 5 e 2.699 encerrados na etapa 6. Na janela móvel de 30 dias, o card da etapa 6 retornou 318 pedidos. Etapas 1, 2 e 3 estavam vazias no snapshot validado.
+- A API pública autenticada respeitou os filtros dos cards e retornou exatamente 15, 228 e 318 linhas para as etapas 4, 5 e 6. O JavaScript e o CSS versionado servidos por `estoque.cdc.org.br` corresponderam aos arquivos implantados; HTTPS respondeu 200 com certificado válido.
+- O backup pré-migração de 08/09/2026 foi validado por gzip e checksums. A imagem do Core foi reconstruída com contexto limpo; contêineres, imagens e cache de build que continham arquivos de ambiente foram removidos após a validação da imagem segura.
