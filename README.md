@@ -6,6 +6,8 @@
 
 Este repositório gerencia o planejamento, a homologação local e a execução segura da migração do sistema **NextERP** (estoque) da Google Cloud (GCP) para uma VPS na Hostinger, seguindo as diretrizes de infraestrutura e governança padrão da **CDC (`dxcdc`)**.
 
+Produção: **https://estoque.cdc.org.br**. A [troca de domínio](./docs/TROCA_DOMINIO_ESTOQUE.md) foi aplicada e validada na VPS CDC em 08/09/2026.
+
 ---
 
 ## 📐 Arquitetura do Sistema
@@ -48,6 +50,7 @@ Toda a documentação do projeto está padronizada e disponível no diretório [
 | 🚀 [migration_guide.md](./docs/migration_guide.md) | Guia completo de migração da GCP para a Hostinger VPS e diagnósticos SSH. |
 | 🛠️ [ajuda_infra.md](./docs/ajuda_infra.md) | Arquitetura física e virtual, mapa de contêineres e isolamento de redes Docker. |
 | [CORE_PEDIDOS_M2M.md](./docs/CORE_PEDIDOS_M2M.md) | Integração de pedidos em produção: contrato M2M, evidências, agenda, recuperação e pendências. |
+| [TROCA_DOMINIO_ESTOQUE.md](./docs/TROCA_DOMINIO_ESTOQUE.md) | Domínio de produção, transição do endereço antigo, verificações e reversão. |
 | 🩺 [troubleshooting.md](./docs/troubleshooting.md) | Diagnóstico e resolução rápida de problemas recorrentes de ambiente. |
 | 🔐 [politica_backup.md](./docs/politica_backup.md) | Política de backup (3-2-1), ciclo de retenção, criptografia GPG e procedimentos de restore. |
 | 📋 [issues_planejamento.md](./docs/issues_planejamento.md) | Inventário com o backlog oficial de tarefas e checklists do projeto. |

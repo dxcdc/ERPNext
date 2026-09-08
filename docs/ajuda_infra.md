@@ -2,6 +2,12 @@
 
 Este documento descreve a infraestrutura baseada em Docker Compose, a topologia de rede isolada por serviço, as portas expostas, a configuração de variáveis de ambiente e a integração de alertas com o Mattermost.
 
+## Acesso público na VPS CDC — 08/09/2026
+
+O endereço de produção é **https://estoque.cdc.org.br**, na VPS `76.13.227.135`. O Traefik encaminha o domínio ao frontend existente na porta 8085; o site Frappe continua sendo `frontend`, com `host_name=https://estoque.cdc.org.br`. O domínio antigo `stok.cdc.org.br` redireciona com HTTP 302, preservando caminho e consulta. O novo certificado é independente do antigo.
+
+As configurações estão em `ops/domains/`. A instalação realizada, as evidências e a recuperação estão em [TROCA_DOMINIO_ESTOQUE.md](./TROCA_DOMINIO_ESTOQUE.md). O alias Ansible `stok_production` permanece como identificador de inventário, com conexão pelo IP; não depende do DNS antigo. Os exemplos de laboratório abaixo não substituem essa topologia de produção.
+
 ---
 
 ## Arquitetura atual

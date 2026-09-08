@@ -41,6 +41,8 @@ O total e a ausência de duplicações validam a cobertura da coleta, mas não g
 
 ## Identidade e configuração
 
+Desde a [troca de domínio de 08/09/2026](./TROCA_DOMINIO_ESTOQUE.md), o acesso público é `https://estoque.cdc.org.br`. O subdomínio cadastrado no cliente M2M `nexterp` acompanha esse endereço. As conexões internas do Core e do extrator continuam usando os endereços internos existentes; a troca não altera chaves ou escopos.
+
 O cliente M2M `nexterp` tem escopo `pedidos:read`. O Core guarda o hash da chave; os valores `CORE_BASE_URL`, `CORE_NEXTERP_M2M_KEY` e `ONGSYS_PENDING_SOURCE=core` estão no arquivo protegido `/etc/cdc/secrets/nexterp-extractor.env` da VPS. O site `frontend` possui `core_ongsys_pending_enabled=1`.
 
 O OpenBao está disponível, mas sua integração com o Core estava desabilitada. A chave foi instalada no arquivo protegido existente; não foi habilitada a custódia no OpenBao. Não incluir valores de credenciais em comandos, documentação ou Git. Os aliases de escopo existentes no Core também permitem leitura de pedidos para `cadastros:read`; essa política não foi alterada.
