@@ -1,0 +1,22 @@
+http:
+  routers:
+    http-estoque-custom:
+      entryPoints: [http]
+      priority: 110
+      rule: "Host(`estoque.cdc.org.br`)"
+      middlewares: [redirect-to-https]
+      service: estoque-custom-service
+    https-estoque-custom:
+      entryPoints: [https]
+      priority: 110
+      rule: "Host(`estoque.cdc.org.br`)"
+      service: estoque-custom-service
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: estoque.cdc.org.br
+  services:
+    estoque-custom-service:
+      loadBalancer:
+        servers:
+          - url: "http://172.16.0.1:8085"

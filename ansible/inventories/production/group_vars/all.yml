@@ -3,7 +3,7 @@ cdc_project_path: /opt/nexterp/code
 cdc_bench_path: /home/frappe/frappe-bench
 cdc_site: frontend
 cdc_app: cdc_theme
-cdc_public_url: https://stok.cdc.org.br
+cdc_public_url: https://estoque.cdc.org.br
 cdc_backup_root: /opt/nexterp/backups/ansible
 cdc_minimum_free_kb: 2097152
 cdc_backend_container: nexterp-backend-1

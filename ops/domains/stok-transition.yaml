@@ -1,0 +1,24 @@
+http:
+  routers:
+    http-stok-custom:
+      entryPoints: [http]
+      priority: 100
+      rule: "Host(`stok.cdc.org.br`)"
+      middlewares: [stok-to-estoque]
+      service: estoque-custom-service
+    https-stok-custom:
+      entryPoints: [https]
+      priority: 100
+      rule: "Host(`stok.cdc.org.br`)"
+      middlewares: [stok-to-estoque]
+      service: estoque-custom-service
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: stok.cdc.org.br
+  middlewares:
+    stok-to-estoque:
+      redirectRegex:
+        regex: '^https?://stok\.cdc\.org\.br(.*)'
+        replacement: 'https://estoque.cdc.org.br${1}'
+        permanent: false

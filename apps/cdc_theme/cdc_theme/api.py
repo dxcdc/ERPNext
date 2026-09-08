@@ -4,6 +4,7 @@ import json
 import os
 import re
 import unicodedata
+from urllib.parse import urlsplit
 
 import frappe
 from frappe.utils import add_days, add_months, date_diff, get_datetime, get_first_day, getdate, now_datetime, today
@@ -3700,7 +3701,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
     )
     site_url = (frappe.utils.get_url() or "").lower()
     authenticated_production = (
-        "stok.cdc.org.br" in site_url
+        urlsplit(site_url).hostname == "estoque.cdc.org.br"
         and frappe.session.user != "Guest"
         and "System Manager" in frappe.get_roles(frappe.session.user)
     )
@@ -3770,7 +3771,7 @@ def _build_monitoring_quality_gates(sync_stale, duplicates, unique_index):
             "production-validation", "10. Publicação e validação autenticada",
             "passed" if authenticated_production else "blocked",
             "Painel atual executado autenticado no domínio de produção."
-            if authenticated_production else "Somente aprovar após deploy e acesso autenticado em stok.cdc.org.br.",
+            if authenticated_production else "Somente aprovar após deploy e acesso autenticado em estoque.cdc.org.br.",
         ),
     ]
     summary = {
