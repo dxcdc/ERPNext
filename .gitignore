@@ -46,6 +46,7 @@ extractor/log_criador_lancamentos_final.txt
 extractor/*.csv
 extractor/.git/
 extractor/.mapping_discovery.lock
+extractor/.run_job.lock
 
 # Vendor Theme References
 temas/
