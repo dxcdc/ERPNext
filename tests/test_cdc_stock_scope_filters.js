@@ -12,6 +12,7 @@ assert.match(js, /fieldtype: 'Date Range'/, 'a barra superior deve usar o seleto
 assert.match(js, /cdc-stock-period-segments/, 'a barra superior deve manter atalhos segmentados de período');
 assert.match(js, /sessionStorage\.getItem\('cdc_period'\) \|\| 'custom'/, 'o painel deve iniciar no intervalo personalizado');
 assert.match(js, /getDate\(\) - 89/, 'o intervalo padrão deve conter 90 dias incluindo hoje');
+assert.match(js, /cdc_stock_range_default_version/, 'abas abertas devem receber uma única vez o novo padrão de 90 dias');
 assert.match(api, /selected_unit not in permitted_warehouses/, 'a seleção deve validar o nome exato permitido');
 assert.match(api, /AND warehouse = \{selected_unit_sql\}/, 'saldos devem usar igualdade exata de armazém');
 assert.match(api, /selected_sed\.s_warehouse = \{selected_unit_sql\}/, 'movimentos de origem devem respeitar o armazém exato');

@@ -21,10 +21,20 @@
     var currentSelectedPeriod = sessionStorage.getItem('cdc_period') || 'custom';
     var currentStockFromDate = sessionStorage.getItem('cdc_stock_from_date') || '';
     var currentStockToDate = sessionStorage.getItem('cdc_stock_to_date') || '';
-    if (currentSelectedPeriod === 'custom' && (!currentStockFromDate || !currentStockToDate)) {
+    var stockRangeDefaultVersion = 'last-90-days-v1';
+    if (sessionStorage.getItem('cdc_stock_range_default_version') !== stockRangeDefaultVersion) {
         var initialStockRange = defaultStockDateRange();
+        currentSelectedPeriod = 'custom';
         currentStockFromDate = initialStockRange[0];
         currentStockToDate = initialStockRange[1];
+        sessionStorage.setItem('cdc_period', currentSelectedPeriod);
+        sessionStorage.setItem('cdc_stock_from_date', currentStockFromDate);
+        sessionStorage.setItem('cdc_stock_to_date', currentStockToDate);
+        sessionStorage.setItem('cdc_stock_range_default_version', stockRangeDefaultVersion);
+    } else if (currentSelectedPeriod === 'custom' && (!currentStockFromDate || !currentStockToDate)) {
+        var fallbackStockRange = defaultStockDateRange();
+        currentStockFromDate = fallbackStockRange[0];
+        currentStockToDate = fallbackStockRange[1];
     }
     var currentOccurrencesType = sessionStorage.getItem('cdc_occ_type') || 'all';
     var currentTableTypeFilter = sessionStorage.getItem('cdc_table_type') || 'all';
