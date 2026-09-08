@@ -47,6 +47,7 @@ Toda a documentação do projeto está padronizada e disponível no diretório [
 | 🔀 [estrategia_execucao.md](./docs/estrategia_execucao.md) | Fluxos de trabalho Gitflow, gestão de ambientes e procedimentos de rollback. |
 | 🚀 [migration_guide.md](./docs/migration_guide.md) | Guia completo de migração da GCP para a Hostinger VPS e diagnósticos SSH. |
 | 🛠️ [ajuda_infra.md](./docs/ajuda_infra.md) | Arquitetura física e virtual, mapa de contêineres e isolamento de redes Docker. |
+| [CORE_PEDIDOS_M2M.md](./docs/CORE_PEDIDOS_M2M.md) | Integração de pedidos em produção: contrato M2M, evidências, agenda, recuperação e pendências. |
 | 🩺 [troubleshooting.md](./docs/troubleshooting.md) | Diagnóstico e resolução rápida de problemas recorrentes de ambiente. |
 | 🔐 [politica_backup.md](./docs/politica_backup.md) | Política de backup (3-2-1), ciclo de retenção, criptografia GPG e procedimentos de restore. |
 | 📋 [issues_planejamento.md](./docs/issues_planejamento.md) | Inventário com o backlog oficial de tarefas e checklists do projeto. |

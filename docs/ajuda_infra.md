@@ -219,3 +219,9 @@ docker compose logs -f --tail=50
 # Reconstruir a imagem do Extrator de Dados
 docker compose build data-extractor
 ```
+
+## Integração de pedidos Core → NextERP
+
+Desde 07/09/2026, as pendências da VPS CDC são atualizadas pelo feed M2M persistente do Core. O job no projeto `cdc-automatiza` do Rundeck chama, via Ansible, o executor restrito `/usr/local/sbin/cdc-core-pending-sync`. A agenda está habilitada a cada hora, no minuto 40, com fuso `America/Recife`.
+
+O executor usa locks, coleta ou reutiliza uma versão recente do Core e aplica somente a carga completa no NextERP. Credenciais ficam no arquivo protegido da VPS. O contrato, a configuração versionada, as verificações realizadas e as instruções de suspensão estão em [CORE_PEDIDOS_M2M.md](./CORE_PEDIDOS_M2M.md).

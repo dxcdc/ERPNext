@@ -2,6 +2,22 @@
 
 Situação em 07/09/2026: seis etapas concluídas na VPS CDC. Integração publicada, dados conferidos e recorrência ativa no Rundeck.
 
+## Estado de entrega e pendências
+
+A conferência posterior confirmou o Core em PostgreSQL, o cliente M2M ativo, a agenda habilitada e 243 pendências no NextERP, sem divergências em relação aos 3.147 pedidos do feed. O escopo entregue é pedidos/pendências.
+
+| Item | Situação comprovada |
+| :--- | :--- |
+| Consumo M2M em produção | Aplicado e validado com dados reais. |
+| Execução pelo Rundeck | Execução manual 99 concluída com sucesso e sem novas gravações. |
+| Disparo automático pelo relógio | Agenda ativa; o histórico consultado ainda contém apenas as execuções manuais 95 e 99. Falta acompanhar o primeiro disparo agendado. |
+| Custódia no OpenBao | Integração desabilitada e chave ainda não custodiada nele. A operação usa arquivo protegido. |
+| Homologação visual por perfil | API autenticada validada; inspeção com navegador e perfis de usuários ainda não realizada. |
+| Novo ensaio do backup NextERP | Arquivo atual verificado por gzip e SHA-256; restauração desse arquivo ainda não ensaiada. O backup Core foi restaurado em banco isolado. |
+| Promoção do NextERP para `main` | A entrega está na branch `lab/estabilizacao-tema-cdc`, usada no checkout da VPS. A promoção para `main` é uma etapa separada. |
+
+Não há bloqueio identificado para a conexão já em operação. Os itens acima distinguem o funcionamento comprovado das validações complementares e da evolução da custódia.
+
 ## Fluxo em produção
 
 ONGSYS → PostgreSQL do Core → `GET /api/v1/ongsys/pedidos/feed/` → pendências persistentes do NextERP.

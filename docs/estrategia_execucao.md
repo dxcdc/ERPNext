@@ -22,6 +22,9 @@ Adotamos uma abordagem multi-repositório para isolar a infraestrutura do códig
 ---
 
 ## Estratégia de branches
+
+**Estado verificado em 07/09/2026:** o checkout NextERP da VPS CDC usa `lab/estabilizacao-tema-cdc`. A integração de pedidos via Core M2M já foi aplicada a partir dessa branch. A descrição de `main` abaixo representa o destino de promoção; ela não comprova que `main` contém esta entrega. Consulte as [evidências e pendências da integração](./CORE_PEDIDOS_M2M.md).
+
 Para modificações na infraestrutura e código de customizações, seguimos o seguinte padrão de branches no Git:
 
 * **`main`**: Código de produção estável. Todo merge em `main` reflete o estado atual dos servidores Hostinger.
