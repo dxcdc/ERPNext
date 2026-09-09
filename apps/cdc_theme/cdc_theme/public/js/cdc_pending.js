@@ -3,6 +3,7 @@
 
     var observer;
     var loading = false;
+    var scheduleClockTimer;
     var routeGeneration = 0;
     var selectedProject = sessionStorage.getItem('cdc_pending_project') || 'All';
     var selectedWarehouse = sessionStorage.getItem('cdc_pending_warehouse') || 'All';
@@ -29,6 +30,8 @@
     }
 
     function removePendingDashboard() {
+        if (scheduleClockTimer) window.clearInterval(scheduleClockTimer);
+        scheduleClockTimer = null;
         document.querySelectorAll('#cdc-pending-dashboard').forEach(function(dashboard) { dashboard.remove(); });
     }
 
@@ -51,25 +54,39 @@
         return Number.isNaN(date.getTime()) ? 0 : Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
     }
 
-    function getScheduleNotice() {
-        var now = new Date();
-        var h = now.getHours();
-        var m = now.getMinutes();
+    function countdownText(seconds) {
+        var value = Math.max(0, Math.floor(Number(seconds) || 0));
+        var hours = Math.floor(value / 3600);
+        var minutes = Math.floor((value % 3600) / 60);
+        var secs = value % 60;
+        return [hours, minutes, secs].map(function(part) { return String(part).padStart(2, '0'); }).join(':');
+    }
 
-        if (h >= 7 && h < 19) {
-            var nextH = h + 1;
-            var minsLeft = 60 - m;
-            var nextHStr = (nextH < 10 ? '0' : '') + nextH + ':00';
-            return {
-                text: `⏱️ Faltam ${minsLeft} minuto(s) para a próxima atualização (às ${nextHStr})`,
-                is_active: true
-            };
-        } else {
-            return {
-                text: `🌙 A última atualização de hoje foi às 19:00. Próxima sincronização agendada para amanhã às 07:00.`,
-                is_active: false
-            };
+    function startScheduleClock(dashboard, automation) {
+        if (scheduleClockTimer) window.clearInterval(scheduleClockTimer);
+        scheduleClockTimer = null;
+        var clock = dashboard.querySelector('#cdc-pending-next-sync');
+        if (!clock) return;
+        if (!automation || !automation.enabled) {
+            clock.classList.add('is-waiting');
+            clock.innerHTML = '<span>◷</span><div><small>Próxima atualização</small><strong>Agendamento aguardando ativação</strong></div>';
+            return;
         }
+        var initial = Number(automation.seconds_until_next_run || 0);
+        var startedAt = Date.now();
+        function update() {
+            var remaining = initial - Math.floor((Date.now() - startedAt) / 1000);
+            if (remaining >= 0) {
+                clock.innerHTML = `<span>◷</span><div><small>Próxima atualização em</small><strong>${countdownText(remaining)}</strong></div>`;
+            } else if (remaining > -300) {
+                clock.innerHTML = '<span>↻</span><div><small>Atualização programada</small><strong>Processamento em andamento</strong></div>';
+            } else {
+                clock.classList.add('is-late');
+                clock.innerHTML = `<span>!</span><div><small>Atualização aguardada</small><strong>Atraso de ${countdownText(Math.abs(remaining))}</strong></div>`;
+            }
+        }
+        update();
+        scheduleClockTimer = window.setInterval(update, 1000);
     }
 
     function render() {
@@ -285,7 +302,7 @@
                     </details>`;
                 }).join('');
 
-                var scheduleNotice = getScheduleNotice();
+                var automation = data.automation || {};
                 var tableTitle = selectedStage === '6' ? 'Recebidos e encerrados' : 'Aguardando conclusão';
                 var tableDescription = selectedStage === '6'
                     ? 'Pedidos concluídos nos últimos 30 dias dentro do seu escopo de acesso.'
@@ -329,10 +346,6 @@
                         </div>
                     </div>
 
-                    <div class="cdc-sync-notice ${scheduleNotice.is_active ? 'is-active' : 'is-idle'}">
-                        <span>${scheduleNotice.text}</span>
-                    </div>
-
                     <div class="cdc-linked-filters" aria-label="Filtros de pendências">
                         <label><span>Projeto</span><select id="cdc-pending-project-filter">${projectOptionsHTML}</select></label>
                         <label><span>Armazém</span><select id="cdc-pending-warehouse-filter">${warehouseOptionsHTML}</select></label>
@@ -345,7 +358,10 @@
                     <section class="cdc-pending-stages" aria-labelledby="cdc-pending-stages-title">
                         <div class="cdc-pending-stages-heading">
                             <div><h3 id="cdc-pending-stages-title">Etapas dos pedidos</h3><p>Totais calculados somente sobre projetos e armazéns que você pode consultar.</p></div>
-                            <button type="button" class="btn btn-xs btn-default" id="cdc-pending-stage-all" aria-pressed="${selectedStage === 'All' ? 'true' : 'false'}">Todas as pendências (${escapeHTML(summary.pending_total || 0)})</button>
+                            <div class="cdc-pending-stage-controls">
+                                <div class="cdc-pending-next-sync" id="cdc-pending-next-sync" aria-live="polite"></div>
+                                <button type="button" class="btn btn-xs btn-default" id="cdc-pending-stage-all" aria-pressed="${selectedStage === 'All' ? 'true' : 'false'}">Todas as pendências (${escapeHTML(summary.pending_total || 0)})</button>
+                            </div>
                         </div>
                         <div class="cdc-pending-stage-grid">${stageCardsHTML}</div>
                     </section>
@@ -357,6 +373,7 @@
                 `;
 
                 bindDiagnosticActions(dashboard);
+                startScheduleClock(dashboard, automation);
 
                 function selectStage(value) {
                     selectedStage = String(value);

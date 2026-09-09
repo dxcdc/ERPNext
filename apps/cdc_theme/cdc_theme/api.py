@@ -4,6 +4,7 @@ import json
 import os
 import re
 import unicodedata
+from datetime import timedelta
 from urllib.parse import urlsplit
 
 import frappe
@@ -2143,6 +2144,27 @@ def _ongsys_order_stage(order):
     return 6 if _normalized_mapping_label(order.status).lower() == "ordem finalizada" else 5
 
 
+def _pending_schedule_status():
+    """Entrega o próximo horário previsto sem afirmar que uma agenda inativa executará."""
+    enabled_value = frappe.conf.get("core_pending_schedule_enabled")
+    enabled = str(enabled_value or "").strip().lower() in {"1", "true", "yes", "on"}
+    current = now_datetime()
+    candidate = current.replace(minute=40, second=0, microsecond=0)
+    if current.hour < 7:
+        candidate = current.replace(hour=7, minute=40, second=0, microsecond=0)
+    elif current.hour > 19 or (current.hour == 19 and current >= candidate):
+        candidate = (current + timedelta(days=1)).replace(hour=7, minute=40, second=0, microsecond=0)
+    elif current >= candidate:
+        candidate += timedelta(hours=1)
+    return {
+        "enabled": enabled,
+        "seconds_until_next_run": max(0, int((candidate - current).total_seconds())),
+        "next_run_at": str(candidate),
+        "window": "07h40 às 19h40",
+        "timezone": "America/Recife",
+    }
+
+
 @frappe.whitelist()
 def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None, selected_stage=None):
     """Lista pedidos ONGSYS e agrega etapas dentro do escopo efetivo do usuário."""
@@ -2244,6 +2266,7 @@ def get_ongsys_pending_orders(selected_project=None, selected_warehouse=None, se
             ],
         },
         "last_synced_at": formatted_sync,
+        "automation": _pending_schedule_status(),
         "orders": orders,
         "filters": {
             "projects": filter_options,

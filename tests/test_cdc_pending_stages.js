@@ -13,8 +13,12 @@ assert.match(pending, /sessionStorage\.setItem\('cdc_pending_stage'/, 'a seleç�
 assert.match(pending, /warehouseGroups/, 'os pedidos devem ser agrupados por armazém');
 assert.match(pending, /cdc-pending-warehouse-group/, 'a tela deve renderizar um bloco expansível por armazém');
 assert.match(pending, /scrollIntoView/, 'o clique na etapa deve levar o usuário aos pedidos filtrados');
+assert.match(pending, /cdc-pending-next-sync/, 'a seção de etapas deve exibir o relógio da próxima atualização');
+assert.match(pending, /Agendamento aguardando ativação/, 'o relógio não deve prometer execução enquanto a agenda estiver inativa');
+assert.match(pending, /Atraso de/, 'o relógio deve sinalizar uma execução que passou do horário');
 assert.match(api, /set\(warehouses\)\.issubset\(permitted_warehouses\)/, 'pedidos com vários destinos devem exigir escopo para todos os armazéns');
 assert.match(api, /warehouse_map = _active_pending_warehouse_map\(\)/, 'a tela deve usar o cadastro persistente de vínculos ONGSYS');
+assert.match(api, /core_pending_schedule_enabled/, 'o servidor deve controlar se a agenda está realmente ativa');
 assert.match(api, /completed_since = add_days\(now_datetime\(\), -30\)/, 'a etapa 6 deve usar a janela declarada de 30 dias');
 assert.match(model, /"current_stage": current_stage/, 'o espelho deve persistir a etapa atual entregue pelo Core');
 
